@@ -1,0 +1,33 @@
+------------------------------------------------------------------------
+r4 | nevcairiel | 2008-09-29 16:57:49 +0000 (Mon, 29 Sep 2008) | 1 line
+Changed paths:
+   A /tags/1.0.3 (from /trunk:3)
+
+Tag Version 3 of CallbackHandler-1.0
+------------------------------------------------------------------------
+r3 | nevcairiel | 2008-09-29 16:54:20 +0000 (Mon, 29 Sep 2008) | 1 line
+Changed paths:
+   M /trunk/CallbackHandler-1.0/CallbackHandler-1.0.lua
+
+Set svn properties
+------------------------------------------------------------------------
+r2 | nevcairiel | 2008-09-29 16:49:56 +0000 (Mon, 29 Sep 2008) | 1 line
+Changed paths:
+   A /trunk/.pkgmeta
+   A /trunk/CallbackHandler-1.0
+   A /trunk/CallbackHandler-1.0/CallbackHandler-1.0.lua
+   A /trunk/CallbackHandler-1.0/CallbackHandler-1.0.xml
+   A /trunk/CallbackHandler-1.0.toc
+   A /trunk/LibStub
+   A /trunk/LibStub/LibStub.lua
+
+Import of CallbackHandler-1.0 as standalone project, no longer confined to the locked space inside Ace3
+------------------------------------------------------------------------
+r1 | root | 2008-09-29 16:41:56 +0000 (Mon, 29 Sep 2008) | 1 line
+Changed paths:
+   A /branches
+   A /tags
+   A /trunk
+
+"callbackhandler/mainline: Initial Import"
+------------------------------------------------------------------------
