@@ -1,0 +1,37 @@
+package-as: SmartRes2
+
+manual-changelog:
+ filename: CHANGELOG.txt
+ markup-type: creole
+
+ignore:
+ - .pkgmeta
+ 
+externals:
+ libs/LibStub:
+  url: svn://svn.wowace.com/wow/libstub/mainline/trunk
+  tag: latest
+ libs/CallbackHandler-1.0:
+  url: svn://svn.wowace.com/wow/callbackhandler/mainline/trunk/CallbackHandler-1.0
+  tag: latest
+ libs/AceLocale-3.0:
+  url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceLocale-3.0
+ libs/AceConfig-3.0:
+  url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceConfig-3.0
+ libs/AceEvent-3.0:
+  url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceEvent-3.0
+ libs/AceConsole-3.0:
+  url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceConsole-3.0
+ libs/AceDB-3.0:
+  url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceDB-3.0
+ libs/AceGUI-3.0:
+  url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceGUI-3.0
+ libs/AceAddon-3.0:
+  url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceAddon-3.0
+ libs/LibSharedMedia-3.0:
+  url: svn://svn.wowace.com/wow/libsharedmedia-3-0/mainline/trunk
+  tag: latest
+ libs/LibBars-1.0:
+  url: svn://svn.wowace.com/wow/libbars-1-0/mainline/trunk
+ libs/LibResComm-1.0:
+  url: svn://svn.wowace.com/wow/librescomm-1-0/mainline/trunk

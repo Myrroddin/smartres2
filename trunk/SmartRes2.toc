@@ -1,0 +1,26 @@
+## Interface: 30200
+## Title: SmartRes2
+## Notes: Automated & Co-ordinated targetless Party/Raid wipe recovery
+## Author: Myrroddin of Llane
+## Version: 1.00
+## X-Category: Raid, Party
+## SavedVariables: SmartRes2DB
+
+## OptionalDeps: Ace3, LibBars-1.0, LibResComm-1.0, LibSharedMedia-3.0
+
+Libs\LibStub\LibStub.lua
+Libs\CallbackHandler-1.0\CallbackHandler.xml
+
+Libs\AceAddon-3.0\AceAddon-3.0.xml
+Libs\AceGUI-3.0\AceGUI-3.0.xml
+Libs\AceConfig-3.0\AceConfig-3.0.xml
+Libs\AceConsole-3.0\AceConsole-3.0.xml
+Libs\AceDB-3.0\AceDB-3.0.xml
+Libs\AceEvent-3.0\AceEvent-3.0.xml
+
+Libs\LibBars-1.0\lib.xml
+Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.xml
+Libs\LibResComm-1.0\LibResComm-1.0.xml
+
+Locales\Localization.enUS.lua
+SmartRes2.lua
