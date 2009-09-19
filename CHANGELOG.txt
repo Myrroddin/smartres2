@@ -1,2 +1,1 @@
-Alpha-1. Not for public use, and most likely broken, and defintely missing features that are critcal.
-Alpha-2. Minor file changes, no real development
+Developmental Aphas until further notice.
