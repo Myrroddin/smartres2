@@ -1,12 +1,19 @@
 ## Interface: 30200
 ## Title: SmartRes2
 ## Notes: Automated & Co-ordinated targetless Party/Raid wipe recovery
-## Author: Myrroddin of Llane
-## Version: Alpha 0.02
+## Author: Myrroddin
+## X-Author-Server: Llane US
+## X-Author-Faction: Alliance
+## Version: Alpha 0.03
 ## X-Category: Raid, Party
 ## SavedVariables: SmartRes2DB
+## X-Curse-Packaged-Version: r5
+## X-Curse-Project-Name: SmartRes2
+## X-Curse-Project-ID: smartres2
+## X-Curse-Repository-ID: wow/smartres2/mainline
+## X-Localizations: enUS
 
-## OptionalDeps: Ace3, LibCandyBar-3.0, LibResComm-1.0, LibSharedMedia-3.0, LibCandyBar-3.0
+## OptionalDeps: Ace3, LibCandyBar-3.0, LibResComm-1.0, LibSharedMedia-3.0, LibCandyBar-3.0, LibAboutPanel
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler.xml
@@ -21,6 +28,7 @@ Libs\AceEvent-3.0\AceEvent-3.0.xml
 Libs\LibCandyBar-3.0\lib.xml
 Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.xml
 Libs\LibResComm-1.0\LibResComm-1.0.xml
+Libs\LibAboutPanel\lib.xml
 
 Locales\Localization.enUS.lua
 SmartRes2.lua
