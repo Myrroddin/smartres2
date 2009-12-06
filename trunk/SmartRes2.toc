@@ -4,10 +4,9 @@
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
-## Version: Alpha 0.03
+## Version: Alpha 0.04
 ## X-Category: Raid, Party
 ## SavedVariables: SmartRes2DB
-## X-Curse-Packaged-Version: r5
 ## X-Curse-Project-Name: SmartRes2
 ## X-Curse-Project-ID: smartres2
 ## X-Curse-Repository-ID: wow/smartres2/mainline
