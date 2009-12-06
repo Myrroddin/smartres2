@@ -1,3 +1,4 @@
 Developmental Aphas until further notice.
 
-Complete rewrite of the options table
+r7 Complete rewrite of the options table
+r8 forgot to add LibAboutPanel, oops
