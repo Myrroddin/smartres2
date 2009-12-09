@@ -1,10 +1,10 @@
-## Interface: 30200
+## Interface: 30300
 ## Title: SmartRes2
 ## Notes: Automated & Co-ordinated targetless Party/Raid wipe recovery
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
-## Version: Alpha 0.04
+## Version: Alpha 0.05
 ## X-Category: Raid, Party
 ## SavedVariables: SmartRes2DB
 ## X-Curse-Project-Name: SmartRes2

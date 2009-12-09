@@ -20,295 +20,303 @@ Media:Register("statusbar", "Glaze", [[Interface\AddOns\SmartRes2\Textures\glaze
 Media:Register("statusbar", "Perl", [[Interface\AddOns\SmartRes2\Textures\perl.tga]])
 Media:Register("statusbar", "Smooth", [[Interface\AddOns\SmartRes2\Textures\smooth.tga]])
 
-self.Resser = {} -- caster of the res spell
-local targetName -- the poor sod getting ressed
-
-local options = {
-    name = L["SmartRes2"],
-    handler = "SmartRes2",
-    type = "group",
-    childGroups = "tab",
-    args = {
-        barsOptionsTab = {
-            name = L["Res Bars"],
-            desc = L["Options for the res bars"],
-            type = "group",
-            order = 1,
-            args = {
-                barsOptionsHeader = {
-                    order = 1,
-                    type = "header",
-                    name = L["Res Bars"],
-                },
-                barsAnchor = {
-                    order = 2,
-                    type = "toggle",
-                    name = L["Res Bars Anchor"],
-                    desc = L["Toggles the anchor for the res bars so you can move them"],
-                    get = function()
-                        return SmartRes2.db.profile.barsAnchor
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.barsAnchor = value
-                    end,
-                },
-                barsOptionsHeader2 = {
-                    order = 3,
-                    type = "description",
-                    name = "",
-                },
-                resBarsIcon = {
-                    order = 4,
-                    type = "toggle",
-                    name = L["Res Bars Icon"],
-                    desc = L["Show or hide the icon for res spells"],
-                    get = function()
-                        return SmartRes2.db.profile.resBarsIcon
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.resBarsIcon = value
-                    end,
-                },
-                classColours = {
-                    order = 5,
-                    type = "toggle",
-                    name = L["Class Colours"],
-                    desc = L["Use class colours for the target on the res bars"],
-                    get = function()
-                        return SmartRes2.db.profile.classColours
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.classColours = value
-                    end,
-                },
-                resBarsTexture = {
-                    order = 6,
-                    type = "select",
-                    dialogControl = "LSM30_StatusBar",
-                    name = L["Res Bars Texture"],
-                    desc = L["Select the texture for the res bars"],
-                    values = LSM:HashTable(type),
-                    get = function()
-                        return self.db.proflile.resBarsTexture
-                    end,
-                    set = function(self, key)
-                        self.db.profile.resBarsTexture = key
-                    end,
-                },
-                resBarsBGColour = {
-                    order = 7,
-                    type = "select",
-                    dialogControl = "LSM30_Background",
-                    name = L["Res Bars Background Colour"],
-                    desc = L["Set the background colour for the res bars"],
-                    values = LSM:HashTable(type),
-                    get = function()
-                        return self.db.profile.resBarsBGColour
-                    end,
-                    set = function(self, key)
-                        self.db.profile.resBarsBGColour = key
-                    end,
-                },
-                resBarsBorder = {
-                    order = 8,
-                    type = select,
-                    dialogControl = "LSM30_Border",
-                    name = L["Res Bars Border"],
-                    desc = L["Set the border for the res bars"],
-                    values = LSM:HashTable(type),
-                    get = function()
-                        return self.db.profile.resBarsBorder
-                    end,
-                    set = function(self, key)
-                        self.db.profile.resbarsBorder = key
-                    end,
-                },
-                resBarsColour = {
-                    order = 9,
-                    type = "colorPicker",
-                    name = L["Res Bars Colour"],
-                    desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
-                    get = function()
-                        return SmartRes2.db.profile.resBarsColour
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.resBarsColour = value
-                    end,
-                },
-                collisionBarsColour = {
-                    order = 10,
-                    type = "colorPicker",
-                    name = L["Duplicate Res Bars Colour"],
-                    desc = L["Pick the colour for collision (duplicate) res bars"],
-                    get = function()
-                        return SmartRes2.db.profile.collisionBarsColour
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.collisionBarsColour = value
-                    end,
-                },
-                resBarsTestBars = {
-                    order = 11,
-                    type = "toggle",
-                    name = L["Test Bars"],
-                    desc = L["Show the test bars"],
-                    get = function()
-                        return SmartRes2.db.profile.resBarsTestBars                  
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.resBarsTestBars = value
-                    end,
-                },               
-            },
-        },
-        resChatTextTab = {
-            name = L["Chat Output"],
-            desc = L["Chat output options"],
-            type = "group",
-            order = 2,
-            args = {
-                resChatHeader = {
-                    order = 1,
-                    type = "header",
-                    name = L["Chat Output"],
-                },
-                randMssgs = {
-                    order = 2,
-                    type = "toggle",
-                    name = L["Random Res Messages"],
-                    desc = L["Turn random res messages on or keep the same message.\nDefault is off"],
-                    get = function()
-                        return SmartRes2.db.profile.randMssgs
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.randMssgs = value
-                    end,
-                },
-                chatOutput = {
-                    order = 3,
-                    type = "select",
-                    name = L["Chat Output Type"],
-                    desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, or None.\nDefault is None"],
-                    get = function()
-                        return SmartRes2.db.profile.chatOutput
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.chatOutput = value
-                    end,
-                },
-                notifySelf = {
-                    order = 4,
-                    type = "toggle",
-                    name = L["Self Notification"],
-                    desc = L["Prints a message to yourself whom you are ressing"],
-                    get = function()
-                        return SmartRes2.db.profile.notifySelf
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.notifySelf = value
-                    end,
-                },
-                notifyCollision = {
-                    order = 5,
-                    type = "toggle",
-                    name = L["Duplicate Res Targets"],
-                    desc = L["Toggle whether you want to whisper a resser who is ressing a\ntarget of another resser's spell.\nCould get very spammy.\nDefault off"],
-                    get = function()
-                        return SmartRes2.db.profile.notifyCollision
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.notifyCollision = value
-                    end,
-                },
-            },
-        },
-        keyBindingsTab = {
-            name = L["Key Bindings"],
-            desc = L["Set the keybindings"],
-            type = "group",
-            order = 3,
-            args = {
-                autoResKey = {
-                    order = 1,
-                    type = "keybinding",
-                    name = L["Auto Res Key"],
-                    desc = L["For ressing targets who have not released their ghosts\nDefault is *"],
-                    get = function()
-                        return SmartRes2.db.profile.autoResKey
-                    end,
-                    set = function(info, value)
-                        SmartRes2.db.profile.autoResKey = value
-                    end,
-                },
-                manualResKey = {
-                    order = 2,
-                    type = "keybinding",
-                    name = L["Manual Res Key"],
-                    desc = L["Gives you the pointer to click on corpses\nDefault is /"],
-                    get = function()
-                        return SmartRes2.db.profile.manualResKey
-                    end,
-                    set  = function(info, value)
-                        SmartRes2.db.profile.manualResKey = value
-                    end,
-                },
-            },
-        },
-        creditsTab = {
-            name = L["SmartRes2 Credits"],
-            desc = L["About the author and SmartRes2"],
-            type = "group",
-            order = 4,
-            args = {
-                creditsHeader1 = {
-                    order = 1,
-                    type = "header",
-                    name = L["Credits"],
-                },
-                creditsDesc1 = {
-                    order = 2,
-                    type = "description",
-                    name = L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\nSmartRes2 was largely possible because of\nDathRarhek's LibResComm-1.0 so a big thanks to him."],
-                },
-                creditsDesc2 = {
-                    order = 3,
-                    type = "description",
-                    name = L["I would personally like to thank Jerry on the wowace.com forums for coding the new, smarter, resurrection function."],
-                },
-            },
-        },
-    },
-}
-self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
-
-local defaults = {
-    profile = {
-        barsAnchor = true,
-        resBarsIcon = true,
-        randMssgs = false,
-        chatOutput = nil,
-        notifySelf = false,
-        notifyCollision = false,
-        classColours = true,
-        autoResKey = "*",
-        manualResKey = "/",
-        resBarsColour = {r = 0, b = 1, g = 0, a = 1},
-        collisionBarsColour = {r = 1, b = 0, g = 0, a = 1},
-        ClampToScreen = true,
-    },
+local colours = {
+    green = {0, 1, 0},
+    red = {1, 0, 0}
 }
        
 function Addon:OnInitialize()
     -- called when SmartRes2 is loaded
-    -- the following borrowed from the original SmartRes by Maia, Kyahx, Poull, and Myrroddin (/w Zidomo)
     
+    local options = {
+        name = L["SmartRes2"],
+        handler = "SmartRes2",
+        type = "TabGroup",
+        childGroups = "tab",
+        args = {
+            barsOptionsTab = {
+                name = L["Res Bars"],
+                desc = L["Options for the res bars"],
+                type = "group",
+                order = 1,
+                args = {
+                    barsOptionsHeader = {
+                        order = 1,
+                        type = "header",
+                        name = L["Res Bars"],
+                    },
+                    barsAnchor = {
+                        order = 2,
+                        type = "toggle",
+                        name = L["Res Bars Anchor"],
+                        desc = L["Toggles the anchor for the res bars so you can move them"],
+                        get = function()
+                            return SmartRes2.db.profile.barsAnchor
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.barsAnchor = value
+                        end,
+                    },
+                    barsOptionsHeader2 = {
+                        order = 3,
+                        type = "description",
+                        name = "",
+                    },
+                    resBarsIcon = {
+                        order = 4,
+                        type = "CheckBox",
+                        name = L["Res Bars Icon"],
+                        desc = L["Show or hide the icon for res spells"],
+                        get = function()
+                            return SmartRes2.db.profile.resBarsIcon
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.resBarsIcon = value
+                        end,
+                    },
+                    classColours = {
+                        order = 5,
+                        type = "CheckBox",
+                        name = L["Class Colours"],
+                        desc = L["Use class colours for the target on the res bars"],
+                        get = function()
+                            return SmartRes2.db.profile.classColours
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.classColours = value
+                        end,
+                    },
+                    resBarsTexture = {
+                        order = 6,
+                        type = "select",
+                        dialogControl = "LSM30_StatusBar",
+                        name = L["Res Bars Texture"],
+                        desc = L["Select the texture for the res bars"],
+                        values = LSM:HashTable(type),
+                        get = function()
+                            return self.db.proflile.resBarsTexture
+                        end,
+                        set = function(self, key)
+                            self.db.profile.resBarsTexture = key
+                        end,
+                    },
+                    resBarsBGColour = {
+                        order = 7,
+                        type = "select",
+                        dialogControl = "LSM30_Background",
+                        name = L["Res Bars Background Colour"],
+                        desc = L["Set the background colour for the res bars"],
+                        values = LSM:HashTable(type),
+                        get = function()
+                            return self.db.profile.resBarsBGColour
+                        end,
+                        set = function(self, key)
+                            self.db.profile.resBarsBGColour = key
+                        end,
+                    },
+                    resBarsBorder = {
+                        order = 8,
+                        type = select,
+                        dialogControl = "LSM30_Border",
+                        name = L["Res Bars Border"],
+                        desc = L["Set the border for the res bars"],
+                        values = LSM:HashTable(type),
+                        get = function()
+                            return self.db.profile.resBarsBorder
+                        end,
+                        set = function(self, key)
+                            self.db.profile.resbarsBorder = key
+                        end,
+                    },
+                    resBarsColour = {
+                        order = 9,
+                        type = "colorPicker",
+                        name = L["Res Bars Colour"],
+                        desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
+                        get = function()
+                            return SmartRes2.db.profile.resBarsColour
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.resBarsColour = value
+                        end,
+                    },
+                    collisionBarsColour = {
+                        order = 10,
+                        type = "colorPicker",
+                        name = L["Duplicate Res Bars Colour"],
+                        desc = L["Pick the colour for collision (duplicate) res bars"],
+                        get = function()
+                            return SmartRes2.db.profile.collisionBarsColour
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.collisionBarsColour = value
+                        end,
+                    },
+                    resBarsTestBars = {
+                        order = 11,
+                        type = "toggle",
+                        name = L["Test Bars"],
+                        desc = L["Show the test bars"],
+                        get = function()
+                            return SmartRes2.db.profile.resBarsTestBars                  
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.resBarsTestBars = value
+                        end,
+                    },               
+                },
+            },
+            resChatTextTab = {
+                name = L["Chat Output"],
+                desc = L["Chat output options"],
+                type = "group",
+                order = 2,
+                args = {
+                    resChatHeader = {
+                        order = 1,
+                        type = "header",
+                        name = L["Chat Output"],
+                    },
+                    randMssgs = {
+                        order = 2,
+                        type = "CheckBox",
+                        name = L["Random Res Messages"],
+                        desc = L["Turn random res messages on or keep the same message.\nDefault is off"],
+                        get = function()
+                            return SmartRes2.db.profile.randMssgs
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.randMssgs = value
+                        end,
+                    },
+                    chatOutput = {
+                        order = 3,
+                        type = "dropdown",
+                        name = L["Chat Output Type"],
+                        desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, or None.\nDefault is None"],
+                        values = {
+                            party = L["PARTY"],
+                            raid = L["RAID"],
+                            say = L["SAY"],
+                            yell = L["YELL"],
+                            guild = L["GUILD"],
+                            none = L["none"],
+                        },                        
+                        get = function()
+                            return SmartRes2.db.profile.chatOutput
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.chatOutput = value
+                        end,
+                    },
+                    notifySelf = {
+                        order = 4,
+                        type = "CheckBox",
+                        name = L["Self Notification"],
+                        desc = L["Prints a message to yourself whom you are ressing"],
+                        get = function()
+                            return SmartRes2.db.profile.notifySelf
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.notifySelf = value
+                        end,
+                    },
+                    notifyCollision = {
+                        order = 5,
+                        type = "CheckBox",
+                        name = L["Duplicate Res Targets"],
+                        desc = L["Toggle whether you want to whisper a resser who is ressing a\ntarget of another resser's spell.\nCould get very spammy.\nDefault off"],
+                        get = function()
+                            return SmartRes2.db.profile.notifyCollision
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.notifyCollision = value
+                        end,
+                    },
+                },
+            },
+            keyBindingsTab = {
+                name = L["Key Bindings"],
+                desc = L["Set the keybindings"],
+                type = "group",
+                order = 3,
+                args = {
+                    autoResKey = {
+                        order = 1,
+                        type = "keybinding",
+                        name = L["Auto Res Key"],
+                        desc = L["For ressing targets who have not released their ghosts\nDefault is *"],
+                        get = function()
+                            return SmartRes2.db.profile.autoResKey
+                        end,
+                        set = function(info, value)
+                            SmartRes2.db.profile.autoResKey = value
+                        end,
+                    },
+                    manualResKey = {
+                        order = 2,
+                        type = "keybinding",
+                        name = L["Manual Res Key"],
+                        desc = L["Gives you the pointer to click on corpses\nDefault is /"],
+                        get = function()
+                            return SmartRes2.db.profile.manualResKey
+                        end,
+                        set  = function(info, value)
+                            SmartRes2.db.profile.manualResKey = value
+                        end,
+                    },
+                },
+            },
+            creditsTab = {
+                name = L["SmartRes2 Credits"],
+                desc = L["About the author and SmartRes2"],
+                type = "group",
+                order = 4,
+                args = {
+                    creditsHeader1 = {
+                        order = 1,
+                        type = "header",
+                        name = L["Credits"],
+                    },
+                    creditsDesc1 = {
+                        order = 2,
+                        type = "description",
+                        name = L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\nSmartRes2 was largely possible because of\nDathRarhek's LibResComm-1.0 so a big thanks to him."],
+                    },
+                    creditsDesc2 = {
+                        order = 3,
+                        type = "description",
+                        name = L["I would personally like to thank Jerry on the wowace.com forums for coding the new, smarter, resurrection function."],
+                    },
+                },
+            },
+        },
+    }
+    
+    local defaults = {
+        profile = {
+            barsAnchor = true,
+            resBarsIcon = true,
+            randMssgs = false,
+            chatOutput = "none",
+            notifySelf = false,
+            notifyCollision = false,
+            classColours = true,
+            autoResKey = "*",
+            manualResKey = "/",
+            ClampToScreen = true,
+        }
+    }
+
+    -- the following borrowed from the original SmartRes by Maia, Kyahx, Poull, and Myrroddin (/w Zidomo)    
     -- prepare spells
     self.resSpells = { -- getting the spell names
         Priest = GetSpellInfo(2006), -- Resurrection
         Shaman = GetSpellInfo(2008), -- Ancestral Spirit
         Druid = GetSpellInfo(50769), -- Revive
         Paladin = GetSpellInfo(7328) -- Redemption
-    }
+    }    
+    
     self.resSpellIcons = { -- need the icons too, for the res bars
         Priest = select (3, GetSpellInfo(2008)),
         Shaman = select (3, GetSpellInfo(2008)),
@@ -326,17 +334,27 @@ function Addon:OnInitialize()
     self.resButton = resButton
     -- end of borrowed code
     
+    -- register saved variables with AceDB
     self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, "Default")
+    local db = self.db.profile
+    
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
+    self.db.RegisterCallback(self, "OnProfileDeleted", "OnProfileChanged")
     
-    self.db = self.db.profile
+    -- Register your options with AceConfigRegistry
+    LibStub("AceConfig-Registry-3.0"):RegisterOptionsTable("SmartRes2", options)
     
-    LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
-    self.OptionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")
-    self.RegisterChatCommand("sr", "ChatCommand")
-    self.RegisterChatCommand("smartres", "ChatCommand")
+     -- Add your options to the Blizz options window using AceConfigDialog
+    self.optionsFrame = LibStub("AceConfig-Dialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")
+    
+    -- create chat commands
+    self:RegisterChatCommand("sr", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
+    self:RegisterChatCommand("smartres", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
+    
+    self.Resser = {}
+    self.Ressed = {}    
 end
 
 function Addon:OnEnable()
@@ -367,7 +385,7 @@ end
 
 function Addon:ChatCommand(input)
     if not input or input:trim() == "" then -- might eventually just open to the Interface Options Frame no matter what input the user types
-        InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+        LibStub("AceConfigDialog-3.0"):Open("options")
     else
         LibStub("AceConfigCmd-3.0").HandleCommand(SmartRes2, "sr", "smartres", input) -- but for now, have the command line processor commands as well
     end
@@ -378,32 +396,41 @@ function Addon:ResComm_ResStart(event, resser, endTime, targetName)
     
     self.Resser[resser] = {
                             endTime = endTime,
-                            targetName = targetName
+                            target = targetName
                         }
     
-    self:StartBars(resser)        
+    self:StartBars(resser)
+    self:UpdateResColours();
 end
 
-function Addon:ResComm_ResEnd(event, resser, targetName)
+function Addon:ResComm_ResEnd(event, ressed)
     -- did the cast fail or complete?
     if not self.Resser[resser] then return end;
     
     self:StopBars(resser)
     self.Resser[resser] = nil;
+    self:UpdateResColours();
 end
 
 function Addon:ResComm_Ressed(event, targetName)
-    if not self.Resser[resser] then return end;
+    if not self.Ressed[ressed] or ((self.Ressed[ressed] + 120) < GetTime()) then
+        self.Ressed[ressed] = GetTime();
+    end
     
-    self:StopBars(resser)
-    self.Resser[resser] = nil;
+    self:UpdateResColours();
 end
 
-function Addon:StartBars(resser, targetName)
+-- functions from events
+function Addon:StartBars(resser)
+    if not self.db.profile.SmartRes2 then return end
     if self.db.classColours then
         local rColour = RAID_CLASS_COLORS(self.Resser[resser])
         local tColour = RAID_CLASS_COLORS(self.Resser[targetName])
     end
+    
+    local info = self.Resser[resser];
+    local barMssg = string.format(L["% is ressing %"], resser, targetName);
+    local time = info.endTime - GetTime();
 end
 
 function Addon:StopBars(resser) -- have to test this function to see if I got it correct
