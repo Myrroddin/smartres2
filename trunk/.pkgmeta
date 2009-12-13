@@ -31,8 +31,8 @@ externals:
  Libs/LibSharedMedia-3.0:
   url: svn://svn.wowace.com/wow/libsharedmedia-3-0/mainline/trunk
   tag: latest
- Libs/LibCandyBar-3.0:
-  url: svn://svn.wowace.com/wow/libcandybar-3-0/mainline/trunk
+ Libs/LibBars-1.0:
+  url: svn://svn.wowace.com/wow/libbars-1-0/mainline/trunk
   tag: latest
  Libs/LibResComm-1.0:
   url: svn://svn.wowace.com/wow/librescomm-1-0/mainline/trunk

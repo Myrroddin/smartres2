@@ -4,15 +4,12 @@
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
-## Version: Alpha 0.05
-## X-Category: Raid, Party
+## Version: Alpha 0.10
+## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
 ## SavedVariables: SmartRes2DB
-## X-Curse-Project-Name: SmartRes2
-## X-Curse-Project-ID: smartres2
-## X-Curse-Repository-ID: wow/smartres2/mainline
 ## X-Localizations: enUS
 
-## OptionalDeps: Ace3, LibCandyBar-3.0, LibResComm-1.0, LibSharedMedia-3.0, LibCandyBar-3.0, LibAboutPanel
+## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler.xml
@@ -24,7 +21,7 @@ Libs\AceConsole-3.0\AceConsole-3.0.xml
 Libs\AceDB-3.0\AceDB-3.0.xml
 Libs\AceEvent-3.0\AceEvent-3.0.xml
 
-Libs\LibCandyBar-3.0\lib.xml
+Libs\LibBars-1.0\lib.xml
 Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.xml
 Libs\LibResComm-1.0\LibResComm-1.0.xml
 Libs\LibAboutPanel\lib.xml
