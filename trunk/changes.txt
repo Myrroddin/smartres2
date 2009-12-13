@@ -5,3 +5,4 @@ r8 forgot to add LibAboutPanel, oops
 r9 hopefully fixed the Blizzard Interface Addons Options Panel. moved the options into OnInit(). worked on the bars code
 r10 many small changes. switched to libbars. more coding
 r11 got rid of the unnecessary TestAddon in LibBars-1.0
+r12 hopefully got localization working, which is subject to changes
