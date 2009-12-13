@@ -6,7 +6,7 @@ local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0"
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 local ResComm = LibStub("LibResComm-1.0")
-local Media = Libstub:GetLibrary("LibSharedMedia-3.0")
+local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
 local Candy = LibStub("LibCandyBar-3.0")
 local Bars = LibStub("LibBars-1.0")
 
@@ -28,6 +28,9 @@ local colours = {
        
 function Addon:OnInitialize()
     -- called when SmartRes2 is loaded
+    --@alpha@
+    self:Print("This is the OnInitialization of SmartRes2")
+    --@end-alpha@
     
     local options = {
         name = L["SmartRes2"],
@@ -159,17 +162,13 @@ function Addon:OnInitialize()
                             self.db.profile.collisionBarsColour = value
                         end,
                     },
-                    resBarsTestBars = {
+                    resBarsTestBars = { -- need to fix the execute function
                         order = 11,
-                        type = "toggle",
+                        type = "execute",
                         name = L["Test Bars"],
                         desc = L["Show the test bars"],
-                        get = function()
-                            return self.db.profile.resBarsTestBars                  
-                        end,
-                        set = function(info, value)
-                            self.db.profile.resBarsTestBars = value
-                        end,
+                        func = function() self.StartTestBars()
+                    end,
                     },               
                 },
             },
@@ -200,7 +199,7 @@ function Addon:OnInitialize()
                         order = 3,
                         type = "select",
                         name = L["Chat Output Type"],
-                        desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, or None.\nDefault is None"],
+                        desc = L["Where to print the res message.\nRaid, Party, Say, Yell, Guild, or None.\nDefault is None"],
                         values = {
                             party = L["PARTY"],
                             raid = L["RAID"],
@@ -263,7 +262,7 @@ function Addon:OnInitialize()
                     manualResKey = {
                         order = 2,
                         type = "keybinding",
-                        name = L["Manual Res Key"],
+                        name = L["Manual Target Key"],
                         desc = L["Gives you the pointer to click on corpses\nDefault is /"],
                         get = function()
                             return self.db.profile.manualResKey
@@ -293,12 +292,13 @@ function Addon:OnInitialize()
                     creditsDesc2 = {
                         order = 3,
                         type = "description",
-                        name = L["I would personally like to thank Jerry on the wowace.com forums for coding the new, smarter, resurrection function."],
+                        name = L["I would personally like to thank Jerry on the wowace forums for coding the new, smarter, resurrection function."],
                     },
                 },
             },
         },
     }
+    LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
     
     local defaults = {
         profile = {
@@ -366,6 +366,10 @@ end
 
 function Addon:OnEnable()
     -- called when SmartRes2 is enabled
+    --@alpha@
+    self:Print("This is the OnEnable of SmartRes2")
+    --@end-alpha@
+    
     self:RegisterEvent("PLAYER_REGEN_ENABLED")
         if event == "PLAYER_REGEN_ENABLED" then
             ResComm.RegisterCallback(self, "ResComm_ResStart");
