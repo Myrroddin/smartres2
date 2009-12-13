@@ -8,6 +8,7 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 local ResComm = LibStub("LibResComm-1.0")
 local Media = Libstub:GetLibrary("LibSharedMedia-3.0")
 local Candy = LibStub("LibCandyBar-3.0")
+local Bars = LibStub("LibBars-1.0")
 
 local Addon = SmartRes2
 
@@ -31,7 +32,7 @@ function Addon:OnInitialize()
     local options = {
         name = L["SmartRes2"],
         handler = "SmartRes2",
-        type = "TabGroup",
+        type = "group",
         childGroups = "tab",
         args = {
             barsOptionsTab = {
@@ -51,10 +52,16 @@ function Addon:OnInitialize()
                         name = L["Res Bars Anchor"],
                         desc = L["Toggles the anchor for the res bars so you can move them"],
                         get = function()
-                            return SmartRes2.db.profile.barsAnchor
+                            return self.db.profile.barsAnchor
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.barsAnchor = value
+                            if value then
+                                self.res_bars:HideAnchor();
+                                self.db.profile.locked = true
+                            else
+                                self.res_bars:ShowAnchor();
+                                self.db.profile.barsAnchor = false
+                            end
                         end,
                     },
                     barsOptionsHeader2 = {
@@ -64,26 +71,26 @@ function Addon:OnInitialize()
                     },
                     resBarsIcon = {
                         order = 4,
-                        type = "CheckBox",
+                        type = "toggle",
                         name = L["Res Bars Icon"],
                         desc = L["Show or hide the icon for res spells"],
                         get = function()
-                            return SmartRes2.db.profile.resBarsIcon
+                            return self.db.profile.resBarsIcon
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.resBarsIcon = value
+                            self.db.profile.resBarsIcon = value
                         end,
                     },
                     classColours = {
                         order = 5,
-                        type = "CheckBox",
+                        type = "toggle",
                         name = L["Class Colours"],
                         desc = L["Use class colours for the target on the res bars"],
                         get = function()
-                            return SmartRes2.db.profile.classColours
+                            return self.db.profile.classColours
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.classColours = value
+                            self.db.profile.classColours = value
                         end,
                     },
                     resBarsTexture = {
@@ -130,26 +137,26 @@ function Addon:OnInitialize()
                     },
                     resBarsColour = {
                         order = 9,
-                        type = "colorPicker",
+                        type = "color",
                         name = L["Res Bars Colour"],
                         desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
                         get = function()
-                            return SmartRes2.db.profile.resBarsColour
+                            return self.db.profile.resBarsColour
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.resBarsColour = value
+                            self.db.profile.resBarsColour = value
                         end,
                     },
                     collisionBarsColour = {
                         order = 10,
-                        type = "colorPicker",
+                        type = "color",
                         name = L["Duplicate Res Bars Colour"],
                         desc = L["Pick the colour for collision (duplicate) res bars"],
                         get = function()
-                            return SmartRes2.db.profile.collisionBarsColour
+                            return self.db.profile.collisionBarsColour
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.collisionBarsColour = value
+                            self.db.profile.collisionBarsColour = value
                         end,
                     },
                     resBarsTestBars = {
@@ -158,10 +165,10 @@ function Addon:OnInitialize()
                         name = L["Test Bars"],
                         desc = L["Show the test bars"],
                         get = function()
-                            return SmartRes2.db.profile.resBarsTestBars                  
+                            return self.db.profile.resBarsTestBars                  
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.resBarsTestBars = value
+                            self.db.profile.resBarsTestBars = value
                         end,
                     },               
                 },
@@ -179,19 +186,19 @@ function Addon:OnInitialize()
                     },
                     randMssgs = {
                         order = 2,
-                        type = "CheckBox",
+                        type = "toggle",
                         name = L["Random Res Messages"],
                         desc = L["Turn random res messages on or keep the same message.\nDefault is off"],
                         get = function()
-                            return SmartRes2.db.profile.randMssgs
+                            return self.db.profile.randMssgs
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.randMssgs = value
+                            self.db.profile.randMssgs = value
                         end,
                     },
                     chatOutput = {
                         order = 3,
-                        type = "dropdown",
+                        type = "select",
                         name = L["Chat Output Type"],
                         desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, or None.\nDefault is None"],
                         values = {
@@ -203,34 +210,34 @@ function Addon:OnInitialize()
                             none = L["none"],
                         },                        
                         get = function()
-                            return SmartRes2.db.profile.chatOutput
+                            return self.db.profile.chatOutput
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.chatOutput = value
+                            self.db.profile.chatOutput = value
                         end,
                     },
                     notifySelf = {
                         order = 4,
-                        type = "CheckBox",
+                        type = "toggle",
                         name = L["Self Notification"],
                         desc = L["Prints a message to yourself whom you are ressing"],
                         get = function()
-                            return SmartRes2.db.profile.notifySelf
+                            return self.db.profile.notifySelf
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.notifySelf = value
+                            self.db.profile.notifySelf = value
                         end,
                     },
                     notifyCollision = {
                         order = 5,
-                        type = "CheckBox",
+                        type = "toggle",
                         name = L["Duplicate Res Targets"],
                         desc = L["Toggle whether you want to whisper a resser who is ressing a\ntarget of another resser's spell.\nCould get very spammy.\nDefault off"],
                         get = function()
-                            return SmartRes2.db.profile.notifyCollision
+                            return self.db.profile.notifyCollision
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.notifyCollision = value
+                            self.db.profile.notifyCollision = value
                         end,
                     },
                 },
@@ -247,10 +254,10 @@ function Addon:OnInitialize()
                         name = L["Auto Res Key"],
                         desc = L["For ressing targets who have not released their ghosts\nDefault is *"],
                         get = function()
-                            return SmartRes2.db.profile.autoResKey
+                            return self.db.profile.autoResKey
                         end,
                         set = function(info, value)
-                            SmartRes2.db.profile.autoResKey = value
+                            self.db.profile.autoResKey = value
                         end,
                     },
                     manualResKey = {
@@ -259,10 +266,10 @@ function Addon:OnInitialize()
                         name = L["Manual Res Key"],
                         desc = L["Gives you the pointer to click on corpses\nDefault is /"],
                         get = function()
-                            return SmartRes2.db.profile.manualResKey
+                            return self.db.profile.manualResKey
                         end,
                         set  = function(info, value)
-                            SmartRes2.db.profile.manualResKey = value
+                            self.db.profile.manualResKey = value
                         end,
                     },
                 },
@@ -347,7 +354,7 @@ function Addon:OnInitialize()
     LibStub("AceConfig-Registry-3.0"):RegisterOptionsTable("SmartRes2", options)
     
      -- Add your options to the Blizz options window using AceConfigDialog
-    self.optionsFrame = LibStub("AceConfig-Dialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")
+    self.optionsFrame = LibStub("AceConfig-Dialog-3.0"):AddToBlizOptions("SmartRes2", (L["SmartRes2"]))
     
     -- create chat commands
     self:RegisterChatCommand("sr", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
@@ -383,6 +390,7 @@ function Addon:OnDisable()
         end
 end
 
+--[[ we are opening straight to the Blizzard Interface Options Panel, so no need to have slash handlers
 function Addon:ChatCommand(input)
     if not input or input:trim() == "" then -- might eventually just open to the Interface Options Frame no matter what input the user types
         LibStub("AceConfigDialog-3.0"):Open("options")
@@ -390,6 +398,7 @@ function Addon:ChatCommand(input)
         LibStub("AceConfigCmd-3.0").HandleCommand(SmartRes2, "sr", "smartres", input) -- but for now, have the command line processor commands as well
     end
 end
+]]--
 
 function Addon:ResComm_ResStart(event, resser, endTime, targetName)
     if self.Resser[resser] then return end;
@@ -422,7 +431,6 @@ end
 
 -- functions from events
 function Addon:StartBars(resser)
-    if not self.db.profile.SmartRes2 then return end
     if self.db.classColours then
         local rColour = RAID_CLASS_COLORS(self.Resser[resser])
         local tColour = RAID_CLASS_COLORS(self.Resser[targetName])
