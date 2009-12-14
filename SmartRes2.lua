@@ -102,7 +102,7 @@ function Addon:OnInitialize()
                         dialogControl = "LSM30_StatusBar",
                         name = L["Res Bars Texture"],
                         desc = L["Select the texture for the res bars"],
-                        values = LSM:HashTable(type),
+                        values = Media:HashTable(type),
                         get = function()
                             return self.db.proflile.resBarsTexture
                         end,
@@ -116,7 +116,7 @@ function Addon:OnInitialize()
                         dialogControl = "LSM30_Background",
                         name = L["Res Bars Background Colour"],
                         desc = L["Set the background colour for the res bars"],
-                        values = LSM:HashTable(type),
+                        values = Media:HashTable(type),
                         get = function()
                             return self.db.profile.resBarsBGColour
                         end,
@@ -130,7 +130,7 @@ function Addon:OnInitialize()
                         dialogControl = "LSM30_Border",
                         name = L["Res Bars Border"],
                         desc = L["Set the border for the res bars"],
-                        values = LSM:HashTable(type),
+                        values = Media:HashTable(type),
                         get = function()
                             return self.db.profile.resBarsBorder
                         end,
@@ -162,8 +162,37 @@ function Addon:OnInitialize()
                             self.db.profile.collisionBarsColour = value
                         end,
                     },
-                    resBarsTestBars = { -- need to fix the execute function
+                    growDirection = {
                         order = 11,
+                        type = "toggle",
+                        name = L["Grow Upwards"],
+                        desc = L["Make the res bars grow up instead of down"],
+                        get = function()
+                            return self.db.profile.reverseGrowth
+                        end,
+                        set = function(info, value)
+                            self.db.profile.reverseGrowth = value
+                            self.res_bars:ReverseGrowth(value)
+                        end,
+                    },
+                    scale = {
+                        order = 12,
+                        type = "range",
+                        name = L["Res Bars Scale"],
+                        desc = L["Set the scale for the res bars"],
+                        get = function()
+                            return self.db.profile.scale
+                        end,
+                        set = function(info, value)
+                            self.db.profile.scale = value
+                            self.res_bars:SetScale(value)
+                        end,
+                        min = 0.5,
+                        max = 2,
+                        step = 0.05,
+                    },
+                    resBarsTestBars = { -- need to fix the execute function
+                        order = 13,
                         type = "execute",
                         name = L["Test Bars"],
                         desc = L["Show the test bars"],
@@ -302,17 +331,48 @@ function Addon:OnInitialize()
     
     local defaults = {
         profile = {
-            barsAnchor = true,
-            resBarsIcon = true,
-            randMssgs = false,
-            chatOutput = "none",
-            notifySelf = false,
-            notifyCollision = false,
-            classColours = true,
+            scale = 1,
+            locked = false,
+            texture = "Blizzard",
+            reverseGrowth = false,
+            resBarX = 470,
+            resBarY = 375,
             autoResKey = "*",
-            manualResKey = "/",
-            ClampToScreen = true,
-        }
+            manResKey = "/",
+            notifySelf = true,
+            notifyCollision = false,
+            randMssgs = false,
+            classColours = true,
+            chatOutput = "none",
+            resBarsIcon = true,
+            randChatTbl = { -- this is here for eventual support for users to add or remove their own random messages
+                [1] = L["% is bringing % back to life!"],
+                [2] = L["Filthy peon! %s has to resurrect %s!"],
+                [3] = L["% has to wake % from eternal slumber."],
+                [4] = L["% is ending the dirt nap of %s."],
+                [5] = L["No fallen heroes! %s needs %s to march forward to victory!"],
+                [6] = L["% doesn't think %s is immortal, but after this res cast, it is close enough."],
+                [7] = L["Sleeping on the job? % is disappointed in %."],
+                [8] = L["%s knew %s couldn\'t stay out of the fire. *Sigh*"],
+                [9] = L["Once again, %s pulls %s and their bacon out of the fire."],
+                [10] = L["% thinks %s should work on their Dodge skill."],
+                [11] = L["% refuses to accept blame for %s\'s death, but kindly undoes the damage."],
+                [12] = L["%s prods %s with a stick. A-ha! % was only temporarily dead."],
+                [13] = L["% is ressing %"],
+                [14] = L["%s knows % is faking. It was only a flesh wound!"],
+                [15] = L["Oh. My. God. %s has to breathe life back into %s AGAIN?!?"],
+                [16] = L["%s knows that %s dying was just an excuse to see another silly random res message."],
+                [17] = L["Think that was bad? % proudly shows %s the scar tissue caused by Ragnaros."],
+                [18] = L["Just to be silly, % tickles %s until they get back up."],
+                [19] = L["FOR THE HORDE! FOR THE ALLIANCE! %s thinks %s should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
+                [20] = L["And you thought the Forsaken looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."],
+                [21] = L["Somewhere, the Lich King is laughing at %s, because he knows %s will just die again eventually. More meat for the grinder!!"],
+                [22] = L["% doesn't want the Lich King to get another soldier, so is bringing %s back to life."],
+                [23] = L["%s wonders about these stupid res messages. %s should just be happy to be alive."],
+                [24] = L["%s prays over the corpse of %s, and a miracle happens!"],
+                [25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %s is making sure %s\'s death isn\'t permanent."],
+            },
+        },
     }
 
     -- the following borrowed from the original SmartRes by Maia, Kyahx, Poull, and Myrroddin (/w Zidomo)    
@@ -414,6 +474,16 @@ function Addon:ResComm_ResStart(event, resser, endTime, targetName)
     
     self:StartBars(resser)
     self:UpdateResColours();
+    if not db.chatOutput == "none" then
+        local isSame = UnitIsUnit(self.Resser[resser], "player")
+        if isSame == 1 then -- make sure only the player is sending chat messages
+            if (db.randMssgs == false) then
+                SendChatMessage(L["% is ressing %"], db.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
+            else
+                SendChatMessage(math.random(#defaults.randChatTbl), db.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
+            end
+        end
+    end
 end
 
 function Addon:ResComm_ResEnd(event, ressed)

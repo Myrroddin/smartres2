@@ -6,3 +6,4 @@ r9 hopefully fixed the Blizzard Interface Addons Options Panel. moved the option
 r10 many small changes. switched to libbars. more coding
 r11 got rid of the unnecessary TestAddon in LibBars-1.0
 r12 hopefully got localization working, which is subject to changes
+r13 added random chat messages, updated localization, fixed some typos
