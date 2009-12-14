@@ -4,7 +4,7 @@
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
-## Version: Alpha 0.12
+## Version: Alpha 0.13
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
 ## SavedVariables: SmartRes2DB
 ## X-Localizations: enUS
@@ -22,8 +22,8 @@ Libs\AceDB-3.0\AceDB-3.0.xml
 Libs\AceEvent-3.0\AceEvent-3.0.xml
 
 Libs\LibBars-1.0\lib.xml
-Libs\LibSharedMedia-3.0\LibSharedMedia-3.0.xml
-Libs\LibResComm-1.0\LibResComm-1.0.xml
+Libs\LibSharedMedia-3.0\lib.xml
+Libs\LibResComm-1.0\lib.xml
 Libs\LibAboutPanel\lib.xml
 
 Locales\Localization.enUS.lua

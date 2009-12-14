@@ -33,6 +33,10 @@ if L then
    L["Pick the colour for non-collision (not a duplicate) res bar"] = true
    L["Duplicate Res Bars Colour"] = true
    L["Pick the colour for collision (duplicate) res bars"] = true
+   L["Grow Upwards"] = true
+   L["Make the res bars grow up instead of down"] = true
+   L["Res Bars Scale"] = true
+   L["Set the scale for the res bars"] = true
    L["Test Bars"] = true
    L["Show the test bars"] = true
    L["Chat Output"] = true
@@ -63,10 +67,37 @@ if L then
    L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\nSmartRes2 was largely possible because of\nDathRarhek's LibResComm-1.0 so a big thanks to him."] = true
    L["I would personally like to thank Jerry on the wowace forums for coding the new, smarter, resurrection function."] = true
    
+   -- Resurrection function localization
    L["% is ressing %"] = true
    L["You don't have enough Mana to cast a res spell."] = true
    L["You cannot cast res spells."] = true
    L["There are no bodies in range to res."] = true
    L["All dead units are being ressed."] = true
    L["Everybody is alive. Congratulations!"] = true
+   
+   -- silly random messages!
+   L["% is bringing % back to life!"] = true
+   L["Filthy peon! %s has to resurrect %s!"] = true
+   L["% has to wake % from eternal slumber."] = true
+   L["% is ending the dirt nap of %s."] = true
+   L["No fallen heroes! %s needs %s to march forward to victory!"] = true
+   L["% doesn't think %s is immortal, but after this res cast, it is close enough."] = true
+   L["Sleeping on the job? % is disappointed in %."] = true
+   L["%s knew %s couldn\'t stay out of the fire. *Sigh*"] = true
+   L["Once again, %s pulls %s and their bacon out of the fire."] = true
+   L["% thinks %s should work on their Dodge skill."] = true
+   L["% refuses to accept blame for %s\'s death, but kindly undoes the damage."] = true
+   L["%s prods %s with a stick. A-ha! % was only temporarily dead."] = true
+   L["%s knows % is faking. It was only a flesh wound!"] = true
+   L["Oh. My. God. %s has to breathe life back into %s AGAIN?!?"] = true
+   L["%s knows that %s dying was just an excuse to see another silly random res message."] = true
+   L["Think that was bad? % proudly shows %s the scar tissue caused by Ragnaros."] = true
+   L["Just to be silly, % tickles %s until they get back up."] = true
+   L["FOR THE HORDE! FOR THE ALLIANCE! %s thinks %s should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."] = true
+   L["And you thought the Forsaken looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."] = true
+   L["Somewhere, the Lich King is laughing at %s, because he knows %s will just die again eventually. More meat for the grinder!!"] = true
+   L["% doesn't want the Lich King to get another soldier, so is bringing %s back to life."] = true
+   L["%s wonders about these stupid res messages. %s should just be happy to be alive."] = true
+   L["%s prays over the corpse of %s, and a miracle happens!"] = true
+   L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %s is making sure %s\'s death isn\'t permanent."] = true
 end
