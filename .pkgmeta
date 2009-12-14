@@ -40,3 +40,6 @@ externals:
   Libs/LibAboutPanel:
     url: git://git.curseforge.net/wow/libaboutpanel/mainline.git
     tag: latest
+    
+tools-used:
+  - libdatabroker-1-1

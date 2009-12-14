@@ -9,6 +9,7 @@ local ResComm = LibStub("LibResComm-1.0")
 local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
 local Candy = LibStub("LibCandyBar-3.0")
 local Bars = LibStub("LibBars-1.0")
+local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1", true)
 
 local Addon = SmartRes2
 
@@ -371,6 +372,7 @@ function Addon:OnInitialize()
                 [23] = L["%s wonders about these stupid res messages. %s should just be happy to be alive."],
                 [24] = L["%s prays over the corpse of %s, and a miracle happens!"],
                 [25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %s is making sure %s\'s death isn\'t permanent."],
+                [26] = L["% performs a series of lewd acts on %\'s still warm corpse. Ew."],
             },
         },
     }
@@ -421,7 +423,36 @@ function Addon:OnInitialize()
     self:RegisterChatCommand("smartres", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
     
     self.Resser = {}
-    self.Ressed = {}    
+    self.Ressed = {}
+    
+    self.res_bars = self:NewBarGroup("SmartRes2", Bars.RIGHT_TO_LEFT)
+    self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", db.resBarsX, db.resBarsY)
+    self.res_bars:SetScale(db.scale)
+    self.res_bars:ReverseGrowth(db.reverseGrowth)
+    if db.locked then
+        self.res_bars:HideAnchor()
+    else
+        self.res_bars:ShowAnchor()
+    end
+    
+    if DataBroker then
+        local launcher = DataBroker:NewDataObject("SmartRes2", {
+        type = "launcher",
+        icon = "Interface\\Icons\\Spell_Nature_HealingTouch",
+        OnClick = function(clickedframe, button)
+            if button == "LeftButton" then
+                self.res_bars:ToggleAnchor()
+            elseif button == "RightButton" then
+                InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+            end
+        end,
+        OnTooltipShow = function(self)
+            GameTooltip:AddLine(L["SmartRes2 "]..GetAddOnMetadata("SmartRes2", "version"), HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+            GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+            GameTooltip:Show()
+        end,
+        })
+    end
 end
 
 function Addon:OnEnable()
@@ -431,27 +462,28 @@ function Addon:OnEnable()
     --@end-alpha@
     
     self:RegisterEvent("PLAYER_REGEN_ENABLED")
-        if event == "PLAYER_REGEN_ENABLED" then
-            ResComm.RegisterCallback(self, "ResComm_ResStart");
-            ResComm.RegisterCallback(self, "ResComm_Ressed");
-            ResComm.RegisterCallback(self, "ResComm_ResEnd");
-            if self.playerSpell then
-                self:BindKeys()
-            end
+    if (event == "PLAYER_REGEN_ENABLED") and not (UnitAffectingCombat("player")) then
+        ResComm.RegisterCallback(self, "ResComm_ResStart");
+        ResComm.RegisterCallback(self, "ResComm_Ressed");
+        ResComm.RegisterCallback(self, "ResComm_ResEnd");
+        if self.playerSpell then
+            self:BindKeys()
         end
+        self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
+    end
 end
 
 function Addon:OnDisable()
     -- called when SmartRes2 is disabled
     self:RegisterEvent("PLAYER_REGEN_DISABLED")
-        if event == "PLAYER_REGEN_DISABLED" then
-            ResComm.UnRegisterCallback(self, "ResComm_ResStart");
-            ResComm.UnRegisterCallback(self, "ResComm_Ressed");
-            ResComm.UnRegisterCallback(self, "ResComm_ResEnd");
-            if self.playerSpell then
-                self:UnBindKeys()
-            end
+    if (event == "PLAYER_REGEN_DISABLED") then
+        ResComm.UnRegisterCallback(self, "ResComm_ResStart");
+        ResComm.UnRegisterCallback(self, "ResComm_Ressed");
+        ResComm.UnRegisterCallback(self, "ResComm_ResEnd");
+        if self.playerSpell then
+            self:UnBindKeys()
         end
+    end
 end
 
 --[[ we are opening straight to the Blizzard Interface Options Panel, so no need to have slash handlers
@@ -464,17 +496,20 @@ function Addon:ChatCommand(input)
 end
 ]]--
 
+-- events, yay!
+function Addon:ResAnchorMoved(_, _, x, y)
+    db.resBarsX, db.resBarsY = x, y
+end
+
 function Addon:ResComm_ResStart(event, resser, endTime, targetName)
-    if self.Resser[resser] then return end;
-    
+    if self.Resser[resser] then return end;    
     self.Resser[resser] = {
                             endTime = endTime,
                             target = targetName
-                        }
-    
-    self:StartBars(resser)
+                        }    
+    self:StartBars(resser);
     self:UpdateResColours();
-    if not db.chatOutput == "none" then
+    if not (db.chatOutput == "none") then
         local isSame = UnitIsUnit(self.Resser[resser], "player")
         if isSame == 1 then -- make sure only the player is sending chat messages
             if (db.randMssgs == false) then
@@ -503,7 +538,6 @@ function Addon:ResComm_Ressed(event, targetName)
     self:UpdateResColours();
 end
 
--- functions from events
 function Addon:StartBars(resser)
     if self.db.classColours then
         local rColour = RAID_CLASS_COLORS(self.Resser[resser])

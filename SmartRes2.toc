@@ -4,7 +4,8 @@
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
-## Version: Alpha 0.13
+## X-Email: psvander AT gmail DOT com
+## Version: Alpha 0.14
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
 ## SavedVariables: SmartRes2DB
 ## X-Localizations: enUS
@@ -25,6 +26,7 @@ Libs\LibBars-1.0\lib.xml
 Libs\LibSharedMedia-3.0\lib.xml
 Libs\LibResComm-1.0\lib.xml
 Libs\LibAboutPanel\lib.xml
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
 Locales\Localization.enUS.lua
 SmartRes2.lua
