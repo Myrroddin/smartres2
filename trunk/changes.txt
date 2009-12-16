@@ -9,3 +9,4 @@ r12 hopefully got localization working, which is subject to changes
 r13 added random chat messages, updated localization, fixed some typos
 r14 more codebase done. added LibDataBroker-1.1 support
 r15 added a Lib, removed a folder, lots of codebase done
+r16 copy/paste errors kill!
