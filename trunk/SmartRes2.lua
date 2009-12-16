@@ -15,17 +15,25 @@ local Addon = SmartRes2
 
 -- register the res bar textures with LibSharedMedia-3.0
 Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]])
-Media:Register("statusbar", "Banto", [[Interface\AddOns\SmartRes2\Textures\banto.tga]])
+--[[Media:Register("statusbar", "Banto", [[Interface\AddOns\SmartRes2\Textures\banto.tga]])
 Media:Register("statusbar", "Charcoal", [[Interface\AddOns\SmartRes2\Textures\Charcoal.tga]])
 Media:Register("statusbar", "Cilo", [[Interface\AddOns\SmartRes2\Textures\cilo.tga]])
 Media:Register("statusbar", "Glaze", [[Interface\AddOns\SmartRes2\Textures\glaze.tga]])
 Media:Register("statusbar", "Perl", [[Interface\AddOns\SmartRes2\Textures\perl.tga]])
 Media:Register("statusbar", "Smooth", [[Interface\AddOns\SmartRes2\Textures\smooth.tga]])
+]]-- keep it simple, if users want more, they can use SharedMedia, as it comes with these anyway
 
 local colours = {
     green = {0, 1, 0},
     red = {1, 0, 0}
 }
+
+-- really often used globals
+local tinsert = table.insert
+local tsort = table.sort
+local pairs = pairs
+local unpack = unpack
+
        
 function Addon:OnInitialize()
     -- called when SmartRes2 is loaded
@@ -107,8 +115,8 @@ function Addon:OnInitialize()
                         get = function()
                             return self.db.proflile.resBarsTexture
                         end,
-                        set = function(self, key)
-                            self.db.profile.resBarsTexture = key
+                        set = function(self, value)
+                            self.db.profile.resBarsTexture = value
                         end,
                     },
                     resBarsBGColour = {
@@ -121,8 +129,8 @@ function Addon:OnInitialize()
                         get = function()
                             return self.db.profile.resBarsBGColour
                         end,
-                        set = function(self, key)
-                            self.db.profile.resBarsBGColour = key
+                        set = function(self, value)
+                            self.db.profile.resBarsBGColour = value
                         end,
                     },
                     resBarsBorder = {
@@ -135,8 +143,8 @@ function Addon:OnInitialize()
                         get = function()
                             return self.db.profile.resBarsBorder
                         end,
-                        set = function(self, key)
-                            self.db.profile.resbarsBorder = key
+                        set = function(self, value)
+                            self.db.profile.resbarsBorder = value
                         end,
                     },
                     resBarsColour = {
@@ -272,7 +280,7 @@ function Addon:OnInitialize()
                 },
             },
             keyBindingsTab = {
-                name = L["Key Bindings"],
+                name = L["key Bindings"],
                 desc = L["Set the keybindings"],
                 type = "group",
                 order = 3,
@@ -387,7 +395,7 @@ function Addon:OnInitialize()
     }    
     
     self.resSpellIcons = { -- need the icons too, for the res bars
-        Priest = select (3, GetSpellInfo(2008)),
+        Priest = select (3, GetSpellInfo(2006)),
         Shaman = select (3, GetSpellInfo(2008)),
         Druid = select (3, GetSpellInfo(50769)),
         Paladin = select (3, GetSpellInfo(7328))
@@ -438,7 +446,7 @@ function Addon:OnInitialize()
     if DataBroker then
         local launcher = DataBroker:NewDataObject("SmartRes2", {
         type = "launcher",
-        icon = "Interface\\Icons\\Spell_Nature_HealingTouch",
+        icon = icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.Priest, -- "Interface\\Icons\\Spell_Holy_Resurrection", icon changes depending on class, or defaults to Resurrection, if not a resser
         OnClick = function(clickedframe, button)
             if button == "LeftButton" then
                 self.res_bars:ToggleAnchor()
@@ -467,7 +475,7 @@ function Addon:OnEnable()
         ResComm.RegisterCallback(self, "ResComm_Ressed");
         ResComm.RegisterCallback(self, "ResComm_ResEnd");
         if self.playerSpell then
-            self:BindKeys()
+            self:Bindvalues()
         end
         self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
     end
@@ -481,7 +489,7 @@ function Addon:OnDisable()
         ResComm.UnRegisterCallback(self, "ResComm_Ressed");
         ResComm.UnRegisterCallback(self, "ResComm_ResEnd");
         if self.playerSpell then
-            self:UnBindKeys()
+            self:UnBindvalues()
         end
     end
 end
@@ -509,16 +517,20 @@ function Addon:ResComm_ResStart(event, resser, endTime, targetName)
                         }    
     self:StartBars(resser);
     self:UpdateResColours();
-    if not (db.chatOutput == "none") then
-        local isSame = UnitIsUnit(self.Resser[resser], "player")
-        if isSame == 1 then -- make sure only the player is sending chat messages
-            if (db.randMssgs == false) then
-                SendChatMessage(L["% is ressing %"], db.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
-            else
+    
+    local isSame = UnitIsUnit(self.Resser[resser], "player")
+    if isSame == 1 then -- make sure only the player is sending messages
+        if not (db.chatOutput == "none") then -- if it is "none" then don't send any chat messages
+            if (db.randMssgs) then
                 SendChatMessage(math.random(#defaults.randChatTbl), db.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
-            end
+            else
+                SendChatMessage(L["% is ressing %"], db.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
+            end            
+        end        
+        if (db.notifySelf) then
+            self:Print(L["You are ressing %s"]):format(self.Resser[target])
         end
-    end
+    end    
 end
 
 function Addon:ResComm_ResEnd(event, ressed)
@@ -538,31 +550,113 @@ function Addon:ResComm_Ressed(event, targetName)
     self:UpdateResColours();
 end
 
-function Addon:StartBars(resser)
-    if self.db.classColours then
-        local rColour = RAID_CLASS_COLORS(self.Resser[resser])
-        local tColour = RAID_CLASS_COLORS(self.Resser[targetName])
+function Addon:UpdateResColours()
+    local currentRes = {}
+    local beingRessed = {}
+    local duplicate = false;
+    local alreadyRessed = false;
+    
+    for resserName, info in pairs(self.Resser) do
+        tinsert(currentRes, info);
     end
     
+    tsort(currentRes, function(a, b) return a.endTime < b.endTime end);
+    
+    for idx, info in pairs(currentRes) do
+        duplicate = false;
+        alreadyRessed = false;
+        
+        for i, ressed in pairs(beingRessed) do
+            if (ressed = info.target) then
+                r, g, b = unpack(colours.red)
+                info.bar:SetBackgroundColor(r, g, b, 1)
+                duplicate = true;
+                break;
+            end
+        end
+        
+        for ressed, time in pairs(self.Ressed) do
+            if (ressed == info.target) and (time + 120) > GetTime() then
+                alreadyRessed = true;
+                break;
+            end
+        end
+        
+        if not duplicate and not alreadyRessed then
+            r,g,b = unpack(colours.green)
+            info.bar:SetBackgroundColor(r,g,b,1)
+           tinsert(beingRessed,info.target);
+        end
+        
+        if duplicate and not alreadyRessed then
+            if db.notifyCollision then
+                SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s. Please get SmartRes2 and use the auto res key to never see this whisper again."],..
+                "whisper", nil, info):format(beingRessed.info.target, info)
+            end
+        end
+    end
+end
+
+function Addon:StartTestBars()
+    Addon:ResComm_Ressed(nil, L["Frankthetank"])
+    Addon:ResComm_ResStart(nil, L["Nursenancy"], GetTime() + 10, L["Frankthetank"])
+    Addon:ResComm_ResStart(nil, L["Dummy"], GetTime() + 3, L["Timthewizard"])
+end
+
+function Addon:ClassColours(text, class)
+    if class and hexcolors[class] then
+		return format("|cff%s%s|r", hexcolors[class], text)
+	else
+		return text
+	end
+end
+
+function Addon:StartBars(resser)
+    local barMssg
+    local icon
+    
+    if db.classColours then
+        barMssg = self:ClassColours(resser, select (2, UnitClass(resser)))..
+            L["is resurrecting "]..
+            self:ClassColors(info.target, select(2, UnitClass(info.target)))
+    else
+        barMssg = (L["%s is resurrecting %s"]):format(resser, info.target)
+    end
+    
+    if db.resBarsIcon then
+        icon = self.resSpellIcons[resser]
+    else
+        icon = nil
+    end
+    
+    local id = "SmartRes2"..resser;
     local info = self.Resser[resser];
-    local barMssg = string.format(L["% is ressing %"], resser, targetName);
     local time = info.endTime - GetTime();
+    
+    local bar = self.res_bars:NewTimerBar(id, barMssg, time, nil, icon, 0)
+    r, g, b = unpack(colours.green)
+    
+    bar:SetColorAt(0, 0, 0, 0, 1, 0)
+    
+    self.Resser[resser].bar = bar;
 end
 
 function Addon:StopBars(resser) -- have to test this function to see if I got it correct
     if not self.Resser[resser] then return end;
+    
+    self.Resser[resser].bar:Fade(0.5) -- half second fade
 end
 
 -- set and unset keybindings
 function Addon:BindKeys()
-    if self.playerSpell then -- only bind keys if the player can cast a res spell
-        SetOverrideBindingClick(self.resButton, false, self.db.profile.autoResKey "SmartRes2Button")
-        SetOverrideBindingSpell(self.resButton, false, self.db.profile.manResKey, self.playerSpell)
+    if self.playerSpell then -- only bind values if the player can cast a res spell
+        SetOverrideBindingClick(self.resButton, false, db.autoResKey "SmartRes2Button")
+        SetOverrideBindingSpell(self.resButton, false, db.manResKey, self.playerSpell)
     end
 end
 
 function Addon:UnBindKeys()
-    if self.playerSpell then -- again, unbind keys only if the player can cast a res spell
+    if self.playerSpell then -- again, unbind values only if the player can cast a res spell
         ClearOverrideBindings(self.ResButton)
     end
 end
