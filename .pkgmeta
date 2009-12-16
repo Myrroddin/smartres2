@@ -26,8 +26,8 @@ externals:
   url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceGUI-3.0
   tag: latest
  Libs/AceGUI-3.0-SharedMediaWidgets:
-   url: svn://svn.wowace.com/wow/ace-gui-3-0-shared-media-widgets/mainline/trunk/AceGUI-3.0-SharedMediaWidgets
-   tag: latest
+  url: svn://svn.wowace.com/wow/ace-gui-3-0-shared-media-widgets/mainline/trunk/AceGUI-3.0-SharedMediaWidgets
+  tag: latest
  Libs/AceAddon-3.0:
   url: svn://svn.wowace.com/wow/ace3/mainline/trunk/AceAddon-3.0
   tag: latest

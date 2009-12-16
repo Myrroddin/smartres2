@@ -15,13 +15,6 @@ local Addon = SmartRes2
 
 -- register the res bar textures with LibSharedMedia-3.0
 Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]])
---[[Media:Register("statusbar", "Banto", [[Interface\AddOns\SmartRes2\Textures\banto.tga]])
-Media:Register("statusbar", "Charcoal", [[Interface\AddOns\SmartRes2\Textures\Charcoal.tga]])
-Media:Register("statusbar", "Cilo", [[Interface\AddOns\SmartRes2\Textures\cilo.tga]])
-Media:Register("statusbar", "Glaze", [[Interface\AddOns\SmartRes2\Textures\glaze.tga]])
-Media:Register("statusbar", "Perl", [[Interface\AddOns\SmartRes2\Textures\perl.tga]])
-Media:Register("statusbar", "Smooth", [[Interface\AddOns\SmartRes2\Textures\smooth.tga]])
-]]-- keep it simple, if users want more, they can use SharedMedia, as it comes with these anyway
 
 local colours = {
     green = {0, 1, 0},
@@ -446,7 +439,7 @@ function Addon:OnInitialize()
     if DataBroker then
         local launcher = DataBroker:NewDataObject("SmartRes2", {
         type = "launcher",
-        icon = icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.Priest, -- "Interface\\Icons\\Spell_Holy_Resurrection", icon changes depending on class, or defaults to Resurrection, if not a resser
+        icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.Priest, -- "Interface\\Icons\\Spell_Holy_Resurrection", icon changes depending on class, or defaults to Resurrection, if not a resser
         OnClick = function(clickedframe, button)
             if button == "LeftButton" then
                 self.res_bars:ToggleAnchor()
@@ -475,7 +468,7 @@ function Addon:OnEnable()
         ResComm.RegisterCallback(self, "ResComm_Ressed");
         ResComm.RegisterCallback(self, "ResComm_ResEnd");
         if self.playerSpell then
-            self:Bindvalues()
+            self:BindKeys()
         end
         self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
     end
@@ -489,7 +482,7 @@ function Addon:OnDisable()
         ResComm.UnRegisterCallback(self, "ResComm_Ressed");
         ResComm.UnRegisterCallback(self, "ResComm_ResEnd");
         if self.playerSpell then
-            self:UnBindvalues()
+            self:UnBindKeys()
         end
     end
 end
@@ -567,7 +560,7 @@ function Addon:UpdateResColours()
         alreadyRessed = false;
         
         for i, ressed in pairs(beingRessed) do
-            if (ressed = info.target) then
+            if (ressed == info.target) then
                 r, g, b = unpack(colours.red)
                 info.bar:SetBackgroundColor(r, g, b, 1)
                 duplicate = true;
@@ -590,7 +583,7 @@ function Addon:UpdateResColours()
         
         if duplicate and not alreadyRessed then
             if db.notifyCollision then
-                SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s. Please get SmartRes2 and use the auto res key to never see this whisper again."],..
+                SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s. "]..L["Please get SmartRes2 and use the auto res key to never see this whisper again."],
                 "whisper", nil, info):format(beingRessed.info.target, info)
             end
         end

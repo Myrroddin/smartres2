@@ -14,6 +14,10 @@ if L then
    L["smartres"] = true   
    L["SmartRes2"] = true
    
+   -- DataBroker stuff
+   L["SmartRes2 "] = true
+   L["Left click to lock/unlock the res bars. Right click for configuration."] = true
+   
    -- Interface Options Panel
    L["Res Bars"] = true
    L["Options for the res bars"] = true
@@ -74,6 +78,7 @@ if L then
    L["There are no bodies in range to res."] = true
    L["All dead units are being ressed."] = true
    L["Everybody is alive. Congratulations!"] = true
+   L["is resurrecting "] = true
    
    -- silly random messages!
    L["% is bringing % back to life!"] = true
@@ -100,4 +105,17 @@ if L then
    L["%s wonders about these stupid res messages. %s should just be happy to be alive."] = true
    L["%s prays over the corpse of %s, and a miracle happens!"] = true
    L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %s is making sure %s\'s death isn\'t permanent."] = true
+   L["% performs a series of lewd acts on %\'s still warm corpse. Ew."] = true
+   
+   -- chat output stuff
+   L["You are ressing %s"] = true
+   -- stupid long strings
+   L["SmartRes2 would like you to know that %s is already being ressed by %s. "] = true
+   L["Please get SmartRes2 and use the auto res key to never see this whisper again."] = true
+   
+   -- fake player names for the test bars
+   L["Frankthetank"] = true -- ever see the movie Old School?
+   L["Nursenancy"] = true -- she's HOT! but she isn't in Old School
+   L["Dummy"] = true -- because there is always one in every PUG
+   L["Timthewizard"] = true -- "Some men call me... Tim?" good old Monty Python FTW!
 end
