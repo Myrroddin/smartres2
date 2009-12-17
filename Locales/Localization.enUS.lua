@@ -1,12 +1,7 @@
 ﻿-- Author      : Myrroddin of Llane
 -- Localization file for US English version of SmartRes2, which is the default
-
-local debug = false
---@debug@
-debug = true
---@end-debug@
-        
-local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true, debug)
+      
+local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true)
 --@localization(locale="enUS", format="lua_additive_table", same-key-is-true=true, escape-non-ascii=true, handle-subnamespaces="concat")@
 
 if L then
@@ -84,7 +79,7 @@ if L then
    L["% is bringing % back to life!"] = true
    L["Filthy peon! %s has to resurrect %s!"] = true
    L["% has to wake % from eternal slumber."] = true
-   L["% is ending the dirt nap of %s."] = true
+   L["% is ending %s\'s dirt nap."] = true
    L["No fallen heroes! %s needs %s to march forward to victory!"] = true
    L["% doesn't think %s is immortal, but after this res cast, it is close enough."] = true
    L["Sleeping on the job? % is disappointed in %."] = true
