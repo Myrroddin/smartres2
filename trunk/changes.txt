@@ -10,3 +10,4 @@ r13 added random chat messages, updated localization, fixed some typos
 r14 more codebase done. added LibDataBroker-1.1 support
 r15 added a Lib, removed a folder, lots of codebase done
 r16 copy/paste errors kill!
+r17 frFR translations (in progress) from ckeurk and Xilbar

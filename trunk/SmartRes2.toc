@@ -1,17 +1,18 @@
 ## Interface: 30300
 ## Title: SmartRes2
-## Notes: Automated & Co-ordinated targetless Party/Raid wipe recovery
+## Notes: Co-ordinated targetless Party/Raid wipe recovery
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
 ## X-Email: psvander AT gmail DOT com
-## Version: Alpha 0.16
+## Version: Alpha 0.17
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
 ## SavedVariables: SmartRes2DB
-## X-Localizations: enUS
+## X-Localizations: enUS, frFR
 
 ## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets
 
+#@no-lib-strip@
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler.xml
 
@@ -27,7 +28,10 @@ Libs\LibBars-1.0\lib.xml
 Libs\LibSharedMedia-3.0\lib.xml
 Libs\LibResComm-1.0\lib.xml
 Libs\LibAboutPanel\lib.xml
+#@end-no-lib-strip@
+
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
+Locales\Localization.frFR.lua
 Locales\Localization.enUS.lua
 SmartRes2.lua
