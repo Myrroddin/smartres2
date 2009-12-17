@@ -15,7 +15,7 @@ local Addon = SmartRes2
 
 -- register the res bar textures with LibSharedMedia-3.0
 Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]])
-LSM:Register("border", "Wood border", "Interface\\AchievementFrame\\UI-Achievement-WoodBorder.blp")
+Media:Register("border", "Wood border", [[Interface\\AchievementFrame\\UI-Achievement-WoodBorder.blp]])
 
 local colours = {
     green = {0, 1, 0},
@@ -31,9 +31,9 @@ local unpack = unpack
        
 function Addon:OnInitialize()
     -- called when SmartRes2 is loaded
-    --@alpha@
+    --[===[@alpha@
     self:Print("This is the OnInitialization of SmartRes2")
-    --@end-alpha@
+    --@end-alpha@]===]--
     
     local options = {
         name = L["SmartRes2"],
@@ -317,7 +317,7 @@ function Addon:OnInitialize()
                         name = L["Copy Profile"],
                         desc = L["Copy one profile to another"],
                         func = function() self:OnProfileChanged()
-                    end,
+                        end,
                     },
                     deleteProfile = {
                         order = 2,
@@ -325,7 +325,7 @@ function Addon:OnInitialize()
                         name = L["Delete Profile"],
                         desc = L["Delete a profile you no longer use. This cannot be the active profile"],
                         func = function() self:OnProfileChanged()
-                    end,
+                        end,
                     },
                     resetProfile = {
                         order = 3,
@@ -333,7 +333,7 @@ function Addon:OnInitialize()
                         name = L["Reset Profile"],
                         desc = L["Reset a profile back to defaults"],
                         func = function() self:OnProfileChanged()
-                    end,
+                        end,
                     },
                 },
             },
@@ -492,9 +492,9 @@ end
 
 function Addon:OnEnable()
     -- called when SmartRes2 is enabled
-    --@alpha@
+    --[===[@alpha@
     self:Print("This is the OnEnable of SmartRes2")
-    --@end-alpha@
+    --@end-alpha@]===]--
     
     self:RegisterEvent("PLAYER_REGEN_ENABLED")
     if (event == "PLAYER_REGEN_ENABLED") and not (UnitAffectingCombat("player")) then
@@ -523,7 +523,7 @@ end
 
 --events, yay!
 function Addon:OnProfileChanged(event, database, newProfileKey)
-    -- what am I doing here?
+    db = database.profile
 end
 
 function Addon:ResAnchorMoved(_, _, x, y)
@@ -609,16 +609,14 @@ function Addon:UpdateResColours()
            tinsert(beingRessed,info.target);
         end
         
-        if duplicate and not alreadyRessed then
-            if db.notifyCollision then
-                SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s. "]..L["Please get SmartRes2 and use the auto res key to never see this whisper again."],
-                "whisper", nil, info):format(beingRessed.info.target, info)
-            end
+        if (duplicate or alreadyRessed) and (db.notifyCollision) then
+            SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s. "]..L["Please get SmartRes2 and use the auto res key to never see this whisper again."],
+            "whisper", nil, info):format(beingRessed.info.target, info)
         end
     end
 end
 
-function Addon:StartTestBars()
+function Addon:StartTestBars()    
     Addon:ResComm_Ressed(nil, L["Frankthetank"])
     Addon:ResComm_ResStart(nil, L["Nursenancy"], GetTime() + 10, L["Frankthetank"])
     Addon:ResComm_ResStart(nil, L["Dummy"], GetTime() + 3, L["Timthewizard"])
