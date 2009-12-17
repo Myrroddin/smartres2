@@ -2,7 +2,7 @@
 -- Author:  Myrroddin of Llane
 
 -- load libraries & other stuff
-local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0")
+local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 local ResComm = LibStub("LibResComm-1.0")
@@ -351,7 +351,7 @@ function Addon:OnInitialize()
                 [1] = L["% is bringing % back to life!"],
                 [2] = L["Filthy peon! %s has to resurrect %s!"],
                 [3] = L["% has to wake % from eternal slumber."],
-                [4] = L["% is ending the dirt nap of %s."],
+                [4] = L["% is ending %s\'s dirt nap."],
                 [5] = L["No fallen heroes! %s needs %s to march forward to victory!"],
                 [6] = L["% doesn't think %s is immortal, but after this res cast, it is close enough."],
                 [7] = L["Sleeping on the job? % is disappointed in %."],
