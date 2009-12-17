@@ -2,7 +2,6 @@
 -- Localization file for US English version of SmartRes2, which is the default
       
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true)
---@localization(locale="enUS", format="lua_additive_table", same-key-is-true=true, escape-non-ascii=true, handle-subnamespaces="concat")@
 
 if L then
    L["sr"] = true
@@ -60,6 +59,14 @@ if L then
    L["For ressing targets who have not released their ghosts\nDefault is *"] = true
    L["Manual Target Key"] = true
    L["Gives you the pointer to click on corpses\nDefault is /"] = true
+   L["Profiles"] = true
+   L["Alter the profiles"] = true
+   L["Copy Profile"] = true
+   L["Copy one profile to another"] = true
+   L["Delete Profile"] = true
+   L["Delete a profile you no longer use. This cannot be the active profile"] = true
+   L["Reset Profile"] = true
+   L["Reset a profile back to defaults"] = true
    L["SmartRes2 Credits"] = true
    L["About the author and SmartRes2"] = true
    L["Credits"] = true
@@ -94,7 +101,7 @@ if L then
    L["Think that was bad? % proudly shows %s the scar tissue caused by Ragnaros."] = true
    L["Just to be silly, % tickles %s until they get back up."] = true
    L["FOR THE HORDE! FOR THE ALLIANCE! %s thinks %s should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."] = true
-   L["And you thought the Forsaken looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."] = true
+   L["And you thought the Scourge looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."] = true
    L["Somewhere, the Lich King is laughing at %s, because he knows %s will just die again eventually. More meat for the grinder!!"] = true
    L["% doesn't want the Lich King to get another soldier, so is bringing %s back to life."] = true
    L["%s wonders about these stupid res messages. %s should just be happy to be alive."] = true

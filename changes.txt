@@ -12,3 +12,4 @@ r15 added a Lib, removed a folder, lots of codebase done
 r16 copy/paste errors kill!
 r17 frFR translations (in progress) from ckeurk and Xilbar
 r18 more copy/paste errors
+r19 more general fixes. added profile commands, a bit more localization

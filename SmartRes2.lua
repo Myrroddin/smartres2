@@ -15,6 +15,7 @@ local Addon = SmartRes2
 
 -- register the res bar textures with LibSharedMedia-3.0
 Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]])
+LSM:Register("border", "Wood border", "Interface\\AchievementFrame\\UI-Achievement-WoodBorder.blp")
 
 local colours = {
     green = {0, 1, 0},
@@ -198,7 +199,7 @@ function Addon:OnInitialize()
                         type = "execute",
                         name = L["Test Bars"],
                         desc = L["Show the test bars"],
-                        func = function() self.StartTestBars()
+                        func = function() self:StartTestBars()
                     end,
                     },               
                 },
@@ -273,7 +274,7 @@ function Addon:OnInitialize()
                 },
             },
             keyBindingsTab = {
-                name = L["key Bindings"],
+                name = L["Key Bindings"],
                 desc = L["Set the keybindings"],
                 type = "group",
                 order = 3,
@@ -304,11 +305,43 @@ function Addon:OnInitialize()
                     },
                 },
             },
+            profilesTab = {
+                name = L["Profiles"],
+                desc = L["Alter the profiles"],
+                type = "group",
+                order = 4,
+                args = {
+                    copyProfile = {
+                        order = 1,
+                        type = "execute",
+                        name = L["Copy Profile"],
+                        desc = L["Copy one profile to another"],
+                        func = function() self:OnProfileChanged()
+                    end,
+                    },
+                    deleteProfile = {
+                        order = 2,
+                        type = "execute",
+                        name = L["Delete Profile"],
+                        desc = L["Delete a profile you no longer use. This cannot be the active profile"],
+                        func = function() self:OnProfileChanged()
+                    end,
+                    },
+                    resetProfile = {
+                        order = 3,
+                        type = "execute",
+                        name = L["Reset Profile"],
+                        desc = L["Reset a profile back to defaults"],
+                        func = function() self:OnProfileChanged()
+                    end,
+                    },
+                },
+            },
             creditsTab = {
                 name = L["SmartRes2 Credits"],
                 desc = L["About the author and SmartRes2"],
                 type = "group",
-                order = 4,
+                order = 5,
                 args = {
                     creditsHeader1 = {
                         order = 1,
@@ -336,6 +369,7 @@ function Addon:OnInitialize()
             scale = 1,
             locked = false,
             texture = "Blizzard",
+            border = "Wood border",
             reverseGrowth = false,
             resBarX = 470,
             resBarY = 375,
@@ -367,7 +401,7 @@ function Addon:OnInitialize()
                 [17] = L["Think that was bad? % proudly shows %s the scar tissue caused by Ragnaros."],
                 [18] = L["Just to be silly, % tickles %s until they get back up."],
                 [19] = L["FOR THE HORDE! FOR THE ALLIANCE! %s thinks %s should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
-                [20] = L["And you thought the Forsaken looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."],
+                [20] = L["And you thought the Scourge looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."],
                 [21] = L["Somewhere, the Lich King is laughing at %s, because he knows %s will just die again eventually. More meat for the grinder!!"],
                 [22] = L["% doesn't want the Lich King to get another soldier, so is bringing %s back to life."],
                 [23] = L["%s wonders about these stupid res messages. %s should just be happy to be alive."],
@@ -487,17 +521,11 @@ function Addon:OnDisable()
     end
 end
 
---[[ we are opening straight to the Blizzard Interface Options Panel, so no need to have slash handlers
-function Addon:ChatCommand(input)
-    if not input or input:trim() == "" then -- might eventually just open to the Interface Options Frame no matter what input the user types
-        LibStub("AceConfigDialog-3.0"):Open("options")
-    else
-        LibStub("AceConfigCmd-3.0").HandleCommand(SmartRes2, "sr", "smartres", input) -- but for now, have the command line processor commands as well
-    end
+--events, yay!
+function Addon:OnProfileChanged(event, database, newProfileKey)
+    -- what am I doing here?
 end
-]]--
 
--- events, yay!
 function Addon:ResAnchorMoved(_, _, x, y)
     db.resBarsX, db.resBarsY = x, y
 end
