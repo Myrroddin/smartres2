@@ -6,13 +6,18 @@ local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "frFR", false) -- this
 if L then
     L["About the author and SmartRes2"] = "A propos de l'auteur et de SmartRes2"
     L["All dead units are being ressed."] = "Tous les personnages morts ont \195\169t\195\169 ressuscit\195\169s."
-    L["And you thought the Forsaken looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."] = "And you thought the Forsaken looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror." -- Requires localization
+    L["Alter the profiles"] = "Alter the profiles" -- Requires localization
+    L["And you thought the Scourge looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."] = "And you thought the Scourge looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror." -- Requires localization
     L["Auto Res Key"] = "Touche d'auto Res"
     L["Chat Output"] = "Chat sortie"
     L["Chat output options"] = "Sortie des options de chat"
     L["Chat Output Type"] = "Chat type de sortie"
     L["Class Colours"] = "Coleurs des classes"
+    L["Copy one profile to another"] = "Copy one profile to another" -- Requires localization
+    L["Copy Profile"] = "Copy Profile" -- Requires localization
     L["Credits"] = "Cr\195\169dits"
+    L["Delete a profile you no longer use. This cannot be the active profile"] = "Delete a profile you no longer use. This cannot be the active profile" -- Requires localization
+    L["Delete Profile"] = "Delete Profile" -- Requires localization
     L["% doesn't think %s is immortal, but after this res cast, it is close enough."] = "% ne pensent pas que %s est immortel, mais apr\195\168s avoir jet\195\169 un sort de Res, il est assez proche." -- Needs review
     L["% doesn't want the Lich King to get another soldier, so is bringing %s back to life."] = "% doesn't want the Lich King to get another soldier, so is bringing %s back to life." -- Requires localization
     L["Dummy"] = "Dummy"
@@ -59,6 +64,7 @@ if L then
     L["Pick the colour for non-collision (not a duplicate) res bar"] = "Pick the colour for non-collision (not a duplicate) res bar" -- Requires localization
     L["Please get SmartRes2 and use the auto res key to never see this whisper again."] = "Please get SmartRes2 and use the auto res key to never see this whisper again." -- Requires localization
     L["Prints a message to yourself whom you are ressing"] = "Prints a message to yourself whom you are ressing" -- Requires localization
+    L["Profiles"] = "Profiles" -- Requires localization
     L["RAID"] = "RAID"
     L["Random Res Messages"] = "Random Res Messages" -- Requires localization
     L["% refuses to accept blame for %s's death, but kindly undoes the damage."] = "% refuses to accept blame for %s's death, but kindly undoes the damage." -- Requires localization
@@ -70,6 +76,8 @@ if L then
     L["Res Bars Icon"] = "Icon des barres de Res"
     L["Res Bars Scale"] = "Res Bars Scale" -- Requires localization
     L["Res Bars Texture"] = "Textures des barres de Res"
+    L["Reset a profile back to defaults"] = "Reset a profile back to defaults" -- Requires localization
+    L["Reset Profile"] = "Reset Profile" -- Requires localization
     L["SAY"] = "DIRE"
     L["Select the texture for the res bars"] = "S\195\169lectionnez la texture pour les barres de Res"
     L["Self Notification"] = "Self Notification" -- Requires localization
