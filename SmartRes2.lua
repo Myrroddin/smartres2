@@ -448,10 +448,10 @@ function Addon:OnInitialize()
     self.db.RegisterCallback(self, "OnProfileDeleted", "OnProfileChanged")
     
     -- Register your options with AceConfigRegistry
-    LibStub("AceConfig-Registry-3.0"):RegisterOptionsTable("SmartRes2", options)
+    LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
     
      -- Add your options to the Blizz options window using AceConfigDialog
-    self.optionsFrame = LibStub("AceConfig-Dialog-3.0"):AddToBlizOptions("SmartRes2", (L["SmartRes2"]))
+    self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", L["SmartRes2"])
     
     -- create chat commands
     self:RegisterChatCommand("sr", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
@@ -488,6 +488,9 @@ function Addon:OnInitialize()
         end,
         })
     end
+    
+    self:RegisterEvent("PLAYER_REGEN_ENABLED")
+    self:RegisterEvent("PLAYER_REGEN_DISABLED")
 end
 
 function Addon:OnEnable()
@@ -496,38 +499,43 @@ function Addon:OnEnable()
     self:Print("This is the OnEnable of SmartRes2")
     --@end-alpha@]===]--
     
-    self:RegisterEvent("PLAYER_REGEN_ENABLED")
-    if (event == "PLAYER_REGEN_ENABLED") and not (UnitAffectingCombat("player")) then
-        ResComm.RegisterCallback(self, "ResComm_ResStart");
-        ResComm.RegisterCallback(self, "ResComm_Ressed");
-        ResComm.RegisterCallback(self, "ResComm_ResEnd");
-        if self.playerSpell then
-            self:BindKeys()
-        end
-        self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
-    end
+    ResComm.RegisterCallback(self, "ResComm_ResStart");
+    ResComm.RegisterCallback(self, "ResComm_Ressed");
+    ResComm.RegisterCallback(self, "ResComm_ResEnd");
+    
+    self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
 end
 
 function Addon:OnDisable()
-    -- called when SmartRes2 is disabled
-    self:RegisterEvent("PLAYER_REGEN_DISABLED")
-    if (event == "PLAYER_REGEN_DISABLED") then
-        ResComm.UnRegisterCallback(self, "ResComm_ResStart");
-        ResComm.UnRegisterCallback(self, "ResComm_Ressed");
-        ResComm.UnRegisterCallback(self, "ResComm_ResEnd");
-        if self.playerSpell then
-            self:UnBindKeys()
-        end
-    end
+    -- called when SmartRes2 is disabled    
+    ResComm.UnRegisterAllCallbacks(self);
+    self:UnBindKeys();
 end
 
 --events, yay!
+
+function Addon:PLAYER_REGEN_ENABLED()
+    if self.playerSpell then
+        self:BindKeys(); -- only binds keys if the player can cast a res spell
+    end
+    ResComm.RegisterCallback(self, "ResComm_ResStart");
+    ResComm.RegisterCallback(self, "ResComm_Ressed");
+    ResComm.RegisterCallback(self, "ResComm_ResEnd");
+end
+
+function Addon:PLAYER_REGEN_DISABLED()
+    if self.playerSpell then
+        self:UnBindKeys();
+    end
+    ResComm.UnRegisterAllCallbacks(self);
+end
+
 function Addon:OnProfileChanged(event, database, newProfileKey)
     db = database.profile
 end
 
 function Addon:ResAnchorMoved(_, _, x, y)
-    db.resBarsX, db.resBarsY = x, y
+    self.db.profile.resBarsX, self.db.profile.resBarsY = x, y
 end
 
 function Addon:ResComm_ResStart(event, resser, endTime, targetName)
@@ -668,16 +676,12 @@ end
 
 -- set and unset keybindings
 function Addon:BindKeys()
-    if self.playerSpell then -- only bind values if the player can cast a res spell
-        SetOverrideBindingClick(self.resButton, false, db.autoResKey "SmartRes2Button")
-        SetOverrideBindingSpell(self.resButton, false, db.manResKey, self.playerSpell)
-    end
+    SetOverrideBindingClick(self.resButton, false, db.autoResKey "SmartRes2Button")
+    SetOverrideBindingSpell(self.resButton, false, db.manResKey, self.playerSpell)
 end
 
 function Addon:UnBindKeys()
-    if self.playerSpell then -- again, unbind values only if the player can cast a res spell
-        ClearOverrideBindings(self.ResButton)
-    end
+    ClearOverrideBindings(self.ResButton)
 end
 
 local CLASS_PRIORITIES = {
