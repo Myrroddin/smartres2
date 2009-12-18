@@ -4,17 +4,20 @@
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "frFR", false) -- this is not the default language
 
 if L then
+    L["About"] = "About" -- Requires localization
     L["About the author and SmartRes2"] = "A propos de l'auteur et de SmartRes2"
     L["All dead units are being ressed."] = "Tous les personnages morts ont \195\169t\195\169 ressuscit\195\169s."
     L["Alter the profiles"] = "Alter the profiles" -- Requires localization
     L["And you thought the Scourge looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."] = "Et vous pensiez que le Fl\195\169au \195\169tait vilain. Dans environ 10 secondes,%s conna\195\174trons%s et voudrons un peigne, du savon, et un miroir."
     L["Auto Res Key"] = "Touche d'auto Res"
+    L["Change the horizontal direction of the res bars. Default is right to left"] = "Change the horizontal direction of the res bars. Default is right to left" -- Requires localization
     L["Chat Output"] = "Chat sortie"
     L["Chat output options"] = "Sortie des options de chat"
     L["Chat Output Type"] = "Chat type de sortie"
     L["Class Colours"] = "Coleurs des classes"
     L["Copy one profile to another"] = "Copier \195\160 partir d'un autre profil"
     L["Copy Profile"] = "Copier le profile"
+    L["Create a new profile"] = "Create a new profile" -- Requires localization
     L["Credits"] = "Cr\195\169dits"
     L["Delete a profile you no longer use. This cannot be the active profile"] = "Supprimer un profil que vous n'utilisez plus. Cela peut ne pas \195\170tre le profil actif"
     L["Delete Profile"] = "Supprimer le profil"
@@ -36,6 +39,7 @@ if L then
     L["Grow Upwards"] = "Grow Upwards" -- Requires localization
     L["GUILD"] = "GUILDE"
     L["% has to wake % from eternal slumber."] = "% has to wake % from eternal slumber." -- Requires localization
+    L["Horizontal Direction"] = "Horizontal Direction" -- Requires localization
     L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %s is making sure %s's death isn't permanent."] = "In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %s is making sure %s's death isn't permanent." -- Requires localization
     L["% is bringing % back to life!"] = "% is bringing % back to life!" -- Requires localization
     L["% is ending %s's dirt nap."] = "% is ending %s's dirt nap." -- Requires localization
@@ -48,10 +52,9 @@ if L then
     L["Make the res bars grow up instead of down"] = "Make the res bars grow up instead of down" -- Requires localization
     L["Manual Target Key"] = "Touche manuel de la cible"
     L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\
-    SmartRes2 was largely possible because of\
-    DathRarhek's LibResComm-1.0 so a big thanks to him."] = "Massive f\195\169licitations \195\160 Maia, Kyahx, et Poull pour l'addon original de SmartRes.\
-    SmartRes2 est en grande partie possible gra\195\167e \195\160 \
-    DathRarhek's et LibResComm-1.0 donc un grand merci \195\160 lui."
+    SmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."] = "Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\
+    SmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him." -- Requires localization
+    L["New Profile"] = "New Profile" -- Requires localization
     L["No fallen heroes! %s needs %s to march forward to victory!"] = "No fallen heroes! %s needs %s to march forward to victory!" -- Requires localization
     L["none"] = "Aucun"
     L["Nursenancy"] = "Nursenancy"

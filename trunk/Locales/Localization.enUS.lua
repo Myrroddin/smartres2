@@ -40,6 +40,8 @@ if L then
    L["Make the res bars grow up instead of down"] = true
    L["Res Bars Scale"] = true
    L["Set the scale for the res bars"] = true
+   L["Horizontal Direction"] = true
+   L["Change the horizontal direction of the res bars. Default is right to left"] = true
    L["Test Bars"] = true
    L["Show the test bars"] = true
    L["Chat Output"] = true
@@ -72,6 +74,8 @@ if L then
    L["Delete a profile you no longer use. This cannot be the active profile"] = true
    L["Reset Profile"] = true
    L["Reset a profile back to defaults"] = true
+   L["New Profile"] = true
+   L["Create a new profile"] = true
    L["SmartRes2 Credits"] = true
    L["About the author and SmartRes2"] = true
    L["Credits"] = true
