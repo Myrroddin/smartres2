@@ -7,7 +7,6 @@ local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0"
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 local ResComm = LibStub("LibResComm-1.0")
 local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
-local Candy = LibStub("LibCandyBar-3.0")
 local Bars = LibStub("LibBars-1.0")
 local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1", true)
 
@@ -17,7 +16,20 @@ local db
 
 -- register the res bar textures with LibSharedMedia-3.0
 Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]])
-Media:Register("border", "Wood border", "Interface\\AchievementFrame\\UI-Achievement-WoodBorder.blp")
+-- Media:Register("border", "Wood border", "Interface\\AchievementFrame\\UI-Achievement-WoodBorder.blp")
+
+ocal hexcolors = { 
+	PRIEST = "FFFFFF",
+	SHAMAN = "2459FF",
+	PALADIN = "F58CBA",
+	DRUID = "FF7D0A",
+	DEATHKNIGHT = "C41F3B",
+	HUNTER = "ABD473",
+	MAGE = "69CCF0",
+	ROGUE = "FFF569",
+	WARLOCK = "9482C9",
+	WARRIOR = "C79C6E",
+}
 
 local colours = {
     green = {0, 1, 0},
@@ -115,7 +127,7 @@ function Addon:OnInitialize()
                             self.db.profile.resBarsTexture = value
                         end,
                     },
-                    resBarsBGColour = {
+                    --[[resBarsBGColour = {
                         order = 7,
                         type = "select",
                         dialogControl = "LSM30_Background",
@@ -128,8 +140,8 @@ function Addon:OnInitialize()
                         set = function(self, value)
                             self.db.profile.resBarsBGColour = value
                         end,
-                    },
-                    resBarsBorder = {
+                    },]]-- not sure if LibBars supports this
+                    --[[resBarsBorder = {
                         order = 8,
                         type = "select",
                         dialogControl = "LSM30_Border",
@@ -142,7 +154,7 @@ function Addon:OnInitialize()
                         set = function(self, value)
                             self.db.profile.resbarsBorder = value
                         end,
-                    },
+                    },]]-- not sure if LibBars supports this either
                     resBarsColour = {
                         order = 9,
                         type = "color",
@@ -196,8 +208,20 @@ function Addon:OnInitialize()
                         max = 2,
                         step = 0.05,
                     },
-                    resBarsTestBars = { -- need to fix the execute function
+                    horizontalDirection = {
                         order = 13,
+                        type = "toggle",
+                        name = L["Horizontal Direction"],
+                        desc = L["Change the horizontal direction of the res bars. Default is right to left"],
+                        get = function()
+                            return self.db.profile.horizontalDirection
+                        end,
+                        set = function(info, value)
+                            self.db.profile.horizontalDirection = value
+                        end,
+                    },
+                    resBarsTestBars = { -- need to fix the execute function
+                        order = 14,
                         type = "execute",
                         name = L["Test Bars"],
                         desc = L["Show the test bars"],
@@ -318,7 +342,8 @@ function Addon:OnInitialize()
                         type = "execute",
                         name = L["Copy Profile"],
                         desc = L["Copy one profile to another"],
-                        func = function() self:OnProfileChanged()
+                        func = function()
+                            self:OnProfileChanged()
                         end,
                     },
                     deleteProfile = {
@@ -326,7 +351,8 @@ function Addon:OnInitialize()
                         type = "execute",
                         name = L["Delete Profile"],
                         desc = L["Delete a profile you no longer use. This cannot be the active profile"],
-                        func = function() self:OnProfileChanged()
+                        func = function()
+                            self:OnProfileChanged()
                         end,
                     },
                     resetProfile = {
@@ -334,7 +360,17 @@ function Addon:OnInitialize()
                         type = "execute",
                         name = L["Reset Profile"],
                         desc = L["Reset a profile back to defaults"],
-                        func = function() self:OnProfileChanged()
+                        func = function()
+                            self:OnProfileChanged()
+                        end,
+                    },
+                    createNewProfile = {
+                        order = 4,
+                        type = "execute",
+                        name = L["New Profile"],
+                        desc = L["Create a new profile"],
+                        func = function()
+                            self:OnProfileChanged()
                         end,
                     },
                 },
@@ -364,19 +400,21 @@ function Addon:OnInitialize()
             },
         },
     }
-    -- self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
     
     local defaults = {
         profile = {
             scale = 1,
+            horizontalDirection = true,
             locked = false,
             texture = "Blizzard",
-            border = "Wood border",
+             -- border = "Wood border",
             reverseGrowth = false,
+            resBarsColour = unpack(colours.green),
+            collisionBarsColour = unpack(colours.red),
             resBarX = 470,
             resBarY = 375,
             autoResKey = "*",
-            manResKey = "/",
+            manualResKey = "/",
             notifySelf = true,
             notifyCollision = false,
             randMssgs = false,
@@ -448,12 +486,18 @@ function Addon:OnInitialize()
     self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnProfileDeleted", "OnProfileChanged")
+    self.db.RegisterCallback(self, "OnNewProfile", "OnProfileChanged")
     
     -- Register your options with AceConfigRegistry
     LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
     
      -- Add your options to the Blizz options window using AceConfigDialog
     self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", L["SmartRes2"])
+    
+    -- support for LibAboutPanel
+    if LibStub:GetLibrary("LibAboutPanel", true) then
+        self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
+    end
     
     -- create chat commands
     self:RegisterChatCommand("sr", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
@@ -462,8 +506,16 @@ function Addon:OnInitialize()
     self.Resser = {}
     self.Ressed = {}
     
-    self.res_bars = self:NewBarGroup("SmartRes2", Bars.RIGHT_TO_LEFT)
-    self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMRIGHT", db.resBarsX, db.resBarsY)
+    local direction
+    if self.db.horizontalDirection then
+        direction = Bars.RIGHT_TO_LEFT
+    else
+        direction = Bars.LEFT_TO_RIGHT
+        self.db.horizontalDirection = false
+    end
+    
+    self.res_bars = self:NewBarGroup("SmartRes2", direction, 300)
+    self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", db.resBarsX, db.resBarsY)
     self.res_bars:SetScale(db.scale)
     self.res_bars:ReverseGrowth(db.reverseGrowth)
     if db.locked then
@@ -491,6 +543,7 @@ function Addon:OnInitialize()
         })
     end
     
+    -- register events so we can turn things off in combat, and back on when out of combat
     self:RegisterEvent("PLAYER_REGEN_ENABLED")
     self:RegisterEvent("PLAYER_REGEN_DISABLED")
 end
@@ -599,7 +652,7 @@ function Addon:UpdateResColours()
         
         for i, ressed in pairs(beingRessed) do
             if (ressed == info.target) then
-                r, g, b = unpack(colours.red)
+                r, g, b = unpack(colours.red) -- need to change to db.collisionBarsColour
                 info.bar:SetBackgroundColor(r, g, b, 1)
                 duplicate = true;
                 break;
@@ -614,7 +667,7 @@ function Addon:UpdateResColours()
         end
         
         if not duplicate and not alreadyRessed then
-            r,g,b = unpack(colours.green)
+            r,g,b = unpack(colours.green) -- need to change to db.resBarsColour
             info.bar:SetBackgroundColor(r,g,b,1)
            tinsert(beingRessed,info.target);
         end
@@ -650,7 +703,7 @@ function Addon:StartResBars(resser)
     if db.classColours then
         barMssg = self:ClassColours(resser, select (2, UnitClass(resser)))..
             L["is resurrecting "]..
-            self:ClassColors(info.target, select(2, UnitClass(info.target)))
+            self:ClassColours(info.target, select(2, UnitClass(info.target)))
     else
         barMssg = (L["%s is resurrecting %s"]):format(resser, info.target)
     end
