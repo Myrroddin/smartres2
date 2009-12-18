@@ -2,7 +2,7 @@
 -- Author:  Myrroddin of Llane
 
 -- load libraries & other stuff
-local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
+local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 local ResComm = LibStub("LibResComm-1.0")
@@ -13,9 +13,11 @@ local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1", true)
 
 local Addon = SmartRes2
 
+local db
+
 -- register the res bar textures with LibSharedMedia-3.0
 Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]])
-Media:Register("border", "Wood border", [[Interface\\AchievementFrame\\UI-Achievement-WoodBorder.blp]])
+Media:Register("border", "Wood border", "Interface\\AchievementFrame\\UI-Achievement-WoodBorder.blp")
 
 local colours = {
     green = {0, 1, 0},
@@ -37,7 +39,7 @@ function Addon:OnInitialize()
     
     local options = {
         name = L["SmartRes2"],
-        handler = "SmartRes2",
+        handler = SmartRes2,
         type = "group",
         childGroups = "tab",
         args = {
@@ -102,12 +104,12 @@ function Addon:OnInitialize()
                     resBarsTexture = {
                         order = 6,
                         type = "select",
-                        dialogControl = "LSM30_StatusBar",
+                        dialogControl = "LSM30_Statusbar",
                         name = L["Res Bars Texture"],
                         desc = L["Select the texture for the res bars"],
-                        values = Media:HashTable(type),
+                        values = AceGUIWidgetLSMlists.statusbar,
                         get = function()
-                            return self.db.proflile.resBarsTexture
+                            return self.db.profile.resBarsTexture
                         end,
                         set = function(self, value)
                             self.db.profile.resBarsTexture = value
@@ -119,7 +121,7 @@ function Addon:OnInitialize()
                         dialogControl = "LSM30_Background",
                         name = L["Res Bars Background Colour"],
                         desc = L["Set the background colour for the res bars"],
-                        values = Media:HashTable(type),
+                        values = AceGUIWidgetLSMlists.background,
                         get = function()
                             return self.db.profile.resBarsBGColour
                         end,
@@ -129,11 +131,11 @@ function Addon:OnInitialize()
                     },
                     resBarsBorder = {
                         order = 8,
-                        type = select,
+                        type = "select",
                         dialogControl = "LSM30_Border",
                         name = L["Res Bars Border"],
                         desc = L["Set the border for the res bars"],
-                        values = Media:HashTable(type),
+                        values = AceGUIWidgetLSMlists.border,
                         get = function()
                             return self.db.profile.resBarsBorder
                         end,
@@ -351,7 +353,7 @@ function Addon:OnInitialize()
                     creditsDesc1 = {
                         order = 2,
                         type = "description",
-                        name = L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\nSmartRes2 was largely possible because of\nDathRarhek's LibResComm-1.0 so a big thanks to him."],
+                        name = L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\nSmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."],
                     },
                     creditsDesc2 = {
                         order = 3,
@@ -362,7 +364,7 @@ function Addon:OnInitialize()
             },
         },
     }
-    LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
+    -- self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
     
     local defaults = {
         profile = {
@@ -440,7 +442,7 @@ function Addon:OnInitialize()
     
     -- register saved variables with AceDB
     self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, "Default")
-    local db = self.db.profile
+    db = self.db.profile
     
     self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
@@ -461,7 +463,7 @@ function Addon:OnInitialize()
     self.Ressed = {}
     
     self.res_bars = self:NewBarGroup("SmartRes2", Bars.RIGHT_TO_LEFT)
-    self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", db.resBarsX, db.resBarsY)
+    self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMRIGHT", db.resBarsX, db.resBarsY)
     self.res_bars:SetScale(db.scale)
     self.res_bars:ReverseGrowth(db.reverseGrowth)
     if db.locked then
@@ -531,7 +533,7 @@ function Addon:PLAYER_REGEN_DISABLED()
 end
 
 function Addon:OnProfileChanged(event, database, newProfileKey)
-    db = database.profile
+    db = self.db.profile
 end
 
 function Addon:ResAnchorMoved(_, _, x, y)
@@ -544,7 +546,7 @@ function Addon:ResComm_ResStart(event, resser, endTime, targetName)
                             endTime = endTime,
                             target = targetName
                         }    
-    self:StartBars(resser);
+    self:StartResBars(resser);
     self:UpdateResColours();
     
     local isSame = UnitIsUnit(self.Resser[resser], "player")
@@ -562,16 +564,16 @@ function Addon:ResComm_ResStart(event, resser, endTime, targetName)
     end    
 end
 
-function Addon:ResComm_ResEnd(event, ressed)
+function Addon:ResComm_ResEnd(event, ressed, target)
     -- did the cast fail or complete?
     if not self.Resser[resser] then return end;
     
-    self:StopBars(resser)
+    self:StopResBars(resser)
     self.Resser[resser] = nil;
     self:UpdateResColours();
 end
 
-function Addon:ResComm_Ressed(event, targetName)
+function Addon:ResComm_Ressed(event, ressed)
     if not self.Ressed[ressed] or ((self.Ressed[ressed] + 120) < GetTime()) then
         self.Ressed[ressed] = GetTime();
     end
@@ -638,9 +640,12 @@ function Addon:ClassColours(text, class)
 	end
 end
 
-function Addon:StartBars(resser)
+function Addon:StartResBars(resser)
     local barMssg
     local icon
+    local id = "SmartRes2"..resser;
+    local info = self.Resser[resser];
+    local time = info.endTime - GetTime();
     
     if db.classColours then
         barMssg = self:ClassColours(resser, select (2, UnitClass(resser)))..
@@ -654,11 +659,7 @@ function Addon:StartBars(resser)
         icon = self.resSpellIcons[resser]
     else
         icon = nil
-    end
-    
-    local id = "SmartRes2"..resser;
-    local info = self.Resser[resser];
-    local time = info.endTime - GetTime();
+    end  
     
     local bar = self.res_bars:NewTimerBar(id, barMssg, time, nil, icon, 0)
     r, g, b = unpack(colours.green)
@@ -668,7 +669,7 @@ function Addon:StartBars(resser)
     self.Resser[resser].bar = bar;
 end
 
-function Addon:StopBars(resser) -- have to test this function to see if I got it correct
+function Addon:StopResBars(resser) -- have to test this function to see if I got it correct
     if not self.Resser[resser] then return end;
     
     self.Resser[resser].bar:Fade(0.5) -- half second fade
