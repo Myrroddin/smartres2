@@ -16,3 +16,6 @@ r19 more general fixes. added profile commands, a bit more localization
 r20 updated frFR
 r21 altered logic for stuff that gets enabled/disabled during combat, and out of combat
 r22 more bugfixes, and a enUS translation change. Careful, frFR translators!
+r23 deleted mis-named Libs - Phanx
+r24 added correctly named Libs - Phanx
+r25 added missing Libs

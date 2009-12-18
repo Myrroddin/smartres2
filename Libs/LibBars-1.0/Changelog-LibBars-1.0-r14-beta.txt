@@ -1,0 +1,107 @@
+------------------------------------------------------------------------
+r15 | nevcairiel | 2009-02-27 21:44:28 +0000 (Fri, 27 Feb 2009) | 1 line
+Changed paths:
+   A /tags/r14-beta (from /trunk:14)
+
+Tagging as r14-beta
+------------------------------------------------------------------------
+r14 | nevcairiel | 2009-02-27 21:44:06 +0000 (Fri, 27 Feb 2009) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0.toc
+
+Update .toc to 3.0
+------------------------------------------------------------------------
+r13 | dhedbor | 2009-01-31 23:33:45 +0000 (Sat, 31 Jan 2009) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0/LibBars-1.0.lua
+
+Added optional maxValue parameter to barPrototype:SetValue
+------------------------------------------------------------------------
+r12 | dhedbor | 2008-11-09 10:10:17 +0000 (Sun, 09 Nov 2008) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0/LibBars-1.0.lua
+
+- More fixes to avoid zero length textures.
+------------------------------------------------------------------------
+r11 | dhedbor | 2008-11-06 06:48:30 +0000 (Thu, 06 Nov 2008) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0/LibBars-1.0.lua
+
+Handle a value of 0 in counter bars.
+------------------------------------------------------------------------
+r10 | nevcairiel | 2008-10-29 19:49:16 +0000 (Wed, 29 Oct 2008) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0/LibBars-1.0.lua
+
+Properly set Width and Height on Bar Groups on creation and when changing orientation
+------------------------------------------------------------------------
+r9 | antiarc | 2008-10-27 00:00:12 +0000 (Mon, 27 Oct 2008) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0/LibBars-1.0.lua
+
+Revert anchor sizing to fix anchoring/growth problems, add default icons/textures for bars, call SetValue on bar init.
+------------------------------------------------------------------------
+r8 | adirelle | 2008-10-24 21:11:52 +0000 (Fri, 24 Oct 2008) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0/LibBars-1.0.lua
+
+Fixed infinite recursion in barListPrototype "subclasses".
+------------------------------------------------------------------------
+r7 | antiarc | 2008-10-24 18:03:31 +0000 (Fri, 24 Oct 2008) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0/LibBars-1.0.lua
+
+Prevent bars from jumping out when button is visible.
+------------------------------------------------------------------------
+r6 | antiarc | 2008-10-24 17:02:57 +0000 (Fri, 24 Oct 2008) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0/LibBars-1.0.lua
+
+Fix anchoring. Oops.
+------------------------------------------------------------------------
+r5 | antiarc | 2008-10-24 16:38:57 +0000 (Fri, 24 Oct 2008) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0/LibBars-1.0.lua
+
+Desuckify lots of little things. Button size reflects bar size, bars stretch from the left now (todo: stretch from picked origin), texture stretching implemented. Should improve the overall user experience significantly.
+------------------------------------------------------------------------
+r4 | nevcairiel | 2008-10-12 11:39:24 +0000 (Sun, 12 Oct 2008) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0.toc
+
+Patch 3.0 prep: Remove LoD from Libraries that have no load manager (LoD+OptDep Bug)
+------------------------------------------------------------------------
+r3 | nevcairiel | 2008-10-09 21:52:11 +0000 (Thu, 09 Oct 2008) | 1 line
+Changed paths:
+   M /trunk/LibBars-1.0/LibBars-1.0.lua
+   M /trunk/TestAddon/FlashFrames.lua
+
+WoWAce Post-Processing: Virtually inflate Library Revision numbers for proper upgrade path
+------------------------------------------------------------------------
+r2 | root | 2008-09-29 21:55:16 +0000 (Mon, 29 Sep 2008) | 1 line
+Changed paths:
+   A /trunk/.pkgmeta
+
+Facilitate WowAce-on-CurseForge transition
+------------------------------------------------------------------------
+r1 | root | 2008-09-29 21:18:59 +0000 (Mon, 29 Sep 2008) | 1 line
+Changed paths:
+   A /branches
+   A /tags
+   A /trunk
+   A /trunk/CallbackHandler-1.0
+   A /trunk/CallbackHandler-1.0/CallbackHandler-1.0.lua
+   A /trunk/CallbackHandler-1.0/CallbackHandler-1.0.xml
+   A /trunk/LibBars-1.0
+   A /trunk/LibBars-1.0/LibBars-1.0.lua
+   A /trunk/LibBars-1.0/lib.xml
+   A /trunk/LibBars-1.0.toc
+   A /trunk/LibStub
+   A /trunk/LibStub/LibStub.lua
+   A /trunk/TODO
+   A /trunk/TestAddon
+   A /trunk/TestAddon/FlashFrames.lua
+   A /trunk/TestAddon/FlashFrames.toc
+
+Initial import of HEAD
+------------------------------------------------------------------------
