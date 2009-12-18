@@ -1,7 +1,12 @@
 ﻿-- Author      : Myrroddin of Llane
 -- Localization file for US English version of SmartRes2, which is the default
       
-local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true)
+local debug = false
+--[===[@debug@
+debug = true
+--@end-debug@]===]
+
+local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true, debug)
 
 if L then
    L["sr"] = true
@@ -70,8 +75,9 @@ if L then
    L["SmartRes2 Credits"] = true
    L["About the author and SmartRes2"] = true
    L["Credits"] = true
-   L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\nSmartRes2 was largely possible because of\nDathRarhek's LibResComm-1.0 so a big thanks to him."] = true
+   L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\nSmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."] = true
    L["I would personally like to thank Jerry on the wowace forums for coding the new, smarter, resurrection function."] = true
+   L["About"] = true
    
    -- Resurrection function localization
    L["% is ressing %"] = true
