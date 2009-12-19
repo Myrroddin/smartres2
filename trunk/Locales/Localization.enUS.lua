@@ -65,7 +65,7 @@ if L then
    L["Auto Res Key"] = true
    L["For ressing targets who have not released their ghosts\nDefault is *"] = true
    L["Manual Target Key"] = true
-   L["Gives you the pointer to click on corpses\nDefault is /"] = true
+   L["Gives you the pointer to click on corpses\nDefault is ~"] = true
    L["Profiles"] = true
    L["Alter the profiles"] = true
    L["Copy Profile"] = true
@@ -84,6 +84,7 @@ if L then
    L["About"] = true
    
    -- Resurrection function localization
+   L["You are not in a group."] = true
    L["% is ressing %"] = true
    L["You don't have enough Mana to cast a res spell."] = true
    L["You cannot cast res spells."] = true

@@ -18,7 +18,7 @@ local db
 Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]])
 -- Media:Register("border", "Wood border", "Interface\\AchievementFrame\\UI-Achievement-WoodBorder.blp")
 
-ocal hexcolors = { 
+local hexcolors = { 
 	PRIEST = "FFFFFF",
 	SHAMAN = "2459FF",
 	PALADIN = "F58CBA",
@@ -45,9 +45,6 @@ local unpack = unpack
        
 function Addon:OnInitialize()
     -- called when SmartRes2 is loaded
-    --[===[@alpha@
-    self:Print("This is the OnInitialization of SmartRes2")
-    --@end-alpha@]===]--
     
     local options = {
         name = L["SmartRes2"],
@@ -321,7 +318,7 @@ function Addon:OnInitialize()
                         order = 2,
                         type = "keybinding",
                         name = L["Manual Target Key"],
-                        desc = L["Gives you the pointer to click on corpses\nDefault is /"],
+                        desc = L["Gives you the pointer to click on corpses\nDefault is ~"],
                         get = function()
                             return self.db.profile.manualResKey
                         end,
@@ -406,7 +403,7 @@ function Addon:OnInitialize()
             scale = 1,
             horizontalDirection = true,
             locked = false,
-            texture = "Blizzard",
+            resBarsTexture = "Blizzard",
              -- border = "Wood border",
             reverseGrowth = false,
             resBarsColour = unpack(colours.green),
@@ -414,7 +411,7 @@ function Addon:OnInitialize()
             resBarX = 470,
             resBarY = 375,
             autoResKey = "*",
-            manualResKey = "/",
+            manualResKey = "~",
             notifySelf = true,
             notifyCollision = false,
             randMssgs = false,
@@ -451,8 +448,7 @@ function Addon:OnInitialize()
             },
         },
     }
-
-    -- the following borrowed from the original SmartRes by Maia, Kyahx, Poull, and Myrroddin (/w Zidomo)    
+   
     -- prepare spells
     self.resSpells = { -- getting the spell names
         Priest = GetSpellInfo(2006), -- Resurrection
@@ -472,11 +468,9 @@ function Addon:OnInitialize()
     
     -- create a secure button for ressing
     local resButton = CreateFrame("button", "SmartRes2Button", UIParent, "SecureActionButtonTemplate")
-	resButton:SetAttribute("type", "spell");
-	resButton:SetAttribute("PreClick", function() self:Resurrect() end);
-	resButton:SetAttribute("unit", bestUnitId);
+    resButton:SetAttribute("type", "spell")
+    resButton:SetAttribute("PreClick", function() self:Resurrect() end);
     self.resButton = resButton
-    -- end of borrowed code
     
     -- register saved variables with AceDB
     self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, "Default")
@@ -518,6 +512,7 @@ function Addon:OnInitialize()
     self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", db.resBarsX, db.resBarsY)
     self.res_bars:SetScale(db.scale)
     self.res_bars:ReverseGrowth(db.reverseGrowth)
+    self.res_bars:SetTexture(media:Fetch("statusbar", db.resBarsTexture))
     if db.locked then
         self.res_bars:HideAnchor()
     else
@@ -550,9 +545,6 @@ end
 
 function Addon:OnEnable()
     -- called when SmartRes2 is enabled
-    --[===[@alpha@
-    self:Print("This is the OnEnable of SmartRes2")
-    --@end-alpha@]===]--
     
     ResComm.RegisterCallback(self, "ResComm_ResStart");
     ResComm.RegisterCallback(self, "ResComm_Ressed");
@@ -674,7 +666,7 @@ function Addon:UpdateResColours()
         
         if (duplicate or alreadyRessed) and (db.notifyCollision) then
             SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s. "]..L["Please get SmartRes2 and use the auto res key to never see this whisper again."],
-            "whisper", nil, info):format(beingRessed.info.target, info)
+            "whisper", nil, info):format(beingRessed.info.target, info) -- are these the correct variables to be passing?
         end
     end
 end
@@ -755,7 +747,6 @@ local CLASS_PRIORITIES = {
 	WARRIOR = 5,
 }
 
--- The following compliments and kudos to Jerry on the wowace forums
 local function getClassOrder(unit)
 	local _, c = UnitClass(unit)
 	return CLASS_PRIORITIES[c]
@@ -774,7 +765,6 @@ local function compareUnit(unitId, bestUnitId)
 	if not UnitInRange(unitId) then unitOutOfRange = true return bestUnitId end
 	-- UnitIsVisable does not matter as all UnitInRange are Visable.
 	-- i.e. UnitIsVisable() doesn't check LoS.
-	-- if UnitIsVisable(unitId) then return bestUnitId end
 	-- here we have a valid candidate, so check first if we already saw one to compare to.
 	if not bestUnitId then return unitId end
 	-- we have two candidates. Only change candidate if it's better than the previous one.
@@ -798,6 +788,16 @@ local function getBestCandidate()
 end
 
 function Addon:Resurrection()
+    local resButton = self.resButton
+    
+    if GetNumPartyMembers() == 0 and not UnitInRaid("player") then
+		self:Print(L["You are not in a group."])
+		return
+	end
+    
+    resButton:SetAttribute("unit", nil)
+    resButton:SetAttribute("spell", nil)
+    
     -- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a resser 
     local isUsable, outOfMana = IsUsableSpell[self.PlayerSpell] -- determined during SmartRes2:OnInitialize() 
     if outOfMana then 
@@ -818,6 +818,8 @@ function Addon:Resurrection()
 	local unit = getBestCandidate()
 	if unit then
 		-- do something useful like setting the target of your button
+        resButton:SetAttribute("unit", unit)
+        resButton:SetAttribute("spell", self.playerSpell)
 	else
 		if unitOutOfRange then
 			self:Print(L["There are no bodies in range to res."])
@@ -828,4 +830,3 @@ function Addon:Resurrection()
 		end
 	end
 end
--- The previous compliments and kudos to Jerry on the wowace forums

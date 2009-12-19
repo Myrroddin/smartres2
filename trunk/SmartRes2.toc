@@ -5,7 +5,7 @@
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
 ## X-Email: psvander AT gmail DOT com
-## Version: Alpha 0.27
+## Version: Alpha 0.28
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
 ## SavedVariables: SmartRes2DB
 ## X-Localizations: enUS, frFR
@@ -14,7 +14,6 @@
 
 ## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets
 
-#@no-lib-strip@
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler.xml
 
@@ -30,7 +29,6 @@ Libs\LibBars-1.0\lib.xml
 Libs\LibSharedMedia-3.0\lib.xml
 Libs\LibResComm-1.0\lib.xml
 Libs\LibAboutPanel\lib.xml
-#@end-no-lib-strip@
 
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
