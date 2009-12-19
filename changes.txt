@@ -18,3 +18,4 @@ r21 altered logic for stuff that gets enabled/disabled during combat, and out of
 r22 more bugfixes, and a enUS translation change. Careful, frFR translators!
 r23 Libs fixes by Phanx
 r27 don't ask about r24 - r26. I'm dumb. anyway, bug fixes, added new profile, horizontal bar direction switching
+r28 many whelps. handled! no fix for ticket #6 yet. more enUS localizations
