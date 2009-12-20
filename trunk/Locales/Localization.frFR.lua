@@ -1,7 +1,12 @@
-﻿-- Authors: ckeurk, Xilbar
+﻿-- Authors: ckeurk and Xilbar
 -- Localization file for French version of SmartRes2
 
-local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "frFR", false) -- this is not the default language
+local debug = false
+--[===[@debug@
+debug = true
+--@end-debug@]===]
+
+local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "frFR", false, debug) -- this is not the default language
 
 if L then
     L["About"] = "About" -- Requires localization
@@ -34,8 +39,8 @@ if L then
     L["FOR THE HORDE! FOR THE ALLIANCE! %s thinks %s should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."] = "FOR THE HORDE! FOR THE ALLIANCE! %s thinks %s should be more concerned about yelling FOR THE LICH KING! and prevents that from happening." -- Requires localization
     L["Frankthetank"] = "Frankthetank"
     L["Gives you the pointer to click on corpses\
-    Default is /"] = "Gives you the pointer to click on corpses\
-    Default is /" -- Requires localization
+    Default is ~"] = "Gives you the pointer to click on corpses\
+    Default is ~" -- Requires localization
     L["Grow Upwards"] = "Grow Upwards" -- Requires localization
     L["GUILD"] = "GUILDE"
     L["% has to wake % from eternal slumber."] = "% has to wake % from eternal slumber." -- Requires localization
@@ -127,6 +132,7 @@ if L then
     Raid, Party, Say, Yell, Guild, or None.\
     Default is None" -- Requires localization
     L["YELL"] = "CRI"
+    L["You are not in a group."] = "You are not in a group." -- Requires localization
     L["You are ressing %s"] = "You are ressing %s" -- Requires localization
     L["You cannot cast res spells."] = "Vous ne pouvez pas lancer des sorts pour Res."
     L["You don't have enough Mana to cast a res spell."] = "Vous n'avez pas assez de mana pour lancer un sort de Res."

@@ -2,7 +2,7 @@
 -- Author:  Myrroddin of Llane
 
 -- load libraries & other stuff
-local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0")
+local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 local ResComm = LibStub("LibResComm-1.0")
@@ -69,7 +69,7 @@ function Addon:OnInitialize()
                         name = L["Res Bars Anchor"],
                         desc = L["Toggles the anchor for the res bars so you can move them"],
                         get = function()
-                            return self.db.profile.barsAnchor
+                            return self.db.profile.locked
                         end,
                         set = function(info, value)
                             if value then
@@ -137,8 +137,8 @@ function Addon:OnInitialize()
                         set = function(self, value)
                             self.db.profile.resBarsBGColour = value
                         end,
-                    },]]-- not sure if LibBars supports this
-                    --[[resBarsBorder = {
+                    },-- not sure if LibBars supports this
+                    resBarsBorder = {
                         order = 8,
                         type = "select",
                         dialogControl = "LSM30_Border",
@@ -151,7 +151,7 @@ function Addon:OnInitialize()
                         set = function(self, value)
                             self.db.profile.resbarsBorder = value
                         end,
-                    },]]-- not sure if LibBars supports this either
+                    },]] -- not sure if LibBars supports this either
                     resBarsColour = {
                         order = 9,
                         type = "color",
@@ -205,16 +205,16 @@ function Addon:OnInitialize()
                         max = 2,
                         step = 0.05,
                     },
-                    horizontalDirection = {
+                    horizontalOrientation = {
                         order = 13,
                         type = "toggle",
                         name = L["Horizontal Direction"],
                         desc = L["Change the horizontal direction of the res bars. Default is right to left"],
                         get = function()
-                            return self.db.profile.horizontalDirection
+                            return self.db.profile.horizontalOrientation
                         end,
                         set = function(info, value)
-                            self.db.profile.horizontalDirection = value
+                            self.db.profile.horizontalOrientation = value
                         end,
                     },
                     resBarsTestBars = { -- need to fix the execute function
@@ -401,10 +401,10 @@ function Addon:OnInitialize()
     local defaults = {
         profile = {
             scale = 1,
-            horizontalDirection = true,
+            horizontalOrientation = true,
             locked = false,
             resBarsTexture = "Blizzard",
-             -- border = "Wood border",
+            -- resBarsBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
             reverseGrowth = false,
             resBarsColour = unpack(colours.green),
             collisionBarsColour = unpack(colours.red),
@@ -482,6 +482,8 @@ function Addon:OnInitialize()
     self.db.RegisterCallback(self, "OnProfileDeleted", "OnProfileChanged")
     self.db.RegisterCallback(self, "OnNewProfile", "OnProfileChanged")
     
+    Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
+    
     -- Register your options with AceConfigRegistry
     LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
     
@@ -498,21 +500,13 @@ function Addon:OnInitialize()
     self:RegisterChatCommand("smartres", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
     
     self.Resser = {}
-    self.Ressed = {}
-    
-    local direction
-    if self.db.horizontalDirection then
-        direction = Bars.RIGHT_TO_LEFT
-    else
-        direction = Bars.LEFT_TO_RIGHT
-        self.db.horizontalDirection = false
-    end
-    
-    self.res_bars = self:NewBarGroup("SmartRes2", direction, 300)
+    self.Ressed = {}  
+        
+    self.res_bars = self:NewBarGroup("SmartRes2", orientation, 300)
     self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", db.resBarsX, db.resBarsY)
     self.res_bars:SetScale(db.scale)
     self.res_bars:ReverseGrowth(db.reverseGrowth)
-    self.res_bars:SetTexture(media:Fetch("statusbar", db.resBarsTexture))
+    self.res_bars:SetTexture(Media:Fetch("statusbar", db.resBarsTexture))
     if db.locked then
         self.res_bars:HideAnchor()
     else
@@ -555,11 +549,21 @@ end
 
 function Addon:OnDisable()
     -- called when SmartRes2 is disabled    
-    ResComm.UnRegisterAllCallbacks(self);
+    ResComm.UnRegisterCallback(self, "ResComm_ResStart");
+    ResComm.UnRegisterCallback(self, "ResComm_Ressed");
+    ResComm.UnRegisterCallback(self, "ResComm_ResEnd");
     self:UnBindKeys();
 end
 
 --events, yay!
+function Addon:UpdateMedia(callback, type, handle)
+    if type == "statusbar" then
+        self.res_bars:SetTexture(Media:Fetch("statusbar", db.resBarsTexture))
+        self.res_bars:SetColor(Media:Fetch("statusbar", db.resBarsColour))
+        self.res_bars:SetColor(Media:Fetch("statusbar", db.collisionBarsColour))
+        -- self.res_bars:SetBorder(Media:Fetch("statusbar", db.resBarsBorder))
+    end
+end
 
 function Addon:PLAYER_REGEN_ENABLED()
     if self.playerSpell then
@@ -574,7 +578,9 @@ function Addon:PLAYER_REGEN_DISABLED()
     if self.playerSpell then
         self:UnBindKeys();
     end
-    ResComm.UnRegisterAllCallbacks(self);
+    ResComm.UnRegisterCallback(self, "ResComm_ResStart");
+    ResComm.UnRegisterCallback(self, "ResComm_Ressed");
+    ResComm.UnRegisterCallback(self, "ResComm_ResEnd");
 end
 
 function Addon:OnProfileChanged(event, database, newProfileKey)
@@ -594,7 +600,7 @@ function Addon:ResComm_ResStart(event, resser, endTime, targetName)
     self:StartResBars(resser);
     self:UpdateResColours();
     
-    local isSame = UnitIsUnit(self.Resser[resser], "player")
+    local isSame = UnitIsUnit(resser, "player")
     if isSame == 1 then -- make sure only the player is sending messages
         if not (db.chatOutput == "none") then -- if it is "none" then don't send any chat messages
             if (db.randMssgs) then
@@ -686,30 +692,40 @@ function Addon:ClassColours(text, class)
 end
 
 function Addon:StartResBars(resser)
-    local barMssg
+    local text
     local icon
-    local id = "SmartRes2"..resser;
+    local name = resser;
     local info = self.Resser[resser];
     local time = info.endTime - GetTime();
+    local orientation
     
     if db.classColours then
-        barMssg = self:ClassColours(resser, select (2, UnitClass(resser)))..
+        text = self:ClassColours(resser, select (2, UnitClass(resser)))..
             L["is resurrecting "]..
             self:ClassColours(info.target, select(2, UnitClass(info.target)))
     else
-        barMssg = (L["%s is resurrecting %s"]):format(resser, info.target)
+        text = (L["%s is resurrecting %s"]):format(resser, info.target)
     end
     
     if db.resBarsIcon then
         icon = self.resSpellIcons[resser]
     else
         icon = nil
-    end  
+    end
     
-    local bar = self.res_bars:NewTimerBar(id, barMssg, time, nil, icon, 0)
+    if self.db.horizontalOrientation then
+        orientation = Bars.RIGHT_TO_LEFT
+    else
+        orientation = Bars.LEFT_TO_RIGHT
+        self.db.horizontalOrientation = false
+    end
+    
+    -- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, orientation,length, thickness)
+    local bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, orientation)
     r, g, b = unpack(colours.green)
     
     bar:SetColorAt(0, 0, 0, 0, 1, 0)
+    -- bar:SetBorder(db.resbarsBorder)
     
     self.Resser[resser].bar = bar;
 end
