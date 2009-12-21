@@ -9,9 +9,9 @@ local ResComm = LibStub:GetLibrary("LibResComm-1.0")
 local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
 local Bars = LibStub("LibBars-1.0")
 local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1", true)
-
-local Addon = SmartRes2
-
+--@debug@
+_G.SmartRes2 = SmartRes2
+--@end-debug@
 local db
 
 -- register the res bar textures with LibSharedMedia-3.0
@@ -28,12 +28,7 @@ local hexcolors = {
 	MAGE = "69CCF0",
 	ROGUE = "FFF569",
 	WARLOCK = "9482C9",
-	WARRIOR = "C79C6E",
-}
-
-local colours = {
-	green = {0, 1, 0},
-	red = {1, 0, 0}
+	WARRIOR = "C79C6E"
 }
 
 -- really often used globals
@@ -41,9 +36,9 @@ local tinsert = table.insert
 local tsort = table.sort
 local pairs = pairs
 local unpack = unpack
-
+local in_combat = false
 	   
-function Addon:OnInitialize()
+function SmartRes2:OnInitialize()
 	-- called when SmartRes2 is loaded
 	
 	local defaults = {
@@ -54,8 +49,8 @@ function Addon:OnInitialize()
 			resBarsTexture = "Blizzard",
 			-- resBarsBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
 			reverseGrowth = false,
-			resBarsColour = unpack(colours.green),
-			collisionBarsColour = unpack(colours.red),
+			resBarsColour = { r = 0, g = 1, b = 0, a = 1 },
+			collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 			resBarX = 470,
 			resBarY = 375,
 			autoResKey = "",
@@ -92,9 +87,9 @@ function Addon:OnInitialize()
 				[23] = L["%s wonders about these stupid res messages. %s should just be happy to be alive."],
 				[24] = L["%s prays over the corpse of %s, and a miracle happens!"],
 				[25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %s is making sure %s's death isn't permanent."],
-				[26] = L["%s performs a series of lewd acts on %s's still warm corpse. Ew."],
-			},
-		},
+				[26] = L["%s performs a series of lewd acts on %s's still warm corpse. Ew."]
+			}
+		}
 	}
    
 	-- register saved variables with AceDB
@@ -117,7 +112,7 @@ function Addon:OnInitialize()
 					barsOptionsHeader = {
 						order = 1,
 						type = "header",
-						name = L["Res Bars"],
+						name = L["Res Bars"]
 					},
 					barsAnchor = {
 						order = 2,
@@ -130,16 +125,16 @@ function Addon:OnInitialize()
 						set = function(info, value)
 							self.db.profile.locked = value
 							if value then
-								self.res_bars:ShowAnchor();
-							else
 								self.res_bars:HideAnchor();
+							else
+								self.res_bars:ShowAnchor();
 							end
-						end,
+						end
 					},
 					barsOptionsHeader2 = {
 						order = 3,
 						type = "description",
-						name = "",
+						name = ""
 					},
 					resBarsIcon = {
 						order = 4,
@@ -151,7 +146,7 @@ function Addon:OnInitialize()
 						end,
 						set = function(info, value)
 							self.db.profile.resBarsIcon = value
-						end,
+						end
 					},
 					classColours = {
 						order = 5,
@@ -163,7 +158,7 @@ function Addon:OnInitialize()
 						end,
 						set = function(info, value)
 							self.db.profile.classColours = value
-						end,
+						end
 					},
 					resBarsTexture = {
 						order = 6,
@@ -177,7 +172,7 @@ function Addon:OnInitialize()
 						end,
 						set = function(info, value)
 							self.db.profile.resBarsTexture = value
-						end,
+						end
 					},
 					--[[resBarsBGColour = {
 						order = 7,
@@ -191,7 +186,7 @@ function Addon:OnInitialize()
 						end,
 						set = function(self, value)
 							self.db.profile.resBarsBGColour = value
-						end,
+						end
 					},-- not sure if LibBars supports this
 					resBarsBorder = {
 						order = 8,
@@ -205,7 +200,7 @@ function Addon:OnInitialize()
 						end,
 						set = function(self, value)
 							self.db.profile.resbarsBorder = value
-						end,
+						end
 					},]] -- not sure if LibBars supports this either
 					resBarsColour = {
 						order = 9,
@@ -213,11 +208,13 @@ function Addon:OnInitialize()
 						name = L["Bar Colour"],
 						desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
 						get = function()
-							return self.db.profile.resBarsColour
+							local t = self.db.profile.resBarsColour
+							return t.r, t.g, t.b, t.a
 						end,
-						set = function(info, value)
-							self.db.profile.resBarsColour = value
-						end,
+						set = function(info, r, g, b, a)
+							local t = self.db.profile.resBarsColour
+							t.r, t.g, t.b, t.a = r, g, b, a
+						end
 					},
 					collisionBarsColour = {
 						order = 10,
@@ -225,11 +222,13 @@ function Addon:OnInitialize()
 						name = L["Duplicate Bar Colour"],
 						desc = L["Pick the colour for collision (duplicate) res bars"],
 						get = function()
-							return self.db.profile.collisionBarsColour
+							local t = self.db.profile.collisionBarsColour
+							return t.r, t.g, t.b, t.a
 						end,
-						set = function(info, value)
-							self.db.profile.collisionBarsColour = value
-						end,
+						set = function(info, r, g, b, a)
+							local t = self.db.profile.collisionBarsColour
+							t.r, t.g, t.b, t.a = r, g, b, a
+						end
 					},
 					growDirection = {
 						order = 11,
@@ -242,7 +241,7 @@ function Addon:OnInitialize()
 						set = function(info, value)
 							self.db.profile.reverseGrowth = value
 							self.res_bars:ReverseGrowth(value)
-						end,
+						end
 					},
 					scale = {
 						order = 12,
@@ -258,7 +257,7 @@ function Addon:OnInitialize()
 						end,
 						min = 0.5,
 						max = 2,
-						step = 0.05,
+						step = 0.05
 					},
 					horizontalOrientation = {
 						order = 13,
@@ -270,7 +269,7 @@ function Addon:OnInitialize()
 						end,
 						set = function(info, value)
 							self.db.profile.horizontalOrientation = value
-						end,
+						end
 					},
 					resBarsTestBars = { -- need to fix the execute function
 						order = 14,
@@ -278,7 +277,7 @@ function Addon:OnInitialize()
 						name = L["Test Bars"],
 						desc = L["Show the test bars"],
 						func = function() self:StartTestBars()
-					end,
+						end
 					}			   
 				}
 			},
@@ -291,7 +290,7 @@ function Addon:OnInitialize()
 					resChatHeader = {
 						order = 1,
 						type = "header",
-						name = L["Chat Output"],
+						name = L["Chat Output"]
 					},
 					randMssgs = {
 						order = 2,
@@ -303,7 +302,7 @@ function Addon:OnInitialize()
 						end,
 						set = function(info, value)
 							self.db.profile.randMssgs = value
-						end,
+						end
 					},
 					chatOutput = {
 						order = 3,
@@ -323,7 +322,7 @@ function Addon:OnInitialize()
 						end,
 						set = function(info, value)
 							self.db.profile.chatOutput = value
-						end,
+						end
 					},
 					notifySelf = {
 						order = 4,
@@ -335,7 +334,7 @@ function Addon:OnInitialize()
 						end,
 						set = function(info, value)
 							self.db.profile.notifySelf = value
-						end,
+						end
 					},
 					notifyCollision = {
 						order = 5,
@@ -347,7 +346,7 @@ function Addon:OnInitialize()
 						end,
 						set = function(info, value)
 							self.db.profile.notifyCollision = value
-						end,
+						end
 					}
 				}
 			},
@@ -361,25 +360,25 @@ function Addon:OnInitialize()
 						order = 1,
 						type = "keybinding",
 						name = L["Auto Res Key"],
-						desc = L["For ressing targets who have not released their ghosts\nDefault is *"],
+						desc = L["For ressing targets who have not released their ghosts"],
 						get = function()
 							return self.db.profile.autoResKey
 						end,
 						set = function(info, value)
 							self.db.profile.autoResKey = value
-						end,
-					}
+						end
+					},
 					manualResKey = {
 						order = 2,
 						type = "keybinding",
 						name = L["Manual Target Key"],
-						desc = L["Gives you the pointer to click on corpses\nDefault is ~"],
+						desc = L["Gives you the pointer to click on corpses"],
 						get = function()
 							return self.db.profile.manualResKey
 						end,
 						set  = function(info, value)
 							self.db.profile.manualResKey = value
-						end,
+						end
 					}
 				}
 			},
@@ -392,17 +391,17 @@ function Addon:OnInitialize()
 					creditsHeader1 = {
 						order = 1,
 						type = "header",
-						name = L["Credits"],
+						name = L["Credits"]
 					},
 					creditsDesc1 = {
 						order = 2,
 						type = "description",
-						name = L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\nSmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."],
+						name = L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\nSmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."]
 					},
 					creditsDesc2 = {
 						order = 3,
 						type = "description",
-						name = L["I would personally like to thank Jerry on the wowace forums for coding the new, smarter, resurrection function."],
+						name = L["I would personally like to thank Jerry on the wowace forums for coding the new, smarter, resurrection function."]
 					}
 				}
 			}
@@ -439,8 +438,6 @@ function Addon:OnInitialize()
 	db.RegisterCallback(self, "OnProfileChanged")
 	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
 	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
-	-- db.RegisterCallback(self, "OnProfileDeleted", "OnProfileChanged")
-	-- db.RegisterCallback(self, "OnNewProfile", "OnProfileChanged")
 	
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	
@@ -469,9 +466,9 @@ function Addon:OnInitialize()
 	self.res_bars:SetTexture(Media:Fetch("statusbar", db.profile.resBarsTexture))
 	
 	if db.profile.locked then
-		self.res_bars:HideAnchor()
-	else
 		self.res_bars:ShowAnchor()
+	else
+		self.res_bars:HideAnchor()
 	end
 	
 	if DataBroker then
@@ -489,7 +486,7 @@ function Addon:OnInitialize()
 			GameTooltip:AddLine(L["SmartRes2 "]..GetAddOnMetadata("SmartRes2", "version"), HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
 			GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 			GameTooltip:Show()
-		end,
+		end
 		})
 	end
 	
@@ -498,7 +495,7 @@ function Addon:OnInitialize()
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 end
 
-function Addon:OnEnable()
+function SmartRes2:OnEnable()
 	-- called when SmartRes2 is enabled
 	
 	ResComm.RegisterCallback(self, "ResComm_ResStart");
@@ -508,7 +505,7 @@ function Addon:OnEnable()
 	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
 end
 
-function Addon:OnDisable()
+function SmartRes2:OnDisable()
 	-- called when SmartRes2 is disabled	
 	ResComm.UnregisterCallback(self, "ResComm_ResStart");
 	ResComm.UnregisterCallback(self, "ResComm_Ressed");
@@ -517,7 +514,7 @@ function Addon:OnDisable()
 end
 
 --events, yay!
-function Addon:UpdateMedia(callback, type, handle)
+function SmartRes2:UpdateMedia(callback, type, handle)
 	if type == "statusbar" then
 		self.res_bars:SetTexture(Media:Fetch("statusbar", db.profile.resBarsTexture))
 		self.res_bars:SetColor(db.profile.resBarsColour)
@@ -526,43 +523,49 @@ function Addon:UpdateMedia(callback, type, handle)
 	end
 end
 
-function Addon:PLAYER_REGEN_ENABLED(event)
-	if event == "PLAYER_REGEN_ENABLED" then
-		if self.playerSpell then
-			self:BindKeys(); -- only binds keys if the player can cast a res spell
-		end	
-		
-		ResComm.RegisterCallback(self, "ResComm_ResStart");
-		ResComm.RegisterCallback(self, "ResComm_Ressed");
-		ResComm.RegisterCallback(self, "ResComm_ResEnd");
-	end
+function SmartRes2:PLAYER_REGEN_ENABLED()
+	if self.playerSpell then
+		self:BindKeys(); -- only binds keys if the player can cast a res spell
+	end	
+	
+	ResComm.RegisterCallback(self, "ResComm_ResStart");
+	ResComm.RegisterCallback(self, "ResComm_Ressed");
+	ResComm.RegisterCallback(self, "ResComm_ResEnd");
+	in_combat = false
 end
 
-function Addon:PLAYER_REGEN_DISABLED(event)
-	if event == "PLAYER_REGEN_DISABLED" then
+function SmartRes2:PLAYER_REGEN_DISABLED()
+	if not in_combat then
 		if self.playerSpell then
 			self:UnBindKeys();
 		end
 		ResComm.UnregisterCallback(self, "ResComm_ResStart");
 		ResComm.UnregisterCallback(self, "ResComm_Ressed");
 		ResComm.UnregisterCallback(self, "ResComm_ResEnd");
+		-- Important Note: Since the release of patch 3.2, certain fights in the game fire the 
+		-- "PLAYER_REGEN_DISABLED" event continuously during combat causing any subsequent events
+		-- we might trigger as a result to also fire continuously. It is recommended therefore to
+		-- use a checking variable that is set to 'on/1/etc' when entering combat and back to
+		-- 'off/0/etc' only when exiting combat and then use this as the final determinant on
+		-- whether or not to action a subsequent event.
+		in_combat = true
 	end
 end
 
-function Addon:OnProfileChanged()
+function SmartRes2:OnProfileChanged()
 	local db = self.db
 end
 
-function Addon:ResAnchorMoved(_, _, x, y)
+function SmartRes2:ResAnchorMoved(_, _, x, y)
 	self.db.profile.resBarsX, self.db.profile.resBarsY = x, y
 end
 
-function Addon:ResComm_ResStart(event, resser, endTime, targetName)
+function SmartRes2:ResComm_ResStart(event, resser, endTime, targetName)
 	if not self.Resser[resser] then return end;	
 	self.Resser[resser] = {
-							endTime = endTime,
-							target = targetName
-						}	
+		endTime = endTime,
+		target = targetName
+	}	
 	self:StartResBars(resser);
 	self:UpdateResColours();
 	
@@ -581,7 +584,7 @@ function Addon:ResComm_ResStart(event, resser, endTime, targetName)
 	end	
 end
 
-function Addon:ResComm_ResEnd(event, ressed, target)
+function SmartRes2:ResComm_ResEnd(event, ressed, target)
 	-- did the cast fail or complete?
 	if not self.Resser[resser] then return end;
 	
@@ -590,7 +593,7 @@ function Addon:ResComm_ResEnd(event, ressed, target)
 	self:UpdateResColours();
 end
 
-function Addon:ResComm_Ressed(event, ressed)
+function SmartRes2:ResComm_Ressed(event, ressed)
 	if not self.Ressed[ressed] or ((self.Ressed[ressed] + 120) < GetTime()) then
 		self.Ressed[ressed] = GetTime();
 	end
@@ -598,7 +601,7 @@ function Addon:ResComm_Ressed(event, ressed)
 	self:UpdateResColours();
 end
 
-function Addon:UpdateResColours()
+function SmartRes2:UpdateResColours()
 	local currentRes = {}
 	local beingRessed = {}
 	local duplicate = false;
@@ -643,13 +646,13 @@ function Addon:UpdateResColours()
 	end
 end
 
-function Addon:StartTestBars()	
-	Addon:ResComm_Ressed(nil, L["Frankthetank"])
-	Addon:ResComm_ResStart(nil, L["Nursenancy"], GetTime() + 10, L["Frankthetank"])
-	Addon:ResComm_ResStart(nil, L["Dummy"], GetTime() + 3, L["Timthewizard"])
+function SmartRes2:StartTestBars()	
+	SmartRes2:ResComm_Ressed(nil, L["Frankthetank"])
+	SmartRes2:ResComm_ResStart(nil, L["Nursenancy"], GetTime() + 10, L["Frankthetank"])
+	SmartRes2:ResComm_ResStart(nil, L["Dummy"], GetTime() + 3, L["Timthewizard"])
 end
 
-function Addon:ClassColours(text, class)
+function SmartRes2:ClassColours(text, class)
 	if class and hexcolors[class] then
 		return format("|cff%s%s|r", hexcolors[class], text)
 	else
@@ -657,7 +660,7 @@ function Addon:ClassColours(text, class)
 	end
 end
 
-function Addon:StartResBars(resser)
+function SmartRes2:StartResBars(resser)
 	local text
 	local icon
 	local name = resser;
@@ -698,19 +701,19 @@ function Addon:StartResBars(resser)
 	self.Resser[resser].bar = bar;
 end
 
-function Addon:StopResBars(resser) -- have to test this function to see if I got it correct
+function SmartRes2:StopResBars(resser) -- have to test this function to see if I got it correct
 	if not self.Resser[resser] then return end;
 	
 	self.Resser[resser].bar:Fade(0.5) -- half second fade
 end
 
 -- set and unset keybindings
-function Addon:BindKeys()
+function SmartRes2:BindKeys()
 	SetOverrideBindingClick(self.resButton, false, db.profile.autoResKey, "SmartRes2Button")
 	SetOverrideBindingSpell(self.resButton, false, db.profile.manualResKey, self.playerSpell)
 end
 
-function Addon:UnBindKeys()
+function SmartRes2:UnBindKeys()
 	ClearOverrideBindings(self.ResButton)
 end
 
@@ -728,7 +731,7 @@ local CLASS_PRIORITIES = {
 	HUNTER = 4,
 	DEATHKNIGHT = 5,
 	ROGUE = 5,
-	WARRIOR = 5,
+	WARRIOR = 5
 }
 
 local function getClassOrder(unit)
@@ -771,7 +774,7 @@ local function getBestCandidate()
 	return best
 end
 
-function Addon:Resurrection()
+function SmartRes2:Resurrection()
 	local resButton = self.resButton
 	
 	if GetNumPartyMembers() == 0 and not UnitInRaid("player") then
