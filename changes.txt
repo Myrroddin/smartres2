@@ -20,3 +20,4 @@ r23 Libs fixes by Phanx
 r27 don't ask about r24 - r26. I'm dumb. anyway, bug fixes, added new profile, horizontal bar direction switching
 r28 many whelps. handled! no fix for ticket #6 yet. more enUS localizations
 r29 fixed tickets 6, 7, and hopefully 8. added deDE localization and borders, updated frFR localization
+r30 still no fix for ticket 8, sorry. fixes for enUS (thanks, Farook!) Farook and black_mystics working on deDE

@@ -85,7 +85,7 @@ if L then
    
    -- Resurrection function localization
    L["You are not in a group."] = true
-   L["% is ressing %"] = true
+   L["%s is ressing %s"] = true
    L["You don't have enough Mana to cast a res spell."] = true
    L["You cannot cast res spells."] = true
    L["There are no bodies in range to res."] = true
@@ -94,31 +94,31 @@ if L then
    L["is resurrecting "] = true
    
    -- silly random messages!
-   L["% is bringing % back to life!"] = true
+   L["%s is bringing %s back to life!"] = true
    L["Filthy peon! %s has to resurrect %s!"] = true
-   L["% has to wake % from eternal slumber."] = true
-   L["% is ending %s\'s dirt nap."] = true
+   L["%s has to wake %s from eternal slumber."] = true
+   L["%s is ending %s\'s dirt nap."] = true
    L["No fallen heroes! %s needs %s to march forward to victory!"] = true
-   L["% doesn't think %s is immortal, but after this res cast, it is close enough."] = true
-   L["Sleeping on the job? % is disappointed in %."] = true
+   L["%s doesn't think %s is immortal, but after this res cast, it is close enough."] = true
+   L["Sleeping on the job? %s is disappointed in %s."] = true
    L["%s knew %s couldn\'t stay out of the fire. *Sigh*"] = true
    L["Once again, %s pulls %s and their bacon out of the fire."] = true
-   L["% thinks %s should work on their Dodge skill."] = true
-   L["% refuses to accept blame for %s\'s death, but kindly undoes the damage."] = true
-   L["%s prods %s with a stick. A-ha! % was only temporarily dead."] = true
-   L["%s knows % is faking. It was only a flesh wound!"] = true
+   L["%s thinks %s should work on their Dodge skill."] = true
+   L["%s refuses to accept blame for %s\'s death, but kindly undoes the damage."] = true
+   L["%s grabs a stick. A-ha! %s was only temporarily dead."] = true
+   L["%s knows %s is faking. It was only a flesh wound!"] = true
    L["Oh. My. God. %s has to breathe life back into %s AGAIN?!?"] = true
    L["%s knows that %s dying was just an excuse to see another silly random res message."] = true
-   L["Think that was bad? % proudly shows %s the scar tissue caused by Ragnaros."] = true
-   L["Just to be silly, % tickles %s until they get back up."] = true
+   L["Think that was bad? %s proudly shows %s the scar tissue caused by Hogger."] = true
+   L["Just to be silly, %s tickles %s until they get back up."] = true
    L["FOR THE HORDE! FOR THE ALLIANCE! %s thinks %s should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."] = true
-   L["And you thought the Scourge looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."] = true
+   LL["And you thought the Scourge looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."] = true
    L["Somewhere, the Lich King is laughing at %s, because he knows %s will just die again eventually. More meat for the grinder!!"] = true
-   L["% doesn't want the Lich King to get another soldier, so is bringing %s back to life."] = true
+   L["%s doesn't want the Lich King to get another soldier, so is bringing %s back to life."] = true
    L["%s wonders about these stupid res messages. %s should just be happy to be alive."] = true
    L["%s prays over the corpse of %s, and a miracle happens!"] = true
    L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %s is making sure %s\'s death isn\'t permanent."] = true
-   L["% performs a series of lewd acts on %\'s still warm corpse. Ew."] = true
+   L["%s performs a series of lewd acts on %s\'s still warm corpse. Ew."] = true
    
    -- chat output stuff
    L["You are ressing %s"] = true

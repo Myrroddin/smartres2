@@ -5,7 +5,7 @@
 local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
-local ResComm = LibStub("LibResComm-1.0")
+local ResComm = LibStub:GetLibrary("LibResComm-1.0")
 local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
 local Bars = LibStub("LibBars-1.0")
 local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1", true)
@@ -507,6 +507,7 @@ function Addon:OnInitialize()
     self.res_bars:SetScale(db.scale)
     self.res_bars:ReverseGrowth(db.reverseGrowth)
     self.res_bars:SetTexture(Media:Fetch("statusbar", db.resBarsTexture))
+    
     if db.locked then
         self.res_bars:HideAnchor()
     else
@@ -559,28 +560,33 @@ end
 function Addon:UpdateMedia(callback, type, handle)
     if type == "statusbar" then
         self.res_bars:SetTexture(Media:Fetch("statusbar", db.resBarsTexture))
-        self.res_bars:SetColor(Media:Fetch("statusbar", db.resBarsColour))
-        self.res_bars:SetColor(Media:Fetch("statusbar", db.collisionBarsColour))
-        -- self.res_bars:SetBorder(Media:Fetch("statusbar", db.resBarsBorder))
+        self.res_bars:SetColor(db.resBarsColour)
+        self.res_bars:SetColor(db.collisionBarsColour)
+        -- self.res_bars:SetBorder(db.resBarsBorder))
     end
 end
 
-function Addon:PLAYER_REGEN_ENABLED()
-    if self.playerSpell then
-        self:BindKeys(); -- only binds keys if the player can cast a res spell
+function Addon:PLAYER_REGEN_ENABLED(event)
+    if event == "PLAYER_REGEN_ENABLED" then
+        if self.playerSpell then
+            self:BindKeys(); -- only binds keys if the player can cast a res spell
+        end    
+        
+        ResComm.RegisterCallback(self, "ResComm_ResStart");
+        ResComm.RegisterCallback(self, "ResComm_Ressed");
+        ResComm.RegisterCallback(self, "ResComm_ResEnd");
     end
-    ResComm.RegisterCallback(self, "ResComm_ResStart");
-    ResComm.RegisterCallback(self, "ResComm_Ressed");
-    ResComm.RegisterCallback(self, "ResComm_ResEnd");
 end
 
-function Addon:PLAYER_REGEN_DISABLED()
-    if self.playerSpell then
-        self:UnBindKeys();
+function Addon:PLAYER_REGEN_DISABLED(event)
+    if event == "PLAYER_REGEN_DISABLED" then
+        if self.playerSpell then
+            self:UnBindKeys();
+        end
+        ResComm.UnRegisterCallback(self, "ResComm_ResStart");
+        ResComm.UnRegisterCallback(self, "ResComm_Ressed");
+        ResComm.UnRegisterCallback(self, "ResComm_ResEnd");
     end
-    ResComm.UnRegisterCallback(self, "ResComm_ResStart");
-    ResComm.UnRegisterCallback(self, "ResComm_Ressed");
-    ResComm.UnRegisterCallback(self, "ResComm_ResEnd");
 end
 
 function Addon:OnProfileChanged(event, database, newProfileKey)
@@ -592,7 +598,7 @@ function Addon:ResAnchorMoved(_, _, x, y)
 end
 
 function Addon:ResComm_ResStart(event, resser, endTime, targetName)
-    if self.Resser[resser] then return end;    
+    if not self.Resser[resser] then return end;    
     self.Resser[resser] = {
                             endTime = endTime,
                             target = targetName
@@ -650,7 +656,7 @@ function Addon:UpdateResColours()
         
         for i, ressed in pairs(beingRessed) do
             if (ressed == info.target) then
-                r, g, b = unpack(colours.red) -- need to change to db.collisionBarsColour
+                r, g, b = unpack(db.collisionBarsColour) -- need to change to db.collisionBarsColour
                 info.bar:SetBackgroundColor(r, g, b, 1)
                 duplicate = true;
                 break;
@@ -665,7 +671,7 @@ function Addon:UpdateResColours()
         end
         
         if not duplicate and not alreadyRessed then
-            r,g,b = unpack(colours.green) -- need to change to db.resBarsColour
+            r,g,b = unpack(db.resBarsColour) -- need to change to db.resBarsColour
             info.bar:SetBackgroundColor(r,g,b,1)
            tinsert(beingRessed,info.target);
         end
@@ -722,8 +728,10 @@ function Addon:StartResBars(resser)
     
     -- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, orientation,length, thickness)
     local bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, orientation)
-    r, g, b = unpack(colours.green)
+    r, g, b = unpack(db.resBarsColour) -- colours.green
     
+    
+    bar:SetBackgroundColor(r,g,b,1)    
     bar:SetColorAt(0, 0, 0, 0, 1, 0)
     -- bar:SetBorder(db.resbarsBorder)
     
