@@ -63,9 +63,9 @@ if L then
    L["Key Bindings"] = true
    L["Set the keybindings"] = true
    L["Auto Res Key"] = true
-   L["For ressing targets who have not released their ghosts\nDefault is *"] = true
+   L["For ressing targets who have not released their ghosts"] = true
    L["Manual Target Key"] = true
-   L["Gives you the pointer to click on corpses\nDefault is ~"] = true
+   L["Gives you the pointer to click on corpses"] = true
    L["SmartRes2 Credits"] = true
    L["About the author and SmartRes2"] = true
    L["Credits"] = true
