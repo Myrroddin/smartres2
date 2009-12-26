@@ -2,23 +2,25 @@
 -- Author:  Myrroddin of Llane
 
 -- load libraries & other stuff
-local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
+local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
+
+local Bars = LibStub("LibBars-1.0")
 local ResComm = LibStub:GetLibrary("LibResComm-1.0")
 local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
-local Bars = LibStub("LibBars-1.0")
-local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1", true)
+
 --@debug@
 _G.SmartRes2 = SmartRes2
 --@end-debug@
+
 local db
 
 -- register the res bar textures with LibSharedMedia-3.0
 Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]])
 -- Media:Register("border", "Wood border", "Interface\\AchievementFrame\\UI-Achievement-WoodBorder.blp")
 
-local hexcolors = { 
+local hexcolors = {
 	PRIEST = "FFFFFF",
 	SHAMAN = "2459FF",
 	PALADIN = "F58CBA",
@@ -28,7 +30,7 @@ local hexcolors = {
 	MAGE = "69CCF0",
 	ROGUE = "FFF569",
 	WARLOCK = "9482C9",
-	WARRIOR = "C79C6E"
+	WARRIOR = "C79C6E",
 }
 
 -- really often used globals
@@ -37,10 +39,10 @@ local tsort = table.sort
 local pairs = pairs
 local unpack = unpack
 local in_combat = false
-	   
+
 function SmartRes2:OnInitialize()
 	-- called when SmartRes2 is loaded
-	
+
 	local defaults = {
 		profile = {
 			scale = 1,
@@ -91,12 +93,15 @@ function SmartRes2:OnInitialize()
 			}
 		}
 	}
-   
+
 	-- register saved variables with AceDB
-	db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, "Default")
-	defaults = nil
-	self.db = db
-	
+	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, "Default")
+	db = self.db.profile
+
+	db.RegisterCallback(self, "OnProfileChanged")
+	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
+	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
+
 	local options = {
 		name = L["SmartRes2"],
 		handler = SmartRes2,
@@ -125,9 +130,9 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)
 							self.db.profile.locked = value
 							if value then
-								self.res_bars:HideAnchor();
+								self.res_bars:HideAnchor()
 							else
-								self.res_bars:ShowAnchor();
+								self.res_bars:ShowAnchor()
 							end
 						end
 					},
@@ -184,7 +189,7 @@ function SmartRes2:OnInitialize()
 						get = function()
 							return self.db.profile.resBarsBGColour
 						end,
-						set = function(self, value)
+						set = function(info, value)
 							self.db.profile.resBarsBGColour = value
 						end
 					},-- not sure if LibBars supports this
@@ -198,7 +203,7 @@ function SmartRes2:OnInitialize()
 						get = function()
 							return self.db.profile.resBarsBorder
 						end,
-						set = function(self, value)
+						set = function(info, value)
 							self.db.profile.resbarsBorder = value
 						end
 					},]] -- not sure if LibBars supports this either
@@ -276,9 +281,10 @@ function SmartRes2:OnInitialize()
 						type = "execute",
 						name = L["Test Bars"],
 						desc = L["Show the test bars"],
-						func = function() self:StartTestBars()
+						func = function()
+							self:StartTestBars()
 						end
-					}			   
+					}
 				}
 			},
 			resChatTextTab = {
@@ -316,7 +322,7 @@ function SmartRes2:OnInitialize()
 							yell = L["YELL"],
 							guild = L["GUILD"],
 							none = L["none"],
-						},						
+						},
 						get = function()
 							return self.db.profile.chatOutput
 						end,
@@ -407,10 +413,49 @@ function SmartRes2:OnInitialize()
 			}
 		}
 	}
-	
+
 	-- add the 'Profiles' section
 	options.args.profilesTab = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
 	options.args.profilesTab.order = 4
+
+	-- Register your options with AceConfigRegistry
+	LibStub("AceConfigRegistry-3.0"):RegisterOptionsTable("SmartRes2", options)
+
+	 -- Add your options to the Blizz options window using AceConfigDialog
+	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", L["SmartRes2"])
+
+	-- support for LibAboutPanel
+	if LibStub:GetLibrary("LibAboutPanel", true) then
+		self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new(L["SmartRes2"], "SmartRes2")
+	end
+
+	-- create chat commands
+	self:RegisterChatCommand("sr", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
+	self:RegisterChatCommand("smartres", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
+
+	-- register for LibSharedMedia-3.0 updates
+	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
+
+	-- register a launcher
+	local DataBroker = LibStub("LibDataBroker-1.1", true)
+	if DataBroker then
+		DataBroker:NewDataObject("SmartRes2", {
+			type = "launcher",
+			icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.Priest, -- "Interface\\Icons\\Spell_Holy_Resurrection", icon changes depending on class, or defaults to Resurrection, if not a resser
+			OnClick = function(self, button)
+				if button == "LeftButton" then
+					self.res_bars:ToggleAnchor()
+				elseif button == "RightButton" then
+					InterfaceOptionsFrame_OpenToCategory(SmartRes2.optionsFrame)
+				end
+			end,
+			OnTooltipShow = function(self)
+				GameTooltip:AddLine(L["SmartRes2 "]..GetAddOnMetadata("SmartRes2", "version"), HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+				GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+				GameTooltip:Show()
+			end
+		})
+	end
 
 	-- prepare spells
 	self.resSpells = { -- getting the spell names
@@ -418,78 +463,38 @@ function SmartRes2:OnInitialize()
 		Shaman = GetSpellInfo(2008), -- Ancestral Spirit
 		Druid = GetSpellInfo(50769), -- Revive
 		Paladin = GetSpellInfo(7328) -- Redemption
-	}	
-	
+	}
+
 	self.resSpellIcons = { -- need the icons too, for the res bars
 		Priest = select (3, GetSpellInfo(2006)),
 		Shaman = select (3, GetSpellInfo(2008)),
 		Druid = select (3, GetSpellInfo(50769)),
 		Paladin = select (3, GetSpellInfo(7328))
-	}  
+	}
 	self.playerClass = select (2, UnitClass("player"))  -- what class is the user?
 	self.playerSpell = self.resSpells[self.playerClass] -- only has data if the player can cast a res spell
-	
+
 	-- create a secure button for ressing
 	local resButton = CreateFrame("button", "SmartRes2Button", UIParent, "SecureActionButtonTemplate")
 	resButton:SetAttribute("type", "spell")
-	resButton:SetAttribute("PreClick", function() self:Resurrect() end);
+	resButton:SetAttribute("PreClick", function() self:Resurrect() end)
 	self.resButton = resButton
-	
-	db.RegisterCallback(self, "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
-	
-	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
-	
-	-- Register your options with AceConfigRegistry
-	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
-	
-	 -- Add your options to the Blizz options window using AceConfigDialog
-	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", L["SmartRes2"])
-	
-	-- support for LibAboutPanel
-	if LibStub:GetLibrary("LibAboutPanel", true) then
-		self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
-	end
-	
-	-- create chat commands
-	self:RegisterChatCommand("sr", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
-	self:RegisterChatCommand("smartres", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
-	
+
 	self.Resser = {}
-	self.Ressed = {}  
-		
+	self.Ressed = {}
+
 	self.res_bars = self:NewBarGroup("SmartRes2", orientation, 300)
 	self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", db.profile.resBarsX, db.profile.resBarsY)
 	self.res_bars:SetScale(db.profile.scale)
 	self.res_bars:ReverseGrowth(db.profile.reverseGrowth)
 	self.res_bars:SetTexture(Media:Fetch("statusbar", db.profile.resBarsTexture))
-	
+
 	if db.profile.locked then
 		self.res_bars:ShowAnchor()
 	else
 		self.res_bars:HideAnchor()
 	end
-	
-	if DataBroker then
-		local launcher = DataBroker:NewDataObject("SmartRes2", {
-		type = "launcher",
-		icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.Priest, -- "Interface\\Icons\\Spell_Holy_Resurrection", icon changes depending on class, or defaults to Resurrection, if not a resser
-		OnClick = function(clickedframe, button)
-			if button == "LeftButton" then
-				self.res_bars:ToggleAnchor()
-			elseif button == "RightButton" then
-				InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
-			end
-		end,
-		OnTooltipShow = function(self)
-			GameTooltip:AddLine(L["SmartRes2 "]..GetAddOnMetadata("SmartRes2", "version"), HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
-			GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-			GameTooltip:Show()
-		end
-		})
-	end
-	
+
 	-- register events so we can turn things off in combat, and back on when out of combat
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -497,20 +502,21 @@ end
 
 function SmartRes2:OnEnable()
 	-- called when SmartRes2 is enabled
-	
-	ResComm.RegisterCallback(self, "ResComm_ResStart");
-	ResComm.RegisterCallback(self, "ResComm_Ressed");
-	ResComm.RegisterCallback(self, "ResComm_ResEnd");
-	
+
+	ResComm.RegisterCallback(self, "ResComm_ResStart")
+	ResComm.RegisterCallback(self, "ResComm_Ressed")
+	ResComm.RegisterCallback(self, "ResComm_ResEnd")
+
 	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
 end
 
 function SmartRes2:OnDisable()
-	-- called when SmartRes2 is disabled	
-	ResComm.UnregisterCallback(self, "ResComm_ResStart");
-	ResComm.UnregisterCallback(self, "ResComm_Ressed");
-	ResComm.UnregisterCallback(self, "ResComm_ResEnd");
-	self:UnBindKeys();
+	-- called when SmartRes2 is disabled
+
+	ResComm.UnregisterCallback(self, "ResComm_ResStart")
+	ResComm.UnregisterCallback(self, "ResComm_Ressed")
+	ResComm.UnregisterCallback(self, "ResComm_ResEnd")
+	self:UnBindKeys()
 end
 
 --events, yay!
@@ -525,24 +531,24 @@ end
 
 function SmartRes2:PLAYER_REGEN_ENABLED()
 	if self.playerSpell then
-		self:BindKeys(); -- only binds keys if the player can cast a res spell
-	end	
-	
-	ResComm.RegisterCallback(self, "ResComm_ResStart");
-	ResComm.RegisterCallback(self, "ResComm_Ressed");
-	ResComm.RegisterCallback(self, "ResComm_ResEnd");
+		self:BindKeys() -- only binds keys if the player can cast a res spell
+	end
+
+	ResComm.RegisterCallback(self, "ResComm_ResStart")
+	ResComm.RegisterCallback(self, "ResComm_Ressed")
+	ResComm.RegisterCallback(self, "ResComm_ResEnd")
 	in_combat = false
 end
 
 function SmartRes2:PLAYER_REGEN_DISABLED()
 	if not in_combat then
 		if self.playerSpell then
-			self:UnBindKeys();
+			self:UnBindKeys()
 		end
-		ResComm.UnregisterCallback(self, "ResComm_ResStart");
-		ResComm.UnregisterCallback(self, "ResComm_Ressed");
-		ResComm.UnregisterCallback(self, "ResComm_ResEnd");
-		-- Important Note: Since the release of patch 3.2, certain fights in the game fire the 
+		ResComm.UnregisterCallback(self, "ResComm_ResStart")
+		ResComm.UnregisterCallback(self, "ResComm_Ressed")
+		ResComm.UnregisterCallback(self, "ResComm_ResEnd")
+		-- Important Note: Since the release of patch 3.2, certain fights in the game fire the
 		-- "PLAYER_REGEN_DISABLED" event continuously during combat causing any subsequent events
 		-- we might trigger as a result to also fire continuously. It is recommended therefore to
 		-- use a checking variable that is set to 'on/1/etc' when entering combat and back to
@@ -561,84 +567,84 @@ function SmartRes2:ResAnchorMoved(_, _, x, y)
 end
 
 function SmartRes2:ResComm_ResStart(event, resser, endTime, targetName)
-	if not self.Resser[resser] then return end;	
+	if not self.Resser[resser] then return end
 	self.Resser[resser] = {
 		endTime = endTime,
 		target = targetName
-	}	
-	self:StartResBars(resser);
-	self:UpdateResColours();
-	
+	}
+	self:StartResBars(resser)
+	self:UpdateResColours()
+
 	local isSame = UnitIsUnit(resser, "player")
 	if isSame == 1 then -- make sure only the player is sending messages
 		if not (db.profile.chatOutput == "none") then -- if it is "none" then don't send any chat messages
 			if (db.profile.randMssgs) then
-				SendChatMessage(math.random(#defaults.randChatTbl), db.profile.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
+				SendChatMessage(math.random(#db.randChatTbl), db.profile.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
 			else
 				SendChatMessage(L["%s is ressing %s"], db.profile.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
-			end			
-		end		
+			end
+		end
 		if (db.profile.notifySelf) then
 			self:Print(L["You are ressing %s"]):format(self.Resser[target])
 		end
-	end	
+	end
 end
 
 function SmartRes2:ResComm_ResEnd(event, ressed, target)
 	-- did the cast fail or complete?
-	if not self.Resser[resser] then return end;
-	
+	if not self.Resser[resser] then return end
+
 	self:StopResBars(resser)
-	self.Resser[resser] = nil;
-	self:UpdateResColours();
+	self.Resser[resser] = nil
+	self:UpdateResColours()
 end
 
 function SmartRes2:ResComm_Ressed(event, ressed)
 	if not self.Ressed[ressed] or ((self.Ressed[ressed] + 120) < GetTime()) then
-		self.Ressed[ressed] = GetTime();
+		self.Ressed[ressed] = GetTime()
 	end
-	
-	self:UpdateResColours();
+
+	self:UpdateResColours()
 end
 
 function SmartRes2:UpdateResColours()
 	local currentRes = {}
 	local beingRessed = {}
-	local duplicate = false;
-	local alreadyRessed = false;
-	
+	local duplicate = false
+	local alreadyRessed = false
+
 	for resserName, info in pairs(self.Resser) do
-		tinsert(currentRes, info);
+		tinsert(currentRes, info)
 	end
-	
-	tsort(currentRes, function(a, b) return a.endTime < b.endTime end);
-	
+
+	tsort(currentRes, function(a, b) return a.endTime < b.endTime end)
+
 	for idx, info in pairs(currentRes) do
-		duplicate = false;
-		alreadyRessed = false;
-		
+		duplicate = false
+		alreadyRessed = false
+
 		for i, ressed in pairs(beingRessed) do
 			if (ressed == info.target) then
 				r, g, b = unpack(db.profile.collisionBarsColour) -- need to change to db.profile.collisionBarsColour
 				info.bar:SetBackgroundColor(r, g, b, 1)
-				duplicate = true;
-				break;
+				duplicate = true
+				break
 			end
 		end
-		
+
 		for ressed, time in pairs(self.Ressed) do
 			if (ressed == info.target) and (time + 120) > GetTime() then
-				alreadyRessed = true;
-				break;
+				alreadyRessed = true
+				break
 			end
 		end
-		
+
 		if not duplicate and not alreadyRessed then
 			r,g,b = unpack(db.profile.resBarsColour) -- need to change to db.profile.resBarsColour
 			info.bar:SetBackgroundColor(r,g,b,1)
-		   tinsert(beingRessed,info.target);
+		   tinsert(beingRessed,info.target)
 		end
-		
+
 		if (duplicate or alreadyRessed) and (db.profile.notifyCollision) then
 			SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s. "]..L["Please get SmartRes2 and use the auto res key to never see this whisper again."],
 			"whisper", nil, info):format(beingRessed.info.target, info) -- are these the correct variables to be passing?
@@ -646,7 +652,7 @@ function SmartRes2:UpdateResColours()
 	end
 end
 
-function SmartRes2:StartTestBars()	
+function SmartRes2:StartTestBars()
 	SmartRes2:ResComm_Ressed(nil, L["Frankthetank"])
 	SmartRes2:ResComm_ResStart(nil, L["Nursenancy"], GetTime() + 10, L["Frankthetank"])
 	SmartRes2:ResComm_ResStart(nil, L["Dummy"], GetTime() + 3, L["Timthewizard"])
@@ -663,11 +669,11 @@ end
 function SmartRes2:StartResBars(resser)
 	local text
 	local icon
-	local name = resser;
-	local info = self.Resser[resser];
-	local time = info.endTime - GetTime();
+	local name = resser
+	local info = self.Resser[resser]
+	local time = info.endTime - GetTime()
 	local orientation
-	
+
 	if db.profile.classColours then
 		text = self:ClassColours(resser, select (2, UnitClass(resser)))..
 			L["is resurrecting "]..
@@ -675,35 +681,35 @@ function SmartRes2:StartResBars(resser)
 	else
 		text = (L["%s is resurrecting %s"]):format(resser, info.target)
 	end
-	
+
 	if db.profile.resBarsIcon then
 		icon = self.resSpellIcons[resser]
 	else
 		icon = nil
 	end
-	
+
 	if self.db.profile.horizontalOrientation then
 		orientation = Bars.RIGHT_TO_LEFT
 	else
 		orientation = Bars.LEFT_TO_RIGHT
 		self.db.profile.horizontalOrientation = false
 	end
-	
+
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, orientation,length, thickness)
 	local bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, orientation)
 	r, g, b = unpack(db.profile.resBarsColour) -- colours.green
-	
-	
-	bar:SetBackgroundColor(r,g,b,1)	
+
+
+	bar:SetBackgroundColor(r,g,b,1)
 	bar:SetColorAt(0, 0, 0, 0, 1, 0)
 	-- bar:SetBorder(db.profile.resbarsBorder)
-	
-	self.Resser[resser].bar = bar;
+
+	self.Resser[resser].bar = bar
 end
 
 function SmartRes2:StopResBars(resser) -- have to test this function to see if I got it correct
-	if not self.Resser[resser] then return end;
-	
+	if not self.Resser[resser] then return end
+
 	self.Resser[resser].bar:Fade(0.5) -- half second fade
 end
 
@@ -722,12 +728,12 @@ local CLASS_PRIORITIES = {
 	-- non ressers who use Mana should be followed after ressers, as they are usually buffers
 	-- or pet summoners (ie: Mana burners)
 	-- res non Mana users last
-	PRIEST = 1, 
-	PALADIN = 2, 
-	SHAMAN = 3, 
-	DRUID = 3, 
-	MAGE = 4, 
-	WARLOCK = 4, 
+	PRIEST = 1,
+	PALADIN = 2,
+	SHAMAN = 3,
+	DRUID = 3,
+	MAGE = 4,
+	WARLOCK = 4,
 	HUNTER = 4,
 	DEATHKNIGHT = 5,
 	ROGUE = 5,
@@ -776,32 +782,32 @@ end
 
 function SmartRes2:Resurrection()
 	local resButton = self.resButton
-	
+
 	if GetNumPartyMembers() == 0 and not UnitInRaid("player") then
 		self:Print(L["You are not in a group."])
 		return
 	end
-	
+
 	resButton:SetAttribute("unit", nil)
 	resButton:SetAttribute("spell", nil)
-	
-	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a resser 
-	local isUsable, outOfMana = IsUsableSpell[self.PlayerSpell] -- determined during SmartRes2:OnInitialize() 
-	if outOfMana then 
-	   self:Print(L["You don't have enough Mana to cast a res spell."]) 
-	   return 
-	elseif not isUsable then 
+
+	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a resser
+	local isUsable, outOfMana = IsUsableSpell[self.PlayerSpell] -- determined during SmartRes2:OnInitialize()
+	if outOfMana then
+	   self:Print(L["You don't have enough Mana to cast a res spell."])
+	   return
+	elseif not isUsable then
 		self:Print(L["You cannot cast res spells."]) -- in the final code, you should never see this message
-		return 
+		return
 	end
 	--[[ The previous will eventually be replaced with the following code. I am putting this in for clarity and bug fixing
 	if not self.PlayerSpell then return end
-	
+
 	local _, outOfMana = IsUsableSpell[self.PlayerSpell]
 	if outOfMana then
 		self:Print(L["You don't have enough Mana to cast a res spell."]
 	end]]--
-	
+
 	local unit = getBestCandidate()
 	if unit then
 		-- do something useful like setting the target of your button
