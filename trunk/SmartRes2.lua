@@ -2,17 +2,16 @@
 -- Author:  Myrroddin of Llane
 
 -- load libraries & other stuff
-local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0")
+local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 
-local Bars = LibStub("LibBars-1.0")
 local ResComm = LibStub:GetLibrary("LibResComm-1.0")
 local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
 
---@debug@
+--[===[@debug@
 _G.SmartRes2 = SmartRes2
---@end-debug@
+--@end-debug@]===]
 
 local db
 
@@ -42,6 +41,23 @@ local in_combat = false
 
 function SmartRes2:OnInitialize()
 	-- called when SmartRes2 is loaded
+
+	-- prepare spells
+	self.resSpells = { -- getting the spell names
+		PREIST = GetSpellInfo(2006), -- Resurrection
+		SHAMAN = GetSpellInfo(2008), -- Ancestral Spirit
+		DRUID = GetSpellInfo(50769), -- Revive
+		PALADIN = GetSpellInfo(7328) -- Redemption
+	}
+
+	self.resSpellIcons = { -- need the icons too, for the res bars
+		PRIEST = select(3, GetSpellInfo(2006)),
+		SHAMAN = select(3, GetSpellInfo(2008)),
+		DRUID = select(3, GetSpellInfo(50769)),
+		PALADIN = select(3, GetSpellInfo(7328)),
+	}
+	self.playerClass = select (2, UnitClass("player"))  -- what class is the user?
+	self.playerSpell = self.resSpells[self.playerClass] -- only has data if the player can cast a res spell
 
 	local defaults = {
 		profile = {
@@ -98,9 +114,9 @@ function SmartRes2:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, "Default")
 	db = self.db.profile
 
-	db.RegisterCallback(self, "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
+	self.db.RegisterCallback(self, "OnProfileChanged")
+	self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
+	self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
 
 	local options = {
 		name = L["SmartRes2"],
@@ -125,10 +141,10 @@ function SmartRes2:OnInitialize()
 						name = L["Show Anchor"],
 						desc = L["Toggles the anchor for the res bars so you can move them"],
 						get = function()
-							return self.db.profile.locked
+							return db.locked
 						end,
 						set = function(info, value)
-							self.db.profile.locked = value
+							db.locked = value
 							if value then
 								self.res_bars:HideAnchor()
 							else
@@ -147,10 +163,10 @@ function SmartRes2:OnInitialize()
 						name = L["Show Icon"],
 						desc = L["Show or hide the icon for res spells"],
 						get = function()
-							return self.db.profile.resBarsIcon
+							return db.resBarsIcon
 						end,
 						set = function(info, value)
-							self.db.profile.resBarsIcon = value
+							db.resBarsIcon = value
 						end
 					},
 					classColours = {
@@ -159,10 +175,10 @@ function SmartRes2:OnInitialize()
 						name = L["Class Colours"],
 						desc = L["Use class colours for the target on the res bars"],
 						get = function()
-							return self.db.profile.classColours
+							return db.classColours
 						end,
 						set = function(info, value)
-							self.db.profile.classColours = value
+							db.classColours = value
 						end
 					},
 					resBarsTexture = {
@@ -173,10 +189,10 @@ function SmartRes2:OnInitialize()
 						desc = L["Select the texture for the res bars"],
 						values = AceGUIWidgetLSMlists.statusbar,
 						get = function()
-							return self.db.profile.resBarsTexture
+							return db.resBarsTexture
 						end,
 						set = function(info, value)
-							self.db.profile.resBarsTexture = value
+							db.resBarsTexture = value
 						end
 					},
 					--[[resBarsBGColour = {
@@ -187,10 +203,10 @@ function SmartRes2:OnInitialize()
 						desc = L["Set the background colour for the res bars"],
 						values = AceGUIWidgetLSMlists.background,
 						get = function()
-							return self.db.profile.resBarsBGColour
+							return db.resBarsBGColour
 						end,
 						set = function(info, value)
-							self.db.profile.resBarsBGColour = value
+							db.resBarsBGColour = value
 						end
 					},-- not sure if LibBars supports this
 					resBarsBorder = {
@@ -201,10 +217,10 @@ function SmartRes2:OnInitialize()
 						desc = L["Set the border for the res bars"],
 						values = AceGUIWidgetLSMlists.border,
 						get = function()
-							return self.db.profile.resBarsBorder
+							return db.resBarsBorder
 						end,
 						set = function(info, value)
-							self.db.profile.resbarsBorder = value
+							db.resbarsBorder = value
 						end
 					},]] -- not sure if LibBars supports this either
 					resBarsColour = {
@@ -213,11 +229,11 @@ function SmartRes2:OnInitialize()
 						name = L["Bar Colour"],
 						desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
 						get = function()
-							local t = self.db.profile.resBarsColour
+							local t = db.resBarsColour
 							return t.r, t.g, t.b, t.a
 						end,
 						set = function(info, r, g, b, a)
-							local t = self.db.profile.resBarsColour
+							local t = db.resBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end
 					},
@@ -227,11 +243,11 @@ function SmartRes2:OnInitialize()
 						name = L["Duplicate Bar Colour"],
 						desc = L["Pick the colour for collision (duplicate) res bars"],
 						get = function()
-							local t = self.db.profile.collisionBarsColour
+							local t = db.collisionBarsColour
 							return t.r, t.g, t.b, t.a
 						end,
 						set = function(info, r, g, b, a)
-							local t = self.db.profile.collisionBarsColour
+							local t = db.collisionBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end
 					},
@@ -241,10 +257,10 @@ function SmartRes2:OnInitialize()
 						name = L["Grow Upwards"],
 						desc = L["Make the res bars grow up instead of down"],
 						get = function()
-							return self.db.profile.reverseGrowth
+							return db.reverseGrowth
 						end,
 						set = function(info, value)
-							self.db.profile.reverseGrowth = value
+							db.reverseGrowth = value
 							self.res_bars:ReverseGrowth(value)
 						end
 					},
@@ -254,10 +270,10 @@ function SmartRes2:OnInitialize()
 						name = L["Scale"],
 						desc = L["Set the scale for the res bars"],
 						get = function()
-							return self.db.profile.scale
+							return db.scale
 						end,
 						set = function(info, value)
-							self.db.profile.scale = value
+							db.scale = value
 							self.res_bars:SetScale(value)
 						end,
 						min = 0.5,
@@ -270,10 +286,10 @@ function SmartRes2:OnInitialize()
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars. Default is right to left"],
 						get = function()
-							return self.db.profile.horizontalOrientation
+							return db.horizontalOrientation
 						end,
 						set = function(info, value)
-							self.db.profile.horizontalOrientation = value
+							db.horizontalOrientation = value
 						end
 					},
 					resBarsTestBars = { -- need to fix the execute function
@@ -304,10 +320,10 @@ function SmartRes2:OnInitialize()
 						name = L["Random Res Messages"],
 						desc = L["Turn random res messages on or keep the same message.\nDefault is off"],
 						get = function()
-							return self.db.profile.randMssgs
+							return db.randMssgs
 						end,
 						set = function(info, value)
-							self.db.profile.randMssgs = value
+							db.randMssgs = value
 						end
 					},
 					chatOutput = {
@@ -324,10 +340,10 @@ function SmartRes2:OnInitialize()
 							none = L["none"],
 						},
 						get = function()
-							return self.db.profile.chatOutput
+							return db.chatOutput
 						end,
 						set = function(info, value)
-							self.db.profile.chatOutput = value
+							db.chatOutput = value
 						end
 					},
 					notifySelf = {
@@ -336,10 +352,10 @@ function SmartRes2:OnInitialize()
 						name = L["Self Notification"],
 						desc = L["Prints a message to yourself whom you are ressing"],
 						get = function()
-							return self.db.profile.notifySelf
+							return db.notifySelf
 						end,
 						set = function(info, value)
-							self.db.profile.notifySelf = value
+							db.notifySelf = value
 						end
 					},
 					notifyCollision = {
@@ -348,10 +364,10 @@ function SmartRes2:OnInitialize()
 						name = L["Duplicate Res Targets"],
 						desc = L["Toggle whether you want to whisper a resser who is ressing a\ntarget of another resser's spell.\nCould get very spammy.\nDefault off"],
 						get = function()
-							return self.db.profile.notifyCollision
+							return db.notifyCollision
 						end,
 						set = function(info, value)
-							self.db.profile.notifyCollision = value
+							db.notifyCollision = value
 						end
 					}
 				}
@@ -368,10 +384,10 @@ function SmartRes2:OnInitialize()
 						name = L["Auto Res Key"],
 						desc = L["For ressing targets who have not released their ghosts"],
 						get = function()
-							return self.db.profile.autoResKey
+							return db.autoResKey
 						end,
 						set = function(info, value)
-							self.db.profile.autoResKey = value
+							db.autoResKey = value
 						end
 					},
 					manualResKey = {
@@ -380,10 +396,10 @@ function SmartRes2:OnInitialize()
 						name = L["Manual Target Key"],
 						desc = L["Gives you the pointer to click on corpses"],
 						get = function()
-							return self.db.profile.manualResKey
+							return db.manualResKey
 						end,
 						set  = function(info, value)
-							self.db.profile.manualResKey = value
+							db.manualResKey = value
 						end
 					}
 				}
@@ -457,23 +473,6 @@ function SmartRes2:OnInitialize()
 		})
 	end
 
-	-- prepare spells
-	self.resSpells = { -- getting the spell names
-		Priest = GetSpellInfo(2006), -- Resurrection
-		Shaman = GetSpellInfo(2008), -- Ancestral Spirit
-		Druid = GetSpellInfo(50769), -- Revive
-		Paladin = GetSpellInfo(7328) -- Redemption
-	}
-
-	self.resSpellIcons = { -- need the icons too, for the res bars
-		Priest = select (3, GetSpellInfo(2006)),
-		Shaman = select (3, GetSpellInfo(2008)),
-		Druid = select (3, GetSpellInfo(50769)),
-		Paladin = select (3, GetSpellInfo(7328))
-	}
-	self.playerClass = select (2, UnitClass("player"))  -- what class is the user?
-	self.playerSpell = self.resSpells[self.playerClass] -- only has data if the player can cast a res spell
-
 	-- create a secure button for ressing
 	local resButton = CreateFrame("button", "SmartRes2Button", UIParent, "SecureActionButtonTemplate")
 	resButton:SetAttribute("type", "spell")
@@ -484,12 +483,12 @@ function SmartRes2:OnInitialize()
 	self.Ressed = {}
 
 	self.res_bars = self:NewBarGroup("SmartRes2", orientation, 300)
-	self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", db.profile.resBarsX, db.profile.resBarsY)
-	self.res_bars:SetScale(db.profile.scale)
-	self.res_bars:ReverseGrowth(db.profile.reverseGrowth)
-	self.res_bars:SetTexture(Media:Fetch("statusbar", db.profile.resBarsTexture))
+	self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", db.resBarsX, db.resBarsY)
+	self.res_bars:SetScale(db.scale)
+	self.res_bars:ReverseGrowth(db.reverseGrowth)
+	self.res_bars:SetTexture(Media:Fetch("statusbar", db.resBarsTexture))
 
-	if db.profile.locked then
+	if db.locked then
 		self.res_bars:ShowAnchor()
 	else
 		self.res_bars:HideAnchor()
@@ -522,10 +521,10 @@ end
 --events, yay!
 function SmartRes2:UpdateMedia(callback, type, handle)
 	if type == "statusbar" then
-		self.res_bars:SetTexture(Media:Fetch("statusbar", db.profile.resBarsTexture))
-		self.res_bars:SetColor(db.profile.resBarsColour)
-		self.res_bars:SetColor(db.profile.collisionBarsColour)
-		-- self.res_bars:SetBorder(db.profile.resBarsBorder))
+		self.res_bars:SetTexture(Media:Fetch("statusbar", db.resBarsTexture))
+		self.res_bars:SetColor(db.resBarsColour)
+		self.res_bars:SetColor(db.collisionBarsColour)
+		-- self.res_bars:SetBorder(db.resBarsBorder))
 	end
 end
 
@@ -559,11 +558,11 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 end
 
 function SmartRes2:OnProfileChanged()
-	local db = self.db
+	local db = self.db.profile
 end
 
 function SmartRes2:ResAnchorMoved(_, _, x, y)
-	self.db.profile.resBarsX, self.db.profile.resBarsY = x, y
+	db.resBarsX, db.resBarsY = x, y
 end
 
 function SmartRes2:ResComm_ResStart(event, resser, endTime, targetName)
@@ -577,14 +576,14 @@ function SmartRes2:ResComm_ResStart(event, resser, endTime, targetName)
 
 	local isSame = UnitIsUnit(resser, "player")
 	if isSame == 1 then -- make sure only the player is sending messages
-		if not (db.profile.chatOutput == "none") then -- if it is "none" then don't send any chat messages
-			if (db.profile.randMssgs) then
-				SendChatMessage(math.random(#db.randChatTbl), db.profile.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
+		if not (db.chatOutput == "none") then -- if it is "none" then don't send any chat messages
+			if (db.randMssgs) then
+				SendChatMessage(math.random(#db.randChatTbl), db.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
 			else
-				SendChatMessage(L["%s is ressing %s"], db.profile.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
+				SendChatMessage(L["%s is ressing %s"], db.chatOutput, nil, nil):format(self.Resser[resser], self.Resser[target])
 			end
 		end
-		if (db.profile.notifySelf) then
+		if (db.notifySelf) then
 			self:Print(L["You are ressing %s"]):format(self.Resser[target])
 		end
 	end
@@ -625,7 +624,7 @@ function SmartRes2:UpdateResColours()
 
 		for i, ressed in pairs(beingRessed) do
 			if (ressed == info.target) then
-				r, g, b = unpack(db.profile.collisionBarsColour) -- need to change to db.profile.collisionBarsColour
+				r, g, b = unpack(db.collisionBarsColour) -- need to change to db.collisionBarsColour
 				info.bar:SetBackgroundColor(r, g, b, 1)
 				duplicate = true
 				break
@@ -640,12 +639,12 @@ function SmartRes2:UpdateResColours()
 		end
 
 		if not duplicate and not alreadyRessed then
-			r,g,b = unpack(db.profile.resBarsColour) -- need to change to db.profile.resBarsColour
+			r,g,b = unpack(db.resBarsColour) -- need to change to db.resBarsColour
 			info.bar:SetBackgroundColor(r,g,b,1)
 		   tinsert(beingRessed,info.target)
 		end
 
-		if (duplicate or alreadyRessed) and (db.profile.notifyCollision) then
+		if (duplicate or alreadyRessed) and (db.notifyCollision) then
 			SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s. "]..L["Please get SmartRes2 and use the auto res key to never see this whisper again."],
 			"whisper", nil, info):format(beingRessed.info.target, info) -- are these the correct variables to be passing?
 		end
@@ -674,7 +673,7 @@ function SmartRes2:StartResBars(resser)
 	local time = info.endTime - GetTime()
 	local orientation
 
-	if db.profile.classColours then
+	if db.classColours then
 		text = self:ClassColours(resser, select (2, UnitClass(resser)))..
 			L["is resurrecting "]..
 			self:ClassColours(info.target, select(2, UnitClass(info.target)))
@@ -682,27 +681,26 @@ function SmartRes2:StartResBars(resser)
 		text = (L["%s is resurrecting %s"]):format(resser, info.target)
 	end
 
-	if db.profile.resBarsIcon then
+	if db.resBarsIcon then
 		icon = self.resSpellIcons[resser]
 	else
 		icon = nil
 	end
 
-	if self.db.profile.horizontalOrientation then
-		orientation = Bars.RIGHT_TO_LEFT
+	if db.horizontalOrientation then
+		orientation = 3 -- Bars.RIGHT_TO_LEFT
 	else
-		orientation = Bars.LEFT_TO_RIGHT
-		self.db.profile.horizontalOrientation = false
+		orientation = 1 -- Bars.LEFT_TO_RIGHT
+		db.horizontalOrientation = false
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, orientation,length, thickness)
 	local bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, orientation)
-	r, g, b = unpack(db.profile.resBarsColour) -- colours.green
-
+	r, g, b = unpack(db.resBarsColour) -- colours.green
 
 	bar:SetBackgroundColor(r,g,b,1)
 	bar:SetColorAt(0, 0, 0, 0, 1, 0)
-	-- bar:SetBorder(db.profile.resbarsBorder)
+	-- bar:SetBorder(db.resbarsBorder)
 
 	self.Resser[resser].bar = bar
 end
@@ -715,8 +713,8 @@ end
 
 -- set and unset keybindings
 function SmartRes2:BindKeys()
-	SetOverrideBindingClick(self.resButton, false, db.profile.autoResKey, "SmartRes2Button")
-	SetOverrideBindingSpell(self.resButton, false, db.profile.manualResKey, self.playerSpell)
+	SetOverrideBindingClick(self.resButton, false, db.autoResKey, "SmartRes2Button")
+	SetOverrideBindingSpell(self.resButton, false, db.manualResKey, self.playerSpell)
 end
 
 function SmartRes2:UnBindKeys()
