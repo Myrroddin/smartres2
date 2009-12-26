@@ -23,3 +23,5 @@ r29 fixed tickets 6, 7, and hopefully 8. added deDE localization and borders, up
 r30 still no fix for ticket 8, sorry. fixes for enUS (thanks, Farook!) Farook and black_mystics working on deDE
 r31 oneforeignshore and I (mostly him) fixed LOTS of issues. including localizations again. fixed ticket 8
 r32 most of the options working. Test bars still non functional. need to test in a party or raid
+r33 - r 35 Phanx changes, but based on old codebase
+r36 new codebase, updated localizations
