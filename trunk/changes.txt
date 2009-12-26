@@ -31,3 +31,4 @@ r39 trying auto localization uploading
 r40 minor altering of localizations
 r41 experimental build for localizations
 r42 cleaning up localizations
+r43 added border support. test bars still wonky. altered toc and removed unnecessary files
