@@ -22,7 +22,7 @@ if L then
 	-- Interface Options Panel
 	L["Res Bars"] = true
 	L["Options for the res bars"] = true
-	L["Lock Anchor"] = true
+	L["Toggle Anchor"] = true
 	L["Toggles the anchor for the res bars so you can move them"] = true
 	L["Show Icon"] = true
 	L["Show or hide the icon for res spells"] = true

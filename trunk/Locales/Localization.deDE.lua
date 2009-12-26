@@ -6,7 +6,9 @@ local debug = false
 debug = true
 --@end-debug@]===]
 
-local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "deDE", false, debug) -- this is not the default language
+local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "deDE")
+if not L then return end
+
 
 --[===[@non-debug@
 @localization(locale="deDE", format="lua_additive_table", same-key-is-true=true, handle-unlocalized="english")@
@@ -16,7 +18,7 @@ if L then
 	L["About"] = "\195\156ber"
 	L["About the author and SmartRes2"] = "\195\156ber den Autor und SmartRes2"
 	L["All dead units are being ressed."] = "Alle toten Spieler werden bereits wiederbelebt."
-	L["Anchor"] = "Anchor" -- Requires localization
+	L["Toggle Anchor"] = "Anchor" -- Requires localization
 	L["And you thought the Scourge looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."] = "Und du dachtest, die Gei\195\159el sehen schlimm aus. %s wei\195\159, da\195\159 sich %s in ungef\195\164hr 10 Sekunden einen Kamm, etwas Seife und einen Spiegel w\195\188nschen w\195\188rde."
 	L["Auto Res Key"] = "Automatische Wiederbelebungstaste"
 	L["Background Colour"] = "Hintergrund-Farbe"
@@ -100,7 +102,6 @@ if L then
 	L["Texture"] = "Textur"
 	L["There are no bodies in range to res."] = "Es gibt in der N\195\164he keine Spieler zum Wiederbeleben."
 	L["Think that was bad? %s proudly shows %s the scar tissue caused by Hogger."] = "Du dachtest, da\195\159 w\195\164re schlimm? %s pr\195\164sentiert %s die von Hogger verursachten Narben."
-	L["Think that was bad? %s proudly shows %s the scar tissue caused by Ragnaros."] = "Du dachtest, das w\195\164re schlimm? %s pr\195\164sentiert %s voller Stolz die durch Ragnaros hervorgerufenen Narben."
 	L["Toggles the anchor for the res bars so you can move them"] = "Schaltet den Anker f\195\188r die Wiederbelebungsleisten ein/aus, um die Leistenposition(en) zu \195\164ndern"
 	L["Toggle whether you want to whisper a resser who is ressing a\
 	target of another resser's spell.\

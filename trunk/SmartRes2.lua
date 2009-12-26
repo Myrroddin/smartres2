@@ -127,7 +127,7 @@ local defaults = {
 			[14] = L["%s knows %s is faking. It was only a flesh wound!"],
 			[15] = L["Oh. My. God. %s has to breathe life back into %s AGAIN?!?"],
 			[16] = L["%s knows that %s dying was just an excuse to see another silly random res message."],
-			[17] = L["Think that was bad? %s proudly shows %s the scar tissue caused by Ragnaros."],
+			[17] = L["Think that was bad? %s proudly shows %s the scar tissue caused by Hogger."],
 			[18] = L["Just to be silly, %s tickles %s until they get back up."],
 			[19] = L["FOR THE HORDE! FOR THE ALLIANCE! %s thinks %s should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
 			[20] = L["And you thought the Scourge looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."],
@@ -200,7 +200,7 @@ function SmartRes2:OnInitialize()
 					barsAnchor = {
 						order = 2,
 						type = "toggle",
-						name = L["Lock Anchor"],
+						name = L["Toggle Anchor"],
 						desc = L["Toggles the anchor for the res bars so you can move them"],
 						get = function()
 							return self.db.profile.locked
@@ -916,7 +916,7 @@ function SmartRes2:UpdateResColours()
 end
 
 function SmartRes2:StartTestBars()
-	SmartRes2:ResComm_Ressed(nil, L["Frankthetank"])
-	SmartRes2:ResComm_ResStart(nil, L["Nursenancy"], GetTime() + 10, L["Frankthetank"])
-	SmartRes2:ResComm_ResStart(nil, L["Dummy"], GetTime() + 3, L["Timthewizard"])
+	SmartRes2:ResComm_Ressed(nil, "Frankthetank")
+	SmartRes2:ResComm_ResStart(nil, "Nursenancy", GetTime() + 10, "Frankthetank")
+	SmartRes2:ResComm_ResStart(nil, "Dummy", GetTime() + 3, "Frankthetank")
 end
