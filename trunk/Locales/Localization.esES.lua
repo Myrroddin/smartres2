@@ -6,7 +6,7 @@ local debug = false
 debug = true
 --@end-debug@]===]
 
-local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "deDE", false, debug) -- this is not the default language
+local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "esES", false, debug) -- this is not the default language
 
 if L then
 	L["About"] = "Acerca de"
