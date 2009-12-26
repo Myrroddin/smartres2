@@ -172,6 +172,8 @@ function SmartRes2:OnInitialize()
 	self.res_bars:SetScale(self.db.profile.scale)
 	self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
 	self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	self.res_bars:SetBorder(Media:Fetch("statusbar", self.db.profile.resBarsBorder))
+	
 	-- set the anchor to the user preference
 	if self.db.profile.locked then
 		self.res_bars:HideAnchor()
@@ -257,7 +259,7 @@ function SmartRes2:OnInitialize()
 							self.db.profile.resBarsTexture = value
 						end
 					},
-					--[[resBarsBGColour = {
+					--[[resBarsBGColour = { -- not sure if LibBars supports this either
 						order = 7,
 						type = "select",
 						dialogControl = "LSM30_Background",
@@ -270,8 +272,8 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)
 							self.db.profile.resBarsBGColour = value
 						end
-					},-- not sure if LibBars supports this
-					resBarsBorder = {
+					},]]--					
+					resBarsBorder = { -- not sure if LibBars supports this
 						order = 8,
 						type = "select",
 						dialogControl = "LSM30_Border",
@@ -282,9 +284,9 @@ function SmartRes2:OnInitialize()
 							return self.db.profile.resBarsBorder
 						end,
 						set = function(info, value)
-							self.db.profile.resbarsBorder = value
+							self.db.profile.resBarsBorder = value
 						end
-					},]] -- not sure if LibBars supports this either
+					}, 
 					resBarsColour = {
 						order = 9,
 						type = "color",
@@ -580,6 +582,7 @@ end
 function SmartRes2:UpdateMedia(callback, type, handle)
 	if type == "statusbar" then
 		self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+		self.res_bars:SetBorder(Media:Fetch("statusbar", self.db.profile.resBarsBorder))
 	end
 end
 
@@ -653,10 +656,10 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 		if self.playerSpell then
 			self:UnBindKeys()
 		end
-		--[[for ressed, _ in pairs(Ressed) do
+		for ressed, _ in pairs(Ressed) do
 			Ressed[ressed] = nil
 		end
-		]]--
+		
 		ResComm.UnregisterCallback(self, "ResComm_ResStart")
 		ResComm.UnregisterCallback(self, "ResComm_Ressed")
 		ResComm.UnregisterCallback(self, "ResComm_ResEnd")
