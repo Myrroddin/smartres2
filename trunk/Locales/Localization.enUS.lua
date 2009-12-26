@@ -2,11 +2,15 @@
 -- Localization file for US English version of SmartRes2, which is the default
       
 local debug = false
---[===[@debug@
+--@debug@
 debug = true
---@end-debug@]===]
+--@end-debug@
 
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true, debug)
+
+--[===[@non-debug@
+@localization(locale="enUS", format="lua_additive_table", same-key-is-true=true)@
+--@end-non-debug@]===]
 
 if L then
 	-- additional libraries
@@ -18,7 +22,7 @@ if L then
 	-- Interface Options Panel
 	L["Res Bars"] = true
 	L["Options for the res bars"] = true
-	L["Anchor"] = true
+	L["Lock Anchor"] = true
 	L["Toggles the anchor for the res bars so you can move them"] = true
 	L["Show Icon"] = true
 	L["Show or hide the icon for res spells"] = true
@@ -47,9 +51,10 @@ if L then
 	L["Chat Output"] = true
 	L["Chat output options"] = true
 	L["Random Res Messages"] = true
-	L["Turn random res messages on or keep the same message.\nDefault is off"] = true
+	L["Turn random res messages on or keep the same message. Default is off"] = true
 	L["Chat Output Type"] = true
-	L["Where to print the res message.\nRaid, Party, Say, Yell, Guild, or None.\nDefault is None"] = true
+	L["Where to print the res message. Raid, Party, Say, Yell, Guild, or None. Default is None"] = true
+	L["None"] = true
 	L["Group"] = true
 	L["Guild"] = true
 	L["Party"] = true
@@ -59,7 +64,7 @@ if L then
 	L["Self Notification"] = true
 	L["Prints a message to yourself whom you are ressing"] = true
 	L["Duplicate Res Targets"] = true
-	L["Toggle whether you want to whisper a resser who is ressing a\ntarget of another resser's spell.\nCould get very spammy.\nDefault off"] = true
+	L["Toggle whether you want to whisper a resser who is ressing a target of another resser's spell. Could get very spammy. Default off"] = true
 	L["Key Bindings"] = true
 	L["Set the keybindings"] = true
 	L["Auto Res Key"] = true
@@ -69,7 +74,7 @@ if L then
 	L["SmartRes2 Credits"] = true
 	L["About the author and SmartRes2"] = true
 	L["Credits"] = true
-	L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes.\nSmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."] = true
+	L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes. SmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."] = true
 	L["I would personally like to thank Jerry on the wowace forums for coding the new, smarter, resurrection function."] = true
 	L["About"] = true
 	   

@@ -8,6 +8,10 @@ debug = true
 
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "deDE", false, debug) -- this is not the default language
 
+--[===[@non-debug@
+@localization(locale="deDE", format="lua_additive_table", same-key-is-true=true, handle-unlocalized="english")@
+--@end-non-debug@]===]
+
 if L then
 	L["About"] = "\195\156ber"
 	L["About the author and SmartRes2"] = "\195\156ber den Autor und SmartRes2"
