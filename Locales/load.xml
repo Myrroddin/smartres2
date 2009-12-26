@@ -5,6 +5,8 @@
 	<!--@non-debug@
 	<Script file="Localization.deDE.lua"/>
 	<Script file="Localization.frFR.lua"/>
+	<Script file="Localization.esMX.lua"/>
+	<Script file="Localization.esES.lua"/>
 	@end-non-debug@-->
 
 </Ui>
