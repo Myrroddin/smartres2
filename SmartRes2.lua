@@ -77,6 +77,8 @@ Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]
 -- global variables ---------------------------------------------------------
 
 -- local variables ----------------------------------------------------------
+local Ressed = {}
+local Resser = {}
 
 -- variable for our addon preferences
 local db
@@ -97,7 +99,6 @@ local defaults = {
 		notifyCollision = false,
 		notifySelf = true,
 		randMsgs = false,
-		-- resBarsBorder = "Interface\\Tooltips\\UI-Tooltip-Border",
 		resBarsColour = { r = 0, g = 1, b = 0, a = 1 },
 		resBarsIcon = true,
 		resBarsTexture = "Blizzard",
@@ -582,11 +583,13 @@ end
 
 -- ResComm events - called when res is started
 function SmartRes2:ResComm_ResStart(event, resser, endTime, targetName)
-	if not self.Resser[resser] then return end
-	self.Resser[resser] = {
-		endTime = endTime,
-		target = targetName
-	}	
+	-- check if we have the person in our table yet, and if not, add them
+	if not Resser[resser] then
+		Resser[resser] = {
+			endTime = endTime,
+			target = targetName
+		}
+	end
 	self:StartResBars(resser)
 	self:UpdateResColours()
 	local isSame = UnitIsUnit(resser, "player")
@@ -603,21 +606,21 @@ function SmartRes2:ResComm_ResStart(event, resser, endTime, targetName)
 		end
 		if channel ~= "NONE" then -- if it is "none" then don't send any chat messages
 			if self.db.profile.randMssgs then
-				SendChatMessage(math.random(#defaults.randChatTbl), channel, nil, nil):format(self.Resser[resser], self.Resser[target])
+				SendChatMessage(math.random(#defaults.randChatTbl), channel, nil, nil):format(Resser[resser], Resser[target])
 			else
-				SendChatMessage(L["%s is ressing %s"], channel, nil, nil):format(self.Resser[resser], self.Resser[target])
+				SendChatMessage(L["%s is ressing %s"], channel, nil, nil):format(Resser[resser], Resser[target])
 			end			
 		end		
 		if self.db.profile.notifySelf then
-			self:Print(L["You are ressing %s"]):format(self.Resser[target])
+			self:Print(L["You are ressing %s"]):format(Resser[target])
 		end
 	end	
 end
 
 -- ResComm events - called when player is ressed
 function SmartRes2:ResComm_Ressed(event, ressed)
-	if not self.Ressed[ressed] or ((self.Ressed[ressed] + 120) < GetTime()) then
-		self.Ressed[ressed] = GetTime()
+	if not Ressed[ressed] or ((Ressed[ressed] + 120) < GetTime()) then
+		Ressed[ressed] = GetTime()
 	end
 	self:UpdateResColours()
 end
@@ -625,9 +628,9 @@ end
 -- ResComm events - called when res ends
 function SmartRes2:ResComm_ResEnd(event, ressed, target)
 	-- did the cast fail or complete?
-	if not self.Resser[resser] then return end
+	if not Resser[resser] then return end
 	self:StopResBars(resser)
-	self.Resser[resser] = nil
+	Resser[resser] = nil
 	self:UpdateResColours()
 end
 
@@ -645,6 +648,9 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 	if not in_combat then
 		if self.playerSpell then
 			self:UnBindKeys()
+		end
+		for ressed, _ in pairs(Ressed) do
+			Ressed[ressed] = nil
 		end
 		ResComm.UnregisterCallback(self, "ResComm_ResStart")
 		ResComm.UnregisterCallback(self, "ResComm_Ressed")
@@ -716,10 +722,8 @@ SmartRes2.resSpellIcons = { -- need the icons too, for the res bars
 }  
 SmartRes2.playerClass = select(2, UnitClass("player"))  -- what class is the user?
 SmartRes2.playerSpell = SmartRes2.resSpells[SmartRes2.playerClass] -- only has data if the player can cast a res spell
--- create resurrection tables
-SmartRes2.Ressed = {}
-SmartRes2.Resser = {}
 
+-- create resurrection tables
 local function getClassOrder(unit)
 	local _, c = UnitClass(unit)
 	return CLASS_PRIORITIES[c]
@@ -816,7 +820,7 @@ function SmartRes2:StartResBars(resser)
 	local text
 	local icon
 	local name = resser
-	local info = self.Resser[resser]
+	local info = Resser[resser]
 	local time = info.endTime - GetTime()
 	local orientation
 	
@@ -853,13 +857,13 @@ function SmartRes2:StartResBars(resser)
 	-- bar:SetColorAt(0, 0, 0, 0, 1, 0)
 	-- bar:SetBorder(self.db.profile.resbarsBorder)
 	
-	self.Resser[resser].bar = bar
+	Resser[resser].bar = bar
 end
 
 function SmartRes2:StopResBars(resser) -- have to test this function to see if I got it correct
-	if not self.Resser[resser] then return end
+	if not Resser[resser] then return end
 	
-	self.Resser[resser].bar:Fade(0.5) -- half second fade
+	Resser[resser].bar:Fade(0.5) -- half second fade
 end
 
 function SmartRes2:UpdateResColours()
@@ -868,7 +872,7 @@ function SmartRes2:UpdateResColours()
 	local duplicate = false
 	local alreadyRessed = false
 	
-	for resserName, info in pairs(self.Resser) do
+	for resserName, info in pairs(Resser) do
 		tinsert(currentRes, info)
 	end
 	
@@ -887,7 +891,7 @@ function SmartRes2:UpdateResColours()
 			end
 		end
 		
-		for ressed, time in pairs(self.Ressed) do
+		for ressed, time in pairs(Ressed) do
 			if ressed == info.target and (time + 120) > GetTime() then
 				alreadyRessed = true
 				break

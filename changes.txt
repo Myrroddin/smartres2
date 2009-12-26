@@ -26,3 +26,4 @@ r32 most of the options working. Test bars still non functional. need to test in
 r33 - r 35 Phanx changes, but based on old codebase
 r36 new codebase, updated localizations
 r37 added esES and esMX localizations
+r38 fixed typos in esES and esMX. they should work now

@@ -5,16 +5,12 @@
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
 ## X-Email: psvander AT gmail DOT com
-## Version: Alpha 0.37
+## Version: Alpha 0.38
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
 ## SavedVariables: SmartRes2DB
 ## X-Localizations: enUS, frFR, deDE, esES, esMX
 ## X-Credits: Xilbar/ckeurk, Farook, Black_Mystics, Silmano
 ## X-Website: http://www.wowace.com/addons/smartres2/
-## X-Curse-Packaged-Version: r31
-## X-Curse-Project-Name: SmartRes2
-## X-Curse-Project-ID: smartres2
-## X-Curse-Repository-ID: wow/smartres2/mainline
 
 ## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets
 
