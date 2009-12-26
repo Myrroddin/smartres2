@@ -831,9 +831,9 @@ function SmartRes2:StartResBars(resser)
 	local orientation
 
 	if self.db.profile.classColours then
-		text = (L["%s is resurrecting %s"]):format(ClassColouredName(resser), ClassColouredName(info.target))
+		text = (L["%s is ressing %s"]):format(ClassColouredName(resser), ClassColouredName(info.target))
 	else
-		text = (L["%s is resurrecting %s"]):format(resser, info.target)
+		text = (L["%s is ressing %s"]):format(resser, info.target)
 	end
 
 	if self.db.profile.resBarsIcon then

@@ -29,3 +29,5 @@ r37 added esES and esMX localizations
 r38 fixed typos in esES and esMX. they should work now
 r39 trying auto localization uploading
 r40 minor altering of localizations
+r41 experimental build for localizations
+r42 cleaning up localizations
