@@ -1,4 +1,4 @@
-﻿package as: SmartRes2
+﻿package-as: SmartRes2
 
 externals:
     Libs/LibStub:
