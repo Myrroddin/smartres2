@@ -653,9 +653,10 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 		if self.playerSpell then
 			self:UnBindKeys()
 		end
-		for ressed, _ in pairs(Ressed) do
+		--[[for ressed, _ in pairs(Ressed) do
 			Ressed[ressed] = nil
 		end
+		]]--
 		ResComm.UnregisterCallback(self, "ResComm_ResStart")
 		ResComm.UnregisterCallback(self, "ResComm_Ressed")
 		ResComm.UnregisterCallback(self, "ResComm_ResEnd")
@@ -799,6 +800,7 @@ function SmartRes2:Resurrection()
 		-- do something useful like setting the target of your button
 		resButton:SetAttribute("unit", unit)
 		resButton:SetAttribute("spell", self.playerSpell)
+		return unit
 	else
 		if unitOutOfRange then
 			self:Print(L["There are no bodies in range to res."])
