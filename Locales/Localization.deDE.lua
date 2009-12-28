@@ -1,11 +1,6 @@
 ﻿-- Authors: Farook, Black_Mystics
 -- Localization file for German version of SmartRes2
 
-local debug = false
---[===[@debug@
-debug = true
---@end-debug@]===]
-
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "deDE")
 if not L then return end
 
