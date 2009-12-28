@@ -33,3 +33,4 @@ r41 experimental build for localizations
 r42 cleaning up localizations
 r43 added border support. test bars still wonky. altered toc and removed unnecessary files
 r44 ruRU localization, some more new code
+r45 big changes to localization. translators please pay attention! %s could be either the player or the target, %p% is always the player and %t% is always the target
