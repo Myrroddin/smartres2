@@ -35,9 +35,9 @@ local tsort = table.sort
 
 -- debugging section --------------------------------------------------------
 
---@debug@
+--[===[@debug@
 _G.SmartRes2 = SmartRes2
---@end-debug@
+--@end-debug@]===]
 
 -- additional libraries -----------------------------------------------------
 
@@ -78,10 +78,10 @@ Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]
 -- local variables ----------------------------------------------------------
 local doingRessing = {}
 local waitingForAccept = {}
---@debug@
+--[===[@debug@
 SmartRes2.doingRessing = doingRessing
 SmartRes2.waitingForAccept = waitingForAccept
---@end-debug@
+--@end-debug@]===]
 
 -- variable for our addon preferences
 local db
