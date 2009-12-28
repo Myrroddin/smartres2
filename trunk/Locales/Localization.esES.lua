@@ -1,11 +1,6 @@
 ﻿-- Authors: Silmano
 -- Localization file for Spanish version of SmartRes2
 
-local debug = false
---[===[@debug@
-debug = true
---@end-debug@]===]
-
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "esES")
 if not L then return end
 

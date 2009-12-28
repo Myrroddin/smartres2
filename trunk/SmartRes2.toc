@@ -5,15 +5,15 @@
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
 ## X-Email: psvander AT gmail DOT com
-## Version: Alpha 0.43
+## Version: Alpha 0.44
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
 ## SavedVariables: SmartRes2DB
-## X-Localizations: enUS, frFR, deDE, esES, esMX
-## X-Credits: Xilbar/ckeurk, Farook, Black_Mystics, Silmano
+## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU
 ## X-Website: http://www.wowace.com/addons/smartres2/
 
 ## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets
 
+#@no-lib-strip@
 Libs\LibStub\Libstub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
 Libs\AceAddon-3.0\AceAddon-3.0.xml
@@ -29,10 +29,12 @@ Libs\LibSharedMedia-3.0\lib.xml
 Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 Libs\LibBars-1.0\lib.xml
 Libs\LibResComm-1.0\lib.xml
-Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Libs\LibAboutPanel\lib.xml
+#@end-no-lib-strip@
+Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
 Locales\Localization.frFR.lua
+Locales\Localization.ruRU.lua
 Locales\Localization.deDE.lua
 Locales\Localization.esES.lua
 Locales\Localization.esMX.lua
