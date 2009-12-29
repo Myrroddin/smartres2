@@ -477,7 +477,7 @@ function SmartRes2:OnInitialize()
 					creditsDesc5 = {
 						order = 5,
 						type = "description",
-						name = L["German translation by Farook and Black_Mystics"],
+						name = L["German translation by Farook, Black_Mystics, xevilgrin, and Dessa"],
 					},
 					creditsDesc6 = {
 						order = 6,
