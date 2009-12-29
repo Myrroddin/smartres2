@@ -35,3 +35,4 @@ r43 added border support. test bars still wonky. altered toc and removed unneces
 r44 ruRU localization, some more new code
 r45 big changes to localization. translators please pay attention! %s could be either the player or the target, %p% is always the player and %t% is always the target
 r46 updated localization, fixed a couple of typos, commented out an option that needs more work
+r47 giving credit where credit is due
