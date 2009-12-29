@@ -32,12 +32,13 @@ local UnitLevel = UnitLevel
 local pairs = pairs
 local tinsert = table.insert
 local tsort = table.sort
+local sgsub = string.gsub
 
 -- debugging section --------------------------------------------------------
 
---[===[@debug@
+--@debug@
 _G.SmartRes2 = SmartRes2
---@end-debug@]===]
+--@end-debug@
 
 -- additional libraries -----------------------------------------------------
 
@@ -78,10 +79,10 @@ Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]
 -- local variables ----------------------------------------------------------
 local doingRessing = {}
 local waitingForAccept = {}
---[===[@debug@
+--@debug@
 SmartRes2.doingRessing = doingRessing
 SmartRes2.waitingForAccept = waitingForAccept
---@end-debug@]===]
+--@end-debug@
 
 -- variable for our addon preferences
 local db
@@ -96,7 +97,7 @@ local defaults = {
 		chatOutput = "0-none",
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
-		horizontalOrientation = "rightLeft",
+		-- horizontalOrientation = "rightLeft",
 		locked = false,
 		manualResKey = "",
 		notifyCollision = false,
@@ -110,32 +111,32 @@ local defaults = {
 		reverseGrowth = false,
 		scale = 1,
 		randChatTbl = { -- this is here for eventual support for users to add or remove their own random messages
-			[1] = L["%s is bringing %s back to life!"],
-			[2] = L["Filthy peon! %s has to resurrect %s!"],
-			[3] = L["%s has to wake %s from eternal slumber."],
-			[4] = L["%s is ending %s's dirt nap."],
-			[5] = L["No fallen heroes! %s needs %s to march forward to victory!"],
-			[6] = L["%s doesn't think %s is immortal, but after this res cast, it is close enough."],
-			[7] = L["Sleeping on the job? %s is disappointed in %s."],
-			[8] = L["%s knew %s couldn't stay out of the fire. *Sigh*"],
-			[9] = L["Once again, %s pulls %s and their bacon out of the fire."],
-			[10] = L["%s thinks %s should work on their Dodge skill."],
-			[11] = L["%s refuses to accept blame for %s's death, but kindly undoes the damage."],
-			[12] = L["%s prods %s with a stick. A-ha! %s was only temporarily dead."],
-			[13] = L["%s is ressing %s"],
-			[14] = L["%s knows %s is faking. It was only a flesh wound!"],
-			[15] = L["Oh. My. God. %s has to breathe life back into %s AGAIN?!?"],
-			[16] = L["%s knows that %s dying was just an excuse to see another silly random res message."],
-			[17] = L["Think that was bad? %s proudly shows %s the scar tissue caused by Hogger."],
-			[18] = L["Just to be silly, %s tickles %s until they get back up."],
-			[19] = L["FOR THE HORDE! FOR THE ALLIANCE! %s thinks %s should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
-			[20] = L["And you thought the Scourge looked bad. In about 10 seconds, %s knows %s will want a comb, some soap, and a mirror."],
-			[21] = L["Somewhere, the Lich King is laughing at %s, because he knows %s will just die again eventually. More meat for the grinder!!"],
-			[22] = L["%s doesn't want the Lich King to get another soldier, so is bringing %s back to life."],
-			[23] = L["%s wonders about these stupid res messages. %s should just be happy to be alive."],
-			[24] = L["%s prays over the corpse of %s, and a miracle happens!"],
-			[25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %s is making sure %s's death isn't permanent."],
-			[26] = L["%s performs a series of lewd acts on %s's still warm corpse. Ew."]
+			[1] = L["%p% is bringing %t% back to life!"],
+			[2] = L["Filthy peon! %p% has to resurrect %t%!"],
+			[3] = L["%p% has to wake %t% from eternal slumber."],
+			[4] = L["%p% is ending %t%\'s dirt nap."],
+			[5] = L["No fallen heroes! %p% needs %t% to march forward to victory!"],
+			[6] = L["%p% doesn't think %t% is immortal, but after this res cast, it is close enough."],
+			[7] = L["Sleeping on the job? %p% is disappointed in %t%."],
+			[8] = L["%p% knew %t% couldn't stay out of the fire. *Sigh*"],
+			[9] = L["Once again, %p% pulls %t% and their bacon out of the fire."],
+			[10] = L["%p% thinks %t% should work on their Dodge skill."],
+			[11] = L["%p% refuses to accept blame for %t%\'s death, but kindly undoes the damage."],
+			[12] = L["%p% grabs a stick. A-ha! %t% was only temporarily dead."],
+			[13] = L["%p% is ressing %t%"],
+			[14] = L["%p% knows %t% is faking. It was only a flesh wound!"],
+			[15] = L["Oh. My. God. %p% has to breathe life back into %t% AGAIN?!?"],
+			[16] = L["%p% knows that %t% dying was just an excuse to see another silly random res message."],
+			[17] = L["Think that was bad? %p% proudly shows %t% the scar tissue caused by Hogger."],
+			[18] = L["Just to be silly, %p% tickles %t% until they get back up."],
+			[19] = L["FOR THE HORDE! FOR THE ALLIANCE! %p% thinks %t% should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
+			[20] = L["And you thought the Scourge looked bad. In about 10 seconds, %p% knows %t% will want a comb, some soap, and a mirror."],
+			[21] = L["Somewhere, the Lich King is laughing at %p%, because he knows %t% will just die again eventually. More meat for the grinder!!"],
+			[22] = L["%p% doesn't want the Lich King to get another soldier, so is bringing %t% back to life."],
+			[23] = L["%p% wonders about these stupid res messages. %t% should just be happy to be alive."],
+			[24] = L["%p% prays over the corpse of %t%, and a miracle happens!"],
+			[25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %p% is making sure %t%\'s death isn't permanent."],
+			[26] = L["%p% performs a series of lewd acts on %t%\'s still warm corpse. Ew."]
 		}
 	}
 }
@@ -174,7 +175,6 @@ function SmartRes2:OnInitialize()
 		Druid = GetSpellInfo(50769), -- Revive
 		Paladin = GetSpellInfo(7328) -- Redemption
 	}
-
 	self.resSpellIcons = { -- need the icons too, for the res bars
 		Priest = select(3, GetSpellInfo(2006)), -- Resurrection
 		Shaman = select(3, GetSpellInfo(2008)), -- Ancestral Spirit
@@ -321,7 +321,7 @@ function SmartRes2:OnInitialize()
 						max = 2,
 						step = 0.05
 					},
-					horizontalOrientation = {
+					--[[horizontalOrientation = {
 						order = 13,
 						type = "select",
 						name = L["Horizontal Direction"],
@@ -336,7 +336,7 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)
 							self.db.profile.horizontalOrientation = value
 						end
-					},
+					},]] -- not working yet
 					resBarsTestBars = {
 						order = 14,
 						type = "execute",
@@ -357,16 +357,16 @@ function SmartRes2:OnInitialize()
 						type = "header",
 						name = L["Chat Output"]
 					},
-					randMssgs = {
+					randMsgs = {
 						order = 2,
 						type = "toggle",
 						name = L["Random Res Messages"],
 						desc = L["Turn random res messages on or keep the same message. Default is off"],
 						get = function()
-							return self.db.profile.randMssgs
+							return self.db.profile.randMsgs
 						end,
 						set = function(info, value)
-							self.db.profile.randMssgs = value
+							self.db.profile.randMsgs = value
 						end
 					},
 					chatOutput = {
@@ -472,20 +472,25 @@ function SmartRes2:OnInitialize()
 					creditsDesc3 = {
 						order = 4,
 						type = "description",
+						name = L["Many bugfixes and development help from onaforeignshore"]
+					},
+					creditsDesc5 = {
+						order = 5,
+						type = "description",
 						name = L["German translation by Farook and Black_Mystics"],
 					},
-					creditsDesc4 = {
-						order = 5,
+					creditsDesc6 = {
+						order = 6,
 						type = "description",
 						name = L["French translation by ckeurk and Xilbar"],
 					},
-					creditsDesc5 = {
-						order = 6,
+					creditsDesc7 = {
+						order = 7,
 						type = "description",
 						name = L["Latin American Spanish and Spanish translation by Silmano"],
 					},
-					creditsDesc6 = {
-						order = 7,
+					creditsDesc8 = {
+						order = 8,
 						type = "description",
 						name = L["Russian translation by xinobios"]
 					}
@@ -606,14 +611,13 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			end
 		end
 		if channel ~= "NONE" then -- if it is "none" then don't send any chat messages
-			if self.db.profile.randMssgs then
-				SendChatMessage(math.random(#defaults.randChatTbl), channel, nil, nil):format(doingRessing[sender], targetName)
-			else
-				SendChatMessage(L["%s is ressing %s"], channel, nil, nil):format(doingRessing[sender], targetName)
-			end		
-		end	
-		if self.db.profile.notifySelf then
-			self:Print(L["You are ressing %s"]):format(targetName)
+		local msg = L["%p% is ressing %t%"]		
+			if self.db.profile.randMsgs then
+				msg = math.random(#self.db.profile.randChatTbl)
+			end
+			sgsub(msg, "%p%", sender)
+			sgsub(msg, "%t%", targetName)
+			SendChatMessage(msg, channel, nil, nil)
 		end
 	end
 end
@@ -854,7 +858,7 @@ function SmartRes2:UpdateResColours()
 	end
 --[[ -- still to be added: whisper player if someone else is ressing
 		if (duplicate or alreadyRessed) and self.db.profile.notifyCollision then
-			SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s. "]..L["Please get SmartRes2 and use the auto res key to never see this whisper again."],
+			SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
 			"whisper", nil, info):format(target, info) -- are these the correct variables to be passing?
 		end
 ]]
