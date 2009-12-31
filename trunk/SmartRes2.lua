@@ -154,7 +154,8 @@ function SmartRes2:OnInitialize()
 	resButton:SetAttribute("type", "spell")
 	resButton:SetAttribute("PreClick", function() self:Resurrect() end)
 	self.resButton = resButton
-
+	
+	-- create the Res Bars and set the user preferences
 	self.res_bars = self:NewBarGroup("SmartRes2", Bars.RIGHT_TO_LEFT, 300)
 	self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", self.db.profile.resBarsX, self.db.profile.resBarsY)
 	self.res_bars:SetScale(self.db.profile.scale)
@@ -373,7 +374,7 @@ function SmartRes2:OnInitialize()
 						order = 3,
 						type = "select",
 						name = L["Chat Output Type"],
-						desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, or None. Default is None"],
+						desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, smart Group, or None"],
 						values = {
 							["0-none"] = L["None"],
 							group = L["Group"],
@@ -406,7 +407,7 @@ function SmartRes2:OnInitialize()
 						order = 5,
 						type = "toggle",
 						name = L["Duplicate Res Targets"],
-						desc = L["Toggle whether you want to whisper a resser who is ressing a target of another resser's spell. Could get very spammy. Default off"],
+						desc = L["Toggle whether you want to whisper a sender who is ressing a target of another sender's spell. Could get very spammy. Default off"],
 						get = function()
 							return self.db.profile.notifyCollision
 						end,
@@ -501,10 +502,13 @@ function SmartRes2:OnInitialize()
 	-- add the 'Profiles' section
 	options.args.profilesTab = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
 	options.args.profilesTab.order = 4
+	
 	-- Register your options with AceConfigRegistry
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
+	
 	 -- Add your options to the Blizz options window using AceConfigDialog
 	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")
+	
 	-- support for LibAboutPanel
 	if LibStub:GetLibrary("LibAboutPanel", true) then
 		self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
@@ -518,7 +522,7 @@ function SmartRes2:OnInitialize()
 	if DataBroker then
 		local launcher = DataBroker:NewDataObject("SmartRes2", {
 		type = "launcher",
-		icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.Priest, -- "Interface\\Icons\\Spell_Holy_Resurrection", icon changes depending on class, or defaults to Resurrection, if not a resser
+		icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.Priest, -- "Interface\\Icons\\Spell_Holy_Resurrection", icon changes depending on class, or defaults to Resurrection, if not a sender
 		OnClick = function(clickedframe, button)
 			if button == "LeftButton" then
 				-- keep our options table in sync with the ldb object state
@@ -562,6 +566,11 @@ function SmartRes2:OnEnable()
 	ResComm.RegisterCallback(self, "ResComm_Ressed")
 	ResComm.RegisterCallback(self, "ResComm_ResExpired")
 	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
+	if self.playerSpell then
+		self:BindKeys()
+	else
+		self:Print(L["Your class, %s, has no out of combat res spells, so no keys will be bound."]):format(self.playerClass) -- want this message in the Options frame, not here
+	end
 end
 
 function SmartRes2:OnDisable()
@@ -628,7 +637,7 @@ function SmartRes2:ResComm_ResEnd(event, sender, target)
 	if not doingRessing[sender] then return end
 	self:DeleteResBar(sender)
 	-- add the target to our waiting list, and save who the last person to res him was
-	waitingForAccept[target] = { target = target, resser = sender, time = doingRessing[sender].time }	
+	waitingForAccept[target] = { target = target, sender = sender, time = doingRessing[sender].time }	
 	doingRessing[sender] = nil
 end
 
@@ -697,7 +706,7 @@ end
 local unitOutOfRange, unitBeingRessed, unitDead
 local CLASS_PRIORITIES = {
 	-- There might be 10 classes, but Shamans and Druids res at equal efficiency, so no preference
-	-- non ressers who use Mana should be followed after ressers, as they are usually buffers
+	-- non senders who use Mana should be followed after senders, as they are usually buffers
 	-- or pet summoners (ie: Mana burners)
 	-- res non Mana users last
 	PRIEST = 1, 
@@ -753,16 +762,15 @@ end
 
 function SmartRes2:Resurrection()
 	local resButton = self.resButton
+	resButton:SetAttribute("unit", nil)
+	resButton:SetAttribute("spell", self.playerSpell)
 
 	if GetNumPartyMembers() == 0 and not UnitInRaid("player") then
 		self:Print(L["You are not in a group."])
 		return
 	end
 
-	resButton:SetAttribute("unit", nil)
-	resButton:SetAttribute("spell", nil)
-
-	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a resser 
+	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a sender 
 	local isUsable, outOfMana = IsUsableSpell[self.PlayerSpell] -- determined during SmartRes2:OnInitialize() 
 	if outOfMana then 
 	   self:Print(L["You don't have enough Mana to cast a res spell."]) 
@@ -776,8 +784,7 @@ function SmartRes2:Resurrection()
 	if unit then
 		-- do something useful like setting the target of your button
 		resButton:SetAttribute("unit", unit)
-		resButton:SetAttribute("spell", self.playerSpell)
-		return unit
+		-- return unit
 	else
 		if unitOutOfRange then
 			self:Print(L["There are no bodies in range to res."])
@@ -802,7 +809,7 @@ end
 function SmartRes2:CreateResBar(sender)
 	local text
 	local icon
-	local name = resser
+	local name = sender
 	local info = doingRessing[sender]
 	local time = info.endTime - GetTime()
 
@@ -840,20 +847,20 @@ function SmartRes2:UpdateResColours()
 		currentRes[target] = info
 	end
 	-- step through our table of people doing ressing
-	for resser, info in pairs(doingRessing) do
-		-- test if we have the resser in our temp table
-		if currentRes[resser] then
+	for sender, info in pairs(doingRessing) do
+		-- test if we have the sender in our temp table
+		if currentRes[sender] then
 			-- see we have a shorter res time than the one in the temp table
-			if info.time < currentRes[resser].time then
+			if info.time < currentRes[sender].time then
 				-- we're quicker so change their bar to a collision bar
-				currentRes[resser].bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
+				currentRes[sender].bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 				-- replace the table entry with ourself
-				currentRes[resser] = info
+				currentRes[sender] = info
 			else -- table is quicker, so make our bar a collision
 				info.bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 			end
 		else -- otherwise add them
-			currentRes[resser] = info
+			currentRes[sender] = info
 		end
 	end
 --[[ -- still to be added: whisper player if someone else is ressing
