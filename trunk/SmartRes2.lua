@@ -97,7 +97,7 @@ local defaults = {
 		chatOutput = "0-none",
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
-		-- horizontalOrientation = "rightLeft",
+		horizontalOrientation = "RIGHT",
 		locked = false,
 		manualResKey = "",
 		notifyCollision = false,
@@ -156,11 +156,19 @@ function SmartRes2:OnInitialize()
 	self.resButton = resButton
 	
 	-- create the Res Bars and set the user preferences
-	self.res_bars = self:NewBarGroup("SmartRes2", Bars.RIGHT_TO_LEFT, 300)
+	--[[
+	if self.db.profile.horizontalOrientation == rightLeft then
+		self.res_bars = self:NewBarGroup("SmartRes2", "RIGHT", 300)
+	else
+		self.res_bars = self:NewBarGroup("SmartRes2", "LEFT", 300)
+	end
+	]]--
+	self.res_bars = self:NewBarGroup("SmartRes2", self.db.profile.horizontalOrientation, 300)
 	self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", self.db.profile.resBarsX, self.db.profile.resBarsY)
 	self.res_bars:SetScale(self.db.profile.scale)
 	self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
 	self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.ResBarsBorder))
 	
 	-- set the anchor to the user preference
 	if self.db.profile.locked then
@@ -263,6 +271,20 @@ function SmartRes2:OnInitialize()
 							self.db.profile.resBarsTexture = value
 						end
 					},
+					resBarsBorder = {
+						order = 7,
+						type = "select",
+						dialogControl = LSM30_Border",
+						name = L["Border"],
+						desc = L["Select the border for the res bars"],
+						values = AceGUIWidgetLSMlists.border,
+						get = function()
+							return self.db.profile.resBarsBorder
+						end,
+						set = function(info, value)
+							self.db.profile.resBarsBorder = value
+						end
+					},
 					resBarsColour = {
 						order = 9,
 						type = "color",
@@ -322,14 +344,14 @@ function SmartRes2:OnInitialize()
 						max = 2,
 						step = 0.05
 					},
-					--[[horizontalOrientation = {
+					horizontalOrientation = {
 						order = 13,
 						type = "select",
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars"],
 						values = {
-							rightLeft = L["Right to Left"],
-							leftRight = L["Left to Right"], 
+							["RIGHT"] = L["Right to Left"],
+							["LEFT"] = L["Left to Right"], 
 						},
 						get = function()
 							return self.db.profile.horizontalOrientation
@@ -337,7 +359,7 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)
 							self.db.profile.horizontalOrientation = value
 						end
-					},]] -- not working yet
+					},
 					resBarsTestBars = {
 						order = 14,
 						type = "execute",
@@ -506,7 +528,7 @@ function SmartRes2:OnInitialize()
 	-- Register your options with AceConfigRegistry
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
 	
-	 -- Add your options to the Blizz options window using AceConfigDialog
+	-- Add your options to the Blizz options window using AceConfigDialog
 	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")
 	
 	-- support for LibAboutPanel
@@ -565,11 +587,12 @@ function SmartRes2:OnEnable()
 	ResComm.RegisterCallback(self, "ResComm_ResEnd")
 	ResComm.RegisterCallback(self, "ResComm_Ressed")
 	ResComm.RegisterCallback(self, "ResComm_ResExpired")
+	ResComm.RegisterCallback(self, "FadeFinished")
 	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
 	if self.playerSpell then
 		self:BindKeys()
-	else
-		self:Print(L["Your class, %s, has no out of combat res spells, so no keys will be bound."]):format(self.playerClass) -- want this message in the Options frame, not here
+--	else
+--		self:Print(L["Your class, %s, has no out of combat res spells, so no keys will be bound."]):format(self.playerClass) -- want this message in the Options frame, not here
 	end
 end
 
@@ -591,6 +614,9 @@ end
 function SmartRes2:UpdateMedia(callback, type, handle)
 	if type == "statusbar" then
 		self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	end
+	if type == "border" then
+		self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.resBarsBorder))
 	end
 end
 
@@ -628,6 +654,9 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			sgsub(msg, "%t%", targetName)
 			SendChatMessage(msg, channel, nil, nil)
 		end
+		if self.db.profile.notifySelf then
+			self:Print(L["You are ressing %s"]):format(targetName)
+		end
 	end
 end
 
@@ -637,7 +666,7 @@ function SmartRes2:ResComm_ResEnd(event, sender, target)
 	if not doingRessing[sender] then return end
 	self:DeleteResBar(sender)
 	-- add the target to our waiting list, and save who the last person to res him was
-	waitingForAccept[target] = { target = target, sender = sender, time = doingRessing[sender].time }	
+	waitingForAccept[target] = { target = target, sender = sender, endTime = doingRessing[sender].endTime }	
 	doingRessing[sender] = nil
 end
 
@@ -651,6 +680,11 @@ end
 function SmartRes2:ResComm_ResExpired(event, target)
 	-- target declined, remove from list
 	waitingForAccept[target] = nil
+end
+
+-- ResComm events - called when bar finished fading
+function SmartRes2:FadeFinished(event, bar, name)
+	self.res_bars:ReleaseBar(bar)
 end
 
 -- Blizzard callback functions ----------------------------------------------
@@ -681,6 +715,7 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 	ResComm.RegisterCallback(self, "ResComm_ResEnd")
 	ResComm.RegisterCallback(self, "ResComm_Ressed")
 	ResComm.RegisterCallback(self, "ResComm_ResExpired")
+	ResComm.RegisterCallback(self, "FadeFinished")
 	in_combat = false
 end
 
@@ -829,14 +864,14 @@ function SmartRes2:CreateResBar(sender)
 	local bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, 0)
 	local t = self.db.profile.resBarsColour
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
-
+	bar:SetColorAt(0, 0, 0, 0, 1) -- is this line necessary? need to test
+	
 	doingRessing[sender].bar = bar
 end
 
 function SmartRes2:DeleteResBar(sender) -- have to test this function to see if I got it correct
 	if not doingRessing[sender] then return end
 	doingRessing[sender].bar:Fade(0.5) -- half second fade
-	self.res_bars:RemoveBar(doingRessing[sender].bar) -- we're done with the bar, so dispose of it safely
 end
 
 function SmartRes2:UpdateResColours()
@@ -851,7 +886,7 @@ function SmartRes2:UpdateResColours()
 		-- test if we have the sender in our temp table
 		if currentRes[sender] then
 			-- see we have a shorter res time than the one in the temp table
-			if info.time < currentRes[sender].time then
+			if info.endTime < currentRes[sender].endTime then
 				-- we're quicker so change their bar to a collision bar
 				currentRes[sender].bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 				-- replace the table entry with ourself
@@ -872,7 +907,16 @@ function SmartRes2:UpdateResColours()
 end
 
 function SmartRes2:StartTestBars()
+	waitingForAccept["Someone"] = { target = "Someone", sender = "Dummy", endTime = GetTime() - 10 }
+	doingRessing["Nursenancy"] = { target = "Frankthetank", endTime = GetTime() + 10 }
+	self:CreateResBar("Nursenancy")
+	doingRessing["Dummy"] = { target = "Frankthetank", endTime = GetTime() + 3 }
+	self:CreateResBar("Dummy")
+	doingRessing["Gabriel"] = { target = "Someone", endTime = GetTime() + 6 }
+	self:CreateResBar("Gabriel")
+	self:UpdateResColours()
+	--[[ -- manually create the bars through libbars rather than taint librescomm with false information
 	SmartRes2:ResComm_Ressed(nil, "Frankthetank")
 	SmartRes2:ResComm_ResStart(nil, "Nursenancy", GetTime() + 10, "Frankthetank")
-	SmartRes2:ResComm_ResStart(nil, "Dummy", GetTime() + 3, "Frankthetank")
+	SmartRes2:ResComm_ResStart(nil, "Dummy", GetTime() + 3, "Frankthetank") ]]
 end
