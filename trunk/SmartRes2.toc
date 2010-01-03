@@ -5,7 +5,7 @@
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
 ## X-Email: psvander AT gmail DOT com
-## Version: Alpha 0.51
+## Version: Alpha 0.52
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
 ## SavedVariables: SmartRes2DB
 ## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU

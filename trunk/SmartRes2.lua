@@ -100,7 +100,6 @@ local defaults = {
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		horizontalOrientation = "RIGHT",
-		iconPos = "left",
 		locked = false,
 		manualResKey = "",
 		notifyCollision = "0-off",
@@ -300,22 +299,6 @@ function SmartRes2:OnInitialize()
 							self.db.profile.resBarsBorder = value
 						end
 					},]] --
-					resBarsIconPosition = {
-						order = 8,
-						type = "select",
-						name = L["Icon Position"],
-						desc = L["Change the icon left or right of the bars"],
-						values = {
-							["left"] = L["Left of the bars"],
-							["right"] = L["Right of the bars"],
-						},
-						get = function()
-							return self.db.profile.iconPos
-						end,
-						set = function(info, value)
-							self.db.profile.iconPos = value
-						end
-					},
 					resBarsColour = {
 						order = 9,
 						type = "color",
@@ -894,7 +877,6 @@ local function ClassColouredName(name)
 end
 
 function SmartRes2:CreateResBar(sender)
-	local bar
 	local text
 	icon = icon == self.resSpellIcons[sender] or self.resSpellIcons.Priest
 	local name = sender
@@ -908,11 +890,7 @@ function SmartRes2:CreateResBar(sender)
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, orientation,length, thickness)
-	if self.db.profile.iconPos == "left" then
-		bar = self.res_bars:NewTimerBar(icon, name, text, time, nil, 0)
-	else
-		bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, 0)
-	end
+	local bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, 0)
 	local t = self.db.profile.resBarsColour
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- is this line necessary? need to test
