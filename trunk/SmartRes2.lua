@@ -79,6 +79,8 @@ Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]
 -- local variables ----------------------------------------------------------
 local doingRessing = {}
 local waitingForAccept = {}
+local orientation
+local icon
 --@debug@
 SmartRes2.doingRessing = doingRessing
 SmartRes2.waitingForAccept = waitingForAccept
@@ -98,6 +100,7 @@ local defaults = {
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		horizontalOrientation = "RIGHT",
+		iconPos = "left",
 		locked = false,
 		manualResKey = "",
 		notifyCollision = "0-off",
@@ -105,7 +108,7 @@ local defaults = {
 		randMsgs = false,
 		resBarsColour = { r = 0, g = 1, b = 0, a = 1 },
 		resBarsIcon = true,
-		resBarsBorder = "None",
+		-- resBarsBorder = "None",
 		resBarsTexture = "Blizzard",
 		resBarX = 470,
 		resBarY = 375,
@@ -156,36 +159,6 @@ function SmartRes2:OnInitialize()
 	resButton:SetAttribute("PreClick", function() self:Resurrect() end)
 	self.resButton = resButton
 	
-	-- create the Res Bars and set the user preferences
-	--[[
-	if self.db.profile.horizontalOrientation == rightLeft then
-		self.res_bars = self:NewBarGroup("SmartRes2", "RIGHT", 300)
-	else
-		self.res_bars = self:NewBarGroup("SmartRes2", "LEFT", 300)
-	end
-	]]--
-	self.res_bars = self:NewBarGroup("SmartRes2", self.db.profile.horizontalOrientation, 300)
-	self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", self.db.profile.resBarsX, self.db.profile.resBarsY)
-	self.res_bars:SetScale(self.db.profile.scale)
-	self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
-	self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
-	self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.ResBarsBorder))
-	self.res_bars:SetIcon(self.resSpellIcons[sender])
-	
-	-- set the icon to the user preference
-	if self.db.profile.resBarsIcon then
-		self.res_bars:ShowIcon()
-	else
-		self.res_bars:HideIcon()
-	end
-	
-	-- set the anchor to the user preference
-	if self.db.profile.locked then
-		self.res_bars:HideAnchor()
-	else
-		self.res_bars:ShowAnchor()
-	end
-
 	-- prepare spells
 	self.resSpells = { -- getting the spell names
 		Priest = GetSpellInfo(2006), -- Resurrection
@@ -200,7 +173,40 @@ function SmartRes2:OnInitialize()
 		Paladin = select(3, GetSpellInfo(7328)) -- Redemption
 	}  
 	self.playerClass = select(2, UnitClass("player"))  -- what class is the user?
-	self.playerSpell = self.resSpells[self.playerClass] -- only has data if the player can cast a res spell
+	self.playerSpell = self.resSpells[self.playerClass] -- only has data if the player can cast a res spell	
+	
+	-- create the Res Bars and set the user preferences
+	icon = icon or self.resSpellIcons[sender]
+	self.res_bars = self:NewBarGroup("SmartRes2", orientation, 300)
+	self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", self.db.profile.resBarsX, self.db.profile.resBarsY)
+	self.res_bars:SetScale(self.db.profile.scale)
+	self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
+	self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	-- self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.ResBarsBorder))
+	-- self.res_bars:SetIcon(icon or self.resSpellIcons.Priest)
+	
+	-- set the icon to the user preference
+	if self.db.profile.resBarsIcon then		
+		self.res_bars:ShowIcon()
+	else
+		self.res_bars:HideIcon()
+	end
+	
+	-- set the anchor to the user preference
+	if self.db.profile.locked then
+		self.res_bars:HideAnchor()
+	else
+		self.res_bars:ShowAnchor()
+	end
+	
+	-- set horizontal orientation to user preferences
+	if self.db.profile.horizontalOrientation == "RIGHT" then		
+		orientation = Bars.LEFT_TO_RIGHT
+		self.res_bars:SetOrientation(orientation)
+	else
+		orientation = Bars.RIGHT_TO_LEFT
+		self.res_bars:SetOrientation(orientation)
+	end
 	
 	-- addon options table
 	local options = {
@@ -280,7 +286,7 @@ function SmartRes2:OnInitialize()
 							self.db.profile.resBarsTexture = value
 						end
 					},
-					resBarsBorder = {
+					--[[ resBarsBorder = {
 						order = 7,
 						type = "select",
 						dialogControl = "LSM30_Border",
@@ -292,6 +298,22 @@ function SmartRes2:OnInitialize()
 						end,
 						set = function(info, value)
 							self.db.profile.resBarsBorder = value
+						end
+					},]] --
+					resBarsIconPosition = {
+						order = 8,
+						type = "select",
+						name = L["Icon Position"],
+						desc = L["Change the icon left or right of the bars"],
+						values = {
+							["left"] = L["Left of the bars"],
+							["right"] = L["Right of the bars"],
+						},
+						get = function()
+							return self.db.profile.iconPos
+						end,
+						set = function(info, value)
+							self.db.profile.iconPos = value
 						end
 					},
 					resBarsColour = {
@@ -601,6 +623,8 @@ function SmartRes2:OnInitialize()
 	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
 	-- register Media change callbacks
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
+	-- register Bars orientation callback
+	-- Bars.RegisterCallback(self, "UpdateOrientationLayout", "UpdateOrientation")
 
 	-- register events so we can turn things off in combat, and back on when out of combat
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -641,10 +665,12 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 	if type == "statusbar" then
 		self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	end
-	if type == "border" then
+	--[[if type == "border" then
 		self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.resBarsBorder))
-	end
+	end]]--
 end
+
+-- LibBars library callback functions ---------------------------------------
 
 -- ResComm library callback functions ---------------------------------------
 
@@ -868,8 +894,9 @@ local function ClassColouredName(name)
 end
 
 function SmartRes2:CreateResBar(sender)
+	local bar
 	local text
-	local icon = self.resSpellsIcons[info.sender]
+	icon = icon == self.resSpellIcons[sender] or self.resSpellIcons.Priest
 	local name = sender
 	local info = doingRessing[sender]
 	local time = info.endTime - GetTime()
@@ -881,17 +908,26 @@ function SmartRes2:CreateResBar(sender)
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, orientation,length, thickness)
-	local bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, 0)
+	if self.db.profile.iconPos == "left" then
+		bar = self.res_bars:NewTimerBar(icon, name, text, time, nil, 0)
+	else
+		bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, 0)
+	end
 	local t = self.db.profile.resBarsColour
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
-	bar:SetBackdrop(Media:Fetch("border", self.db.profile.resBarsBorder))
-	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
-	bar:SetIcon(icon)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- is this line necessary? need to test
-	if self.db.profile.resBarsIcons then
+	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	if self.db.profile.resBarsIcon then		
 		bar:ShowIcon()
 	else
 		bar:HideIcon()
+	end
+	if self.db.profile.horizontalOrientation == "RIGHT" then		
+		orientation = Bars.LEFT_TO_RIGHT
+		bar:SetOrientation(orientation)
+	else
+		orientation = Bars.RIGHT_TO_LEFT
+		bar:SetOrientation(orientation)
 	end
 	
 	doingRessing[sender].bar = bar

@@ -39,3 +39,4 @@ r47 giving credit where credit is due
 r48 find/replace error, fix for keybindings hopefully, localization update
 r49 just testing some stuff like borders and horizontal direction
 r50 closer to getting borders working. bars switch direction finally, but only on /rl. working on that
+r51 textures, direction, hiding icon all working. added icon position, commented out borders for now
