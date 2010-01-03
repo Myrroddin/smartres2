@@ -41,3 +41,4 @@ r49 just testing some stuff like borders and horizontal direction
 r50 closer to getting borders working. bars switch direction finally, but only on /rl. working on that
 r51 textures, direction, hiding icon all working. added icon position, commented out borders for now
 r52 experiment with icon position failed, removing option
+r53 just cleaning up, and fixing the missing locale phrases.
