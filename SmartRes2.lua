@@ -182,7 +182,6 @@ function SmartRes2:OnInitialize()
 	self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
 	self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	-- self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.ResBarsBorder))
-	-- self.res_bars:SetIcon(icon or self.resSpellIcons.Priest)
 	
 	-- set the icon to the user preference
 	if self.db.profile.resBarsIcon then		
@@ -478,11 +477,7 @@ function SmartRes2:OnInitialize()
 							return self.db.profile.autoResKey
 						end,
 						set = function(info, value)
-							if not self.playerSpell then
-								self:Print(L["Your class, %s, has no out of combat res spells, so no keys will be bound."]):format(self.playerClass)
-							else
-								self.db.profile.autoResKey = value
-							end
+							self.db.profile.autoResKey = value
 						end
 					},
 					manualResKey = {
@@ -494,11 +489,7 @@ function SmartRes2:OnInitialize()
 							return self.db.profile.manualResKey
 						end,
 						set  = function(info, value)
-							if not self.playerSpell then
-								self:Print(L["Your class, %s, has no out of combat res spells, so no keys will be bound."]):format(self.playerClass)
-							else
-								self.db.profile.manualResKey = value
-							end
+							self.db.profile.manualResKey = value
 						end
 					}
 				}
@@ -606,8 +597,6 @@ function SmartRes2:OnInitialize()
 	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
 	-- register Media change callbacks
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
-	-- register Bars orientation callback
-	-- Bars.RegisterCallback(self, "UpdateOrientationLayout", "UpdateOrientation")
 
 	-- register events so we can turn things off in combat, and back on when out of combat
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
@@ -685,8 +674,8 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			if self.db.profile.randMsgs then
 				msg = math.random(#self.db.profile.randChatTbl)
 			end
-			sgsub(msg, "%p%", sender)
-			sgsub(msg, "%t%", targetName)
+			sgsub(msg, "%%p%%", sender)
+			sgsub(msg, "%%t%%", targetName)
 			SendChatMessage(msg, channel, nil, nil)
 		end
 		if self.db.profile.notifySelf then
@@ -757,6 +746,10 @@ end
 -- key binding functions ----------------------------------------------------
 
 function SmartRes2:BindKeys()
+	if not self.playerSpell then
+		self:Print(L["Your class, %s, has no out of combat res spells, so no keys will be bound."]):format(self.playerClass)
+		return
+	end
 	SetOverrideBindingClick(self.resButton, false, self.db.profile.autoResKey, "SmartRes2Button")
 	SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualResKey, self.playerSpell)
 end
@@ -909,6 +902,7 @@ function SmartRes2:CreateResBar(sender)
 	end
 	
 	doingRessing[sender].bar = bar
+	self:UpdateResColours()
 end
 
 function SmartRes2:DeleteResBar(sender) -- have to test this function to see if I got it correct
@@ -962,13 +956,14 @@ function SmartRes2:StartTestBars()
 	self:CreateResBar("Dummy")
 	doingRessing["Gabriel"] = { target = "Someone", endTime = GetTime() + 6 }
 	self:CreateResBar("Gabriel")
-	self:UpdateResColours()
+	
+	--[[manually create the bars through libbars rather than taint librescomm with false information
+	SmartRes2:ResComm_Ressed(nil, "Frankthetank")
+	SmartRes2:ResComm_ResStart(nil, "Nursenancy", GetTime() + 10, "Frankthetank")
+	SmartRes2:ResComm_ResStart(nil, "Dummy", GetTime() + 3, "Frankthetank") ]]--
+	self:UpdateResColours()	
 	
 	-- set the collision back to user preferences
 	self.db.profile.notifyCollision = settings
-	settings = nil
-	--[[ -- manually create the bars through libbars rather than taint librescomm with false information
-	SmartRes2:ResComm_Ressed(nil, "Frankthetank")
-	SmartRes2:ResComm_ResStart(nil, "Nursenancy", GetTime() + 10, "Frankthetank")
-	SmartRes2:ResComm_ResStart(nil, "Dummy", GetTime() + 3, "Frankthetank") ]]
+	settings = nil	
 end
