@@ -100,11 +100,12 @@ local defaults = {
 		horizontalOrientation = "RIGHT",
 		locked = false,
 		manualResKey = "",
-		notifyCollision = false,
+		notifyCollision = "0-off",
 		notifySelf = true,
 		randMsgs = false,
 		resBarsColour = { r = 0, g = 1, b = 0, a = 1 },
 		resBarsIcon = true,
+		resBarsBorder = "None",
 		resBarsTexture = "Blizzard",
 		resBarX = 470,
 		resBarY = 375,
@@ -169,6 +170,14 @@ function SmartRes2:OnInitialize()
 	self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
 	self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.ResBarsBorder))
+	self.res_bars:SetIcon(self.resSpellIcons[sender])
+	
+	-- set the icon to the user preference
+	if self.db.profile.resBarsIcon then
+		self.res_bars:ShowIcon()
+	else
+		self.res_bars:HideIcon()
+	end
 	
 	-- set the anchor to the user preference
 	if self.db.profile.locked then
@@ -274,7 +283,7 @@ function SmartRes2:OnInitialize()
 					resBarsBorder = {
 						order = 7,
 						type = "select",
-						dialogControl = LSM30_Border",
+						dialogControl = "LSM30_Border",
 						name = L["Border"],
 						desc = L["Select the border for the res bars"],
 						values = AceGUIWidgetLSMlists.border,
@@ -427,9 +436,19 @@ function SmartRes2:OnInitialize()
 					},
 					--[[notifyCollision = {
 						order = 5,
-						type = "toggle",
+						type = "select",
 						name = L["Duplicate Res Targets"],
-						desc = L["Toggle whether you want to whisper a sender who is ressing a target of another sender's spell. Could get very spammy. Default off"],
+						desc = L["Notify a resser they created a collision. Could get very spammy"],
+						values = {
+							["0-off"] = L["Off"],
+							group = L["Group"],
+							guild = L["Guild"],
+							party = L["Party"],
+							raid = L["Raid"],
+							say = L["Say"],
+							whisper = L["Whisper"],
+							yell = L["Yell"],
+						},
 						get = function()
 							return self.db.profile.notifyCollision
 						end,
@@ -454,7 +473,11 @@ function SmartRes2:OnInitialize()
 							return self.db.profile.autoResKey
 						end,
 						set = function(info, value)
-							self.db.profile.autoResKey = value
+							if not self.playerSpell then
+								self:Print(L["Your class, %s, has no out of combat res spells, so no keys will be bound."]):format(self.playerClass)
+							else
+								self.db.profile.autoResKey = value
+							end
 						end
 					},
 					manualResKey = {
@@ -466,7 +489,11 @@ function SmartRes2:OnInitialize()
 							return self.db.profile.manualResKey
 						end,
 						set  = function(info, value)
-							self.db.profile.manualResKey = value
+							if not self.playerSpell then
+								self:Print(L["Your class, %s, has no out of combat res spells, so no keys will be bound."]):format(self.playerClass)
+							else
+								self.db.profile.manualResKey = value
+							end
 						end
 					}
 				}
@@ -591,8 +618,6 @@ function SmartRes2:OnEnable()
 	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
 	if self.playerSpell then
 		self:BindKeys()
---	else
---		self:Print(L["Your class, %s, has no out of combat res spells, so no keys will be bound."]):format(self.playerClass) -- want this message in the Options frame, not here
 	end
 end
 
@@ -601,6 +626,7 @@ function SmartRes2:OnDisable()
 	ResComm.UnregisterAllCallbacks(self)
 	self.res_bars.UnregisterAllCallbacks(self)
 	self:UnBindKeys()
+	self:UnregisterAllEvents()
 end
 
 -- General callback functions -----------------------------------------------
@@ -843,7 +869,7 @@ end
 
 function SmartRes2:CreateResBar(sender)
 	local text
-	local icon
+	local icon = self.resSpellsIcons[info.sender]
 	local name = sender
 	local info = doingRessing[sender]
 	local time = info.endTime - GetTime()
@@ -854,17 +880,19 @@ function SmartRes2:CreateResBar(sender)
 		text = (L["%s is ressing %s"]):format(sender, info.target)
 	end
 
-	if self.db.profile.resBarsIcon then
-		icon = self.resSpellIcons[sender]
-	else
-		icon = nil
-	end
-
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, orientation,length, thickness)
 	local bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, 0)
 	local t = self.db.profile.resBarsColour
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
+	bar:SetBackdrop(Media:Fetch("border", self.db.profile.resBarsBorder))
+	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	bar:SetIcon(icon)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- is this line necessary? need to test
+	if self.db.profile.resBarsIcons then
+		bar:ShowIcon()
+	else
+		bar:HideIcon()
+	end
 	
 	doingRessing[sender].bar = bar
 end
@@ -907,6 +935,12 @@ function SmartRes2:UpdateResColours()
 end
 
 function SmartRes2:StartTestBars()
+	-- we don't want the test bars to throw an error if notify collision is on
+	local settings = self.db.profile.notifyCollision
+	if not settings == "0-off" then
+		self.db.profile.notifyCollision = "0-off"
+	end
+	
 	waitingForAccept["Someone"] = { target = "Someone", sender = "Dummy", endTime = GetTime() - 10 }
 	doingRessing["Nursenancy"] = { target = "Frankthetank", endTime = GetTime() + 10 }
 	self:CreateResBar("Nursenancy")
@@ -915,6 +949,10 @@ function SmartRes2:StartTestBars()
 	doingRessing["Gabriel"] = { target = "Someone", endTime = GetTime() + 6 }
 	self:CreateResBar("Gabriel")
 	self:UpdateResColours()
+	
+	-- set the collision back to user preferences
+	self.db.profile.notifyCollision = settings
+	settings = nil
 	--[[ -- manually create the bars through libbars rather than taint librescomm with false information
 	SmartRes2:ResComm_Ressed(nil, "Frankthetank")
 	SmartRes2:ResComm_ResStart(nil, "Nursenancy", GetTime() + 10, "Frankthetank")
