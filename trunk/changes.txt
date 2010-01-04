@@ -44,3 +44,4 @@ r52 experiment with icon position failed, removing option
 r53 just cleaning up, and fixing the missing locale phrases.
 r54 working keybindings, and some extra code removed
 r55 apologies to XENOBIOS, who is not spelled XINOBIOS. and fixed a typo with clearing the key bindings, for those who went in and out of combat
+r56 pushing new localizations. sorry people!
