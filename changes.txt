@@ -42,3 +42,4 @@ r50 closer to getting borders working. bars switch direction finally, but only o
 r51 textures, direction, hiding icon all working. added icon position, commented out borders for now
 r52 experiment with icon position failed, removing option
 r53 just cleaning up, and fixing the missing locale phrases.
+r54 working keybindings, and some extra code removed
