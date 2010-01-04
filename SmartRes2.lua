@@ -740,7 +740,7 @@ function SmartRes2:BindKeys()
 end
 
 function SmartRes2:UnBindKeys()
-	ClearOverrideBindings(self.ResButton)
+	ClearOverrideBindings(self.resButton)
 end
 
 -- anchor management functions ----------------------------------------------
