@@ -513,12 +513,12 @@ function SmartRes2:OnInitialize()
 					creditsDesc5 = {
 						order = 5,
 						type = "description",
-						name = L["German translation by Farook, Black_Mystics, xevilgrin, and Dessa"],
+						name = L["German translation by Farook, Black_Mystics, Xevilgrin, and Dessa"],
 					},
 					creditsDesc6 = {
 						order = 6,
 						type = "description",
-						name = L["French translation by ckeurk and Xilbar"],
+						name = L["French translation by Ckeurk and Xilbar"],
 					},
 					creditsDesc7 = {
 						order = 7,
@@ -528,7 +528,12 @@ function SmartRes2:OnInitialize()
 					creditsDesc8 = {
 						order = 8,
 						type = "description",
-						name = L["Russian translation by xinobios"]
+						name = L["Russian translation by Xenobios"],
+					},
+					creditsDesc9 = {
+						order = 9,
+						type = "description",
+						name = L["Additional translations by Mattbnr"]
 					}
 				}
 			}
