@@ -155,24 +155,24 @@ function SmartRes2:OnInitialize()
 	-- create a secure button for ressing
 	local resButton = CreateFrame("button", "SmartRes2Button", UIParent, "SecureActionButtonTemplate")
 	resButton:SetAttribute("type", "spell")
-	resButton:SetAttribute("PreClick", function() self:Resurrect() end)
+	resButton:SetScript("PreClick", function() self:Resurrection() end)
 	self.resButton = resButton
 	
 	-- prepare spells
-	self.resSpells = { -- getting the spell names
-		Priest = GetSpellInfo(2006), -- Resurrection
-		Shaman = GetSpellInfo(2008), -- Ancestral Spirit
-		Druid = GetSpellInfo(50769), -- Revive
-		Paladin = GetSpellInfo(7328) -- Redemption
+	local resSpells = { -- getting the spell names
+		PRIEST = GetSpellInfo(2006), -- Resurrection
+		SHAMAN = GetSpellInfo(2008), -- Ancestral Spirit
+		DRUID = GetSpellInfo(50769), -- Revive
+		PALADIN = GetSpellInfo(7328) -- Redemption
 	}
 	self.resSpellIcons = { -- need the icons too, for the res bars
-		Priest = select(3, GetSpellInfo(2006)), -- Resurrection
-		Shaman = select(3, GetSpellInfo(2008)), -- Ancestral Spirit
-		Druid = select(3, GetSpellInfo(50769)), -- Revive
-		Paladin = select(3, GetSpellInfo(7328)) -- Redemption
+		PRIEST = select(3, GetSpellInfo(2006)), -- Resurrection
+		SHAMAN = select(3, GetSpellInfo(2008)), -- Ancestral Spirit
+		DRUID = select(3, GetSpellInfo(50769)), -- Revive
+		PALADIN = select(3, GetSpellInfo(7328)) -- Redemption
 	}  
 	self.playerClass = select(2, UnitClass("player"))  -- what class is the user?
-	self.playerSpell = self.resSpells[self.playerClass] -- only has data if the player can cast a res spell	
+	self.playerSpell = resSpells[self.playerClass] -- only has data if the player can cast a res spell	
 	
 	-- create the Res Bars and set the user preferences
 	icon = icon or self.resSpellIcons[sender]
@@ -180,7 +180,6 @@ function SmartRes2:OnInitialize()
 	self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", self.db.profile.resBarsX, self.db.profile.resBarsY)
 	self.res_bars:SetScale(self.db.profile.scale)
 	self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
-	self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	-- self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.ResBarsBorder))
 	
 	-- set the icon to the user preference
@@ -195,15 +194,6 @@ function SmartRes2:OnInitialize()
 		self.res_bars:HideAnchor()
 	else
 		self.res_bars:ShowAnchor()
-	end
-	
-	-- set horizontal orientation to user preferences
-	if self.db.profile.horizontalOrientation == "RIGHT" then		
-		orientation = Bars.LEFT_TO_RIGHT
-		self.res_bars:SetOrientation(orientation)
-	else
-		orientation = Bars.RIGHT_TO_LEFT
-		self.res_bars:SetOrientation(orientation)
 	end
 	
 	-- addon options table
@@ -363,8 +353,8 @@ function SmartRes2:OnInitialize()
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars"],
 						values = {
-							["RIGHT"] = L["Right to Left"],
-							["LEFT"] = L["Left to Right"], 
+							["LEFT"] = L["Right to Left"],
+							["RIGHT"] = L["Left to Right"], 
 						},
 						get = function()
 							return self.db.profile.horizontalOrientation
@@ -567,7 +557,7 @@ function SmartRes2:OnInitialize()
 	if DataBroker then
 		local launcher = DataBroker:NewDataObject("SmartRes2", {
 		type = "launcher",
-		icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.Priest, -- "Interface\\Icons\\Spell_Holy_Resurrection", icon changes depending on class, or defaults to Resurrection, if not a sender
+		icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.PRIEST, -- "Interface\\Icons\\Spell_Holy_Resurrection", icon changes depending on class, or defaults to Resurrection, if not a sender
 		OnClick = function(clickedframe, button)
 			if button == "LeftButton" then
 				-- keep our options table in sync with the ldb object state
@@ -612,9 +602,7 @@ function SmartRes2:OnEnable()
 	ResComm.RegisterCallback(self, "ResComm_ResExpired")
 	ResComm.RegisterCallback(self, "FadeFinished")
 	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
-	if self.playerSpell then
-		self:BindKeys()
-	end
+	self:BindKeys()
 end
 
 function SmartRes2:OnDisable()
@@ -656,7 +644,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 		}
 	end
 	self:CreateResBar(sender)
-	self:UpdateResColours()
+	-- self:UpdateResColours()
 	local isSame = UnitIsUnit(sender, "player")
 	if isSame == 1 then -- make sure only the player is sending messages
 		local channel = self.db.profile.chatOutput:upper()
@@ -746,10 +734,7 @@ end
 -- key binding functions ----------------------------------------------------
 
 function SmartRes2:BindKeys()
-	if not self.playerSpell then
-		self:Print(L["Your class, %s, has no out of combat res spells, so no keys will be bound."]):format(self.playerClass)
-		return
-	end
+	if not self.playerSpell then return end
 	SetOverrideBindingClick(self.resButton, false, self.db.profile.autoResKey, "SmartRes2Button")
 	SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualResKey, self.playerSpell)
 end
@@ -768,7 +753,7 @@ end
 
 local unitOutOfRange, unitBeingRessed, unitDead
 local CLASS_PRIORITIES = {
-	-- There might be 10 classes, but Shamans and Druids res at equal efficiency, so no preference
+	-- There might be 10 classes, but SHAMANs and DRUIDs res at equal efficiency, so no preference
 	-- non senders who use Mana should be followed after senders, as they are usually buffers
 	-- or pet summoners (ie: Mana burners)
 	-- res non Mana users last
@@ -826,11 +811,12 @@ end
 function SmartRes2:Resurrection()
 	local resButton = self.resButton
 	resButton:SetAttribute("unit", nil)
-	resButton:SetAttribute("spell", self.playerSpell)
 
 	if GetNumPartyMembers() == 0 and not UnitInRaid("player") then
 		self:Print(L["You are not in a group."])
 		return
+	else
+		resButton:SetAttribute("spell", self.playerSpell)
 	end
 
 	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a sender 
@@ -847,7 +833,7 @@ function SmartRes2:Resurrection()
 	if unit then
 		-- do something useful like setting the target of your button
 		resButton:SetAttribute("unit", unit)
-		-- return unit
+		-- return unit -- should this be commented out?
 	else
 		if unitOutOfRange then
 			self:Print(L["There are no bodies in range to res."])
@@ -871,7 +857,7 @@ end
 
 function SmartRes2:CreateResBar(sender)
 	local text
-	icon = icon == self.resSpellIcons[sender] or self.resSpellIcons.Priest
+	icon = icon == self.resSpellIcons[sender] or self.resSpellIcons.PRIEST
 	local name = sender
 	local info = doingRessing[sender]
 	local time = info.endTime - GetTime()
@@ -894,10 +880,10 @@ function SmartRes2:CreateResBar(sender)
 		bar:HideIcon()
 	end
 	if self.db.profile.horizontalOrientation == "RIGHT" then		
-		orientation = Bars.LEFT_TO_RIGHT
+		orientation = Bars.RIGHT_TO_LEFT
 		bar:SetOrientation(orientation)
 	else
-		orientation = Bars.RIGHT_TO_LEFT
+		orientation = Bars.LEFT_TO_RIGHT
 		bar:SetOrientation(orientation)
 	end
 	
@@ -915,7 +901,7 @@ function SmartRes2:UpdateResColours()
 	local t = self.db.profile.collisionBarsColour
 	-- add the people waiting to our list
 	for target, info in pairs(waitingForAccept) do
-		currentRes[target] = info
+		currentRes[target] = info		
 	end
 	-- step through our table of people doing ressing
 	for sender, info in pairs(doingRessing) do
