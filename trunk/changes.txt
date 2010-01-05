@@ -46,3 +46,4 @@ r54 working keybindings, and some extra code removed
 r55 apologies to XENOBIOS, who is not spelled XINOBIOS. and fixed a typo with clearing the key bindings, for those who went in and out of combat
 r56 pushing new localizations. sorry people!
 r57 timer on bars counts down, not up! fixed a typo on a variable, thanks SMB
+r58 minor fixes and locales update push

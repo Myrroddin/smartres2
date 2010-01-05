@@ -225,9 +225,9 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)
 							self.db.profile.locked = value
 							if value then
-								self.res_bars:HideAnchor()
-							else
 								self.res_bars:ShowAnchor()
+							else
+								self.res_bars:HideAnchor()
 							end
 						end
 					},
@@ -878,7 +878,7 @@ function SmartRes2:CreateResBar(sender)
 	local bar = self.res_bars:NewTimerBar(name, text, time, maxTime, icon, 0)
 	local t = self.db.profile.resBarsColour
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
-	bar:SetColorAt(0, 0, 0, 0, 1) -- is this line necessary? need to test
+	bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	if self.db.profile.resBarsIcon then		
 		bar:ShowIcon()
@@ -907,7 +907,7 @@ function SmartRes2:UpdateResColours()
 	local t = self.db.profile.collisionBarsColour
 	-- add the people waiting to our list
 	for target, info in pairs(waitingForAccept) do
-		currentRes[target] = info		
+		currentRes[info.sender] = info		
 	end
 	-- step through our table of people doing ressing
 	for sender, info in pairs(doingRessing) do
