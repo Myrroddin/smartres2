@@ -825,7 +825,7 @@ function SmartRes2:Resurrection()
 	end
 
 	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a sender 
-	local isUsable, outOfMana = IsUsableSpell[self.PlayerSpell] -- determined during SmartRes2:OnInitialize() 
+	local isUsable, outOfMana = IsUsableSpell[self.playerSpell] -- determined during SmartRes2:OnInitialize() 
 	if outOfMana then 
 	   self:Print(L["You don't have enough Mana to cast a res spell."]) 
 	   return 
@@ -866,6 +866,7 @@ function SmartRes2:CreateResBar(sender)
 	local name = sender
 	local info = doingRessing[sender]
 	local time = info.endTime - GetTime()
+	local maxTime = sender.endTime
 
 	if self.db.profile.classColours then
 		text = (L["%s is ressing %s"]):format(ClassColouredName(sender), ClassColouredName(info.target))
@@ -874,7 +875,7 @@ function SmartRes2:CreateResBar(sender)
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, orientation,length, thickness)
-	local bar = self.res_bars:NewTimerBar(name, text, time, nil, icon, 0)
+	local bar = self.res_bars:NewTimerBar(name, text, time, maxTime, icon, 0)
 	local t = self.db.profile.resBarsColour
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- is this line necessary? need to test
