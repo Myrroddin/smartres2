@@ -115,32 +115,32 @@ local defaults = {
 		scale = 1,
 		showBattleRes = false,
 		randChatTbl = { -- this is here for eventual support for users to add or remove their own random messages
-			[1] = L["%p% is bringing %t% back to life!"],
-			[2] = L["Filthy peon! %p% has to resurrect %t%!"],
-			[3] = L["%p% has to wake %t% from eternal slumber."],
-			[4] = L["%p% is ending %t%\'s dirt nap."],
-			[5] = L["No fallen heroes! %p% needs %t% to march forward to victory!"],
-			[6] = L["%p% doesn't think %t% is immortal, but after this res cast, it is close enough."],
-			[7] = L["Sleeping on the job? %p% is disappointed in %t%."],
-			[8] = L["%p% knew %t% couldn't stay out of the fire. *Sigh*"],
-			[9] = L["Once again, %p% pulls %t% and their bacon out of the fire."],
-			[10] = L["%p% thinks %t% should work on their Dodge skill."],
-			[11] = L["%p% refuses to accept blame for %t%\'s death, but kindly undoes the damage."],
-			[12] = L["%p% grabs a stick. A-ha! %t% was only temporarily dead."],
-			[13] = L["%p% is ressing %t%"],
-			[14] = L["%p% knows %t% is faking. It was only a flesh wound!"],
-			[15] = L["Oh. My. God. %p% has to breathe life back into %t% AGAIN?!?"],
-			[16] = L["%p% knows that %t% dying was just an excuse to see another silly random res message."],
-			[17] = L["Think that was bad? %p% proudly shows %t% the scar tissue caused by Hogger."],
-			[18] = L["Just to be silly, %p% tickles %t% until they get back up."],
-			[19] = L["FOR THE HORDE! FOR THE ALLIANCE! %p% thinks %t% should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
-			[20] = L["And you thought the Scourge looked bad. In about 10 seconds, %p% knows %t% will want a comb, some soap, and a mirror."],
-			[21] = L["Somewhere, the Lich King is laughing at %p%, because he knows %t% will just die again eventually. More meat for the grinder!!"],
-			[22] = L["%p% doesn't want the Lich King to get another soldier, so is bringing %t% back to life."],
-			[23] = L["%p% wonders about these stupid res messages. %t% should just be happy to be alive."],
-			[24] = L["%p% prays over the corpse of %t%, and a miracle happens!"],
-			[25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %p% is making sure %t%\'s death isn't permanent."],
-			[26] = L["%p% performs a series of lewd acts on %t%\'s still warm corpse. Ew."]
+			[1] = L["%%p%% is bringing %%t%% back to life!"],
+			[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
+			[3] = L["%%p%% has to wake %%t%% from eternal slumber."],
+			[4] = L["%%p%% is ending %%t%%'s dirt nap."],
+			[5] = L["No fallen heroes! %%p%% needs %%t%% to march forward to victory!"],
+			[6] = L["%%p%% doesn't think %%t%% is immortal, but after this res cast, it is close enough."],
+			[7] = L["Sleeping on the job? %%p%% is disappointed in %%t%%."],
+			[8] = L["%%p%% knew %%t%% couldn't stay out of the fire. *Sigh*"],
+			[9] = L["Once again, %%p%% pulls %%t%% and their bacon out of the fire."],
+			[10] = L["%%p%% thinks %%t%% should work on their Dodge skill."],
+			[11] = L["%%p%% refuses to accept blame for %%t%%'s death, but kindly undoes the damage."],
+			[12] = L["%%p%% grabs a stick. A-ha! %%t%% was only temporarily dead."],
+			[13] = L["%%p%% is ressing %%t%%"],
+			[14] = L["%%p%% knows %%t%% is faking. It was only a flesh wound!"],
+			[15] = L["Oh. My. God. %%p%% has to breathe life back into %%t%% AGAIN?!?"],
+			[16] = L["%%p%% knows that %%t%% dying was just an excuse to see another silly random res message."],
+			[17] = L["Think that was bad? %%p%% proudly shows %%t%% the scar tissue caused by Hogger."],
+			[18] = L["Just to be silly, %%p%% tickles %%t%% until they get back up."],
+			[19] = L["FOR THE HORDE! FOR THE ALLIANCE! %%p%% thinks %%t%% should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
+			[20] = L["And you thought the Scourge looked bad. In about 10 seconds, %%p%% knows %%t%% will want a comb, some soap, and a mirror."],
+			[21] = L["Somewhere, the Lich King is laughing at %%p%%, because he knows %%t%% will just die again eventually. More meat for the grinder!!"],
+			[22] = L["%%p%% doesn't want the Lich King to get another soldier, so is bringing %%t%% back to life."],
+			[23] = L["%%p%% wonders about these stupid res messages. %%t%% should just be happy to be alive."],
+			[24] = L["%%p%% prays over the corpse of %%t%%, and a miracle happens!"],
+			[25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %%p%% is making sure %%t%%'s death isn't permanent."],
+			[26] = L["%%p%% performs a series of lewd acts on %%t%%'s still warm corpse. Ew."]
 		}
 	}
 }
@@ -280,7 +280,7 @@ function SmartRes2:OnInitialize()
 						order = 10,
 						type = "toggle",
 						name = L["Show Battle Resses"],
-						desc = L["Show bars for Rebirth and Raise Ally"],
+						desc = L["Show bars for Rebirth"],
 						get = function()
 							return self.db.profile.showBattleRes
 						end,
@@ -397,7 +397,7 @@ function SmartRes2:OnInitialize()
 							self.db.profile.notifySelf = value
 						end
 					},
-					--[[notifyCollision = {
+					notifyCollision = {
 						order = 5,
 						type = "select",
 						name = L["Duplicate Res Targets"],
@@ -418,7 +418,7 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)
 							self.db.profile.notifyCollision = value
 						end
-					}]]--
+					}
 				}
 			},
 			keyBindingsTab = {
@@ -477,7 +477,7 @@ function SmartRes2:OnInitialize()
 					creditsDesc3 = {
 						order = 4,
 						type = "description",
-						name = "* "..L["Many bugfixes and development help from onaforeignshore"]
+						name = "* "..L["Many bugfixes and development help from Onaforeignshore"]
 					},
 					creditsDesc5 = {
 						order = 5,
@@ -571,17 +571,7 @@ function SmartRes2:OnInitialize()
 		self.launcher = launcher
 	end
 
-	-- register Profile callbacks
-	db.RegisterCallback(self, "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
-
-	-- register Media change callbacks
-	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
-
-	-- register events so we can turn things off in combat, and back on when out of combat
-	self:RegisterEvent("PLAYER_REGEN_DISABLED")
-	self:RegisterEvent("PLAYER_REGEN_ENABLED")
+	
 
 	-- create a secure button for ressing
 	local resButton = CreateFrame("button", "SmartRes2Button", UIParent, "SecureActionButtonTemplate")
@@ -614,22 +604,36 @@ function SmartRes2:OnInitialize()
 end
 
 function SmartRes2:OnEnable()
-	-- called when SmartRes2 is enabled
+	-- called when SmartRes2 is enabled	
+	-- register events so we can turn things off in combat, and back on when out of combat
+	self:RegisterEvent("PLAYER_REGEN_DISABLED")
+	self:RegisterEvent("PLAYER_REGEN_ENABLED")	
+	-- register Profile callbacks
+	db.RegisterCallback(self, "OnProfileChanged")
+	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
+	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
+	-- register Media change callbacks
+	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")	
+	-- register LibResComm event callbacks
 	ResComm.RegisterCallback(self, "ResComm_ResStart")
 	ResComm.RegisterCallback(self, "ResComm_ResEnd")
 	ResComm.RegisterCallback(self, "ResComm_Ressed")
-	ResComm.RegisterCallback(self, "ResComm_ResExpired")
-	ResComm.RegisterCallback(self, "FadeFinished")
+	ResComm.RegisterCallback(self, "ResComm_ResExpired")	
+	-- register bars callbacks
+	self.res_bars.RegisterCallback(self, "FadeFinished")
 	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
+	-- call keybindings function
 	self:BindKeys()
 end
 
 function SmartRes2:OnDisable()
 	-- called when SmartRes2 is disabled
 	ResComm.UnregisterAllCallbacks(self)
+	Media.UnregisterAllCallbacks(self)
 	self.res_bars.UnregisterAllCallbacks(self)
 	self:UnBindKeys()
 	self:UnregisterAllEvents()
+	db.UnregisterAllCallbacks(self)
 end
 
 -- General callback functions -----------------------------------------------
@@ -925,7 +929,7 @@ function SmartRes2:CreateResBar(sender)
 	self:UpdateResColours()
 end
 
-function SmartRes2:DeleteResBar(sender) -- have to test this function to see if I got it correct
+function SmartRes2:DeleteResBar(sender)
 	if not doingRessing[sender] then return end
 	resBars[sender]:Fade(0.5) -- half second fade
 end
@@ -933,6 +937,7 @@ end
 function SmartRes2:UpdateResColours()
 	local currentRes = {}
 	local t = self.db.profile.collisionBarsColour
+	local chatType = self.db.profile.notifyCollision:upper()
 
 	-- add waitingForAccept entries to the table
 	for sender, v in pairs(waitingForAccept) do
@@ -952,12 +957,46 @@ function SmartRes2:UpdateResColours()
 					if resBars[currentRes[target].sender] and resBars[currentRes[target].sender][target].bar then
 						-- change the colour of the one in the table
 						resBars[currentRes[target].sender][target].bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
+						-- collision res chat notification stuff
+						if not self.db.profile.notifyCollision == "0-off" then
+							if chatType == "GROUP" then
+								if GetNumRaidMembers() > 0 then
+									chatType = "RAID"
+								elseif GetNumPartyMembers() > 0 then
+									chatType = "PARTY"
+								end
+							end
+							if chatType == "WHISPER" then
+								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
+								chatType, nil, currentRes[target].sender):format(target, sender)
+							else
+								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
+								chatType):format(target, sender)
+							end
+						end
 					end
 				else
 					-- if the bar exists
 					if resBars[sender][target].bar then
 						-- change the colour of our bar
 						resBars[sender][target].bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
+						-- more collision res chat notification stuff
+						if not self.db.profile.notifyCollision == "o-off" then
+							if chatType == "GROUP" then
+								if GetNumRaidMembers() > 0 then
+									chatType = "RAID"
+								elseif GetNumPartyMembers() > 0 then
+									chatType = "PARTY"
+								end
+							end
+							if chatType == "WHISPER" then
+								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
+								chatType, nil, currentRes[target].sender):format(target, sender)
+							else
+								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
+								chatType):format(target, sender)
+							end
+						end
 					end
 				end
 			else -- otherwise add the target
