@@ -557,7 +557,7 @@ function SmartRes2:OnInitialize()
 				else
 					self.res_bars:ShowAnchor()
 				end
-				 LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
+				LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
 			elseif button == "RightButton" then
 				InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
 			end
@@ -580,9 +580,9 @@ function SmartRes2:OnInitialize()
 	self.resButton = resButton
 
 	-- create the Res Bars and set the user preferences
-	icon = icon or self.resSpellIcons[sender]
+	-- icon = icon == self.resSpellIcons[select(2, UnitClass(sender))] or self.resSpellIcons.PRIEST
 	self.res_bars = self:NewBarGroup("SmartRes2", orientation, 300)
-	self.res_bars:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", self.db.profile.resBarsX, self.db.profile.resBarsY)
+	self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
 	self.res_bars:SetScale(self.db.profile.scale)
 	self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
 	-- self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.ResBarsBorder))
@@ -630,10 +630,10 @@ function SmartRes2:OnDisable()
 	-- called when SmartRes2 is disabled
 	ResComm.UnregisterAllCallbacks(self)
 	Media.UnregisterAllCallbacks(self)
-	self.res_bars.UnregisterAllCallbacks(self)
+	self.res_bars.UnregisterAllCallbacks(self)	
+	db.UnregisterAllCallbacks(self)
 	self:UnBindKeys()
 	self:UnregisterAllEvents()
-	db.UnregisterAllCallbacks(self)
 end
 
 -- General callback functions -----------------------------------------------
@@ -652,8 +652,6 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 		self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.resBarsBorder))
 	end]]--
 end
-
--- LibBars library callback functions ---------------------------------------
 
 -- ResComm library callback functions ---------------------------------------
 
@@ -681,7 +679,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			end
 		end
 		if channel ~= "NONE" then -- if it is "none" then don't send any chat messages
-			local msg = L["%p% is ressing %t%"]
+			local msg = L["%%p%% is ressing %%t%%"]
 			if self.db.profile.randMsgs then
 				msg = math.random(#self.db.profile.randChatTbl)
 			end
@@ -734,9 +732,7 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 	-- don't confuse the variable below with being in combat - we use it to see if we've run
 	-- the code below on entry into combat already so that we only run it once
 	if not in_combat then
-		if self.playerSpell then
-			self:UnBindKeys()
-		end
+		self:UnBindKeys()
 		-- disable callbacks during battle if we don't want to see battle resses
 		if not self.db.profile.showBattleRes then
 			ResComm.UnregisterAllCallbacks(self)
@@ -750,16 +746,15 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 end
 
 function SmartRes2:PLAYER_REGEN_ENABLED()
-	if self.playerSpell then
-		self:BindKeys() -- only binds keys if the player can cast a res spell
-	end
+	self:BindKeys()
 	-- reenable callbacks during battle if we don't want to see battle resses
 	if not self.db.profile.showBattleRes then
 		ResComm.RegisterCallback(self, "ResComm_ResStart")
 		ResComm.RegisterCallback(self, "ResComm_ResEnd")
 		ResComm.RegisterCallback(self, "ResComm_Ressed")
 		ResComm.RegisterCallback(self, "ResComm_ResExpired")
-		ResComm.RegisterCallback(self, "FadeFinished")
+		-- ResComm.RegisterCallback(self, "FadeFinished")
+		self.res_bars.RegisterCallback(self, "FadeFinished")
 	end
 	in_combat = false
 end
@@ -767,6 +762,7 @@ end
 -- key binding functions ----------------------------------------------------
 
 function SmartRes2:BindKeys()
+	-- only binds keys if the player can cast an out of combat res spell
 	if not self.playerSpell then return end
 	SetOverrideBindingClick(self.resButton, false, self.db.profile.autoResKey, "SmartRes2Button")
 	SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualResKey, self.playerSpell)
@@ -965,8 +961,7 @@ function SmartRes2:UpdateResColours()
 								elseif GetNumPartyMembers() > 0 then
 									chatType = "PARTY"
 								end
-							end
-							if chatType == "WHISPER" then
+							elseif chatType == "WHISPER" then
 								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
 								chatType, nil, currentRes[target].sender):format(target, sender)
 							else
@@ -988,8 +983,7 @@ function SmartRes2:UpdateResColours()
 								elseif GetNumPartyMembers() > 0 then
 									chatType = "PARTY"
 								end
-							end
-							if chatType == "WHISPER" then
+							elseif chatType == "WHISPER" then
 								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
 								chatType, nil, currentRes[target].sender):format(target, sender)
 							else
@@ -1006,12 +1000,6 @@ function SmartRes2:UpdateResColours()
 		end
 	end
 	wipe(currentRes)
---[[ -- still to be added: whisper player if someone else is ressing
-		if (duplicate or alreadyRessed) and self.db.profile.notifyCollision then
-			SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
-			"whisper", nil, info):format(target, info) -- are these the correct variables to be passing?
-		end
-]]
 end
 
 function SmartRes2:StartTestBars()
