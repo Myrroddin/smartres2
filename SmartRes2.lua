@@ -678,7 +678,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 				channel = "NONE"
 			end
 		end
-		if channel ~= "NONE" then -- if it is "none" then don't send any chat messages
+		if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
 			local msg = L["%%p%% is ressing %%t%%"]
 			if self.db.profile.randMsgs then
 				msg = math.random(#self.db.profile.randChatTbl)
@@ -688,7 +688,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			SendChatMessage(msg, channel, nil, nil)
 		end
 		if self.db.profile.notifySelf then
-			self:Print(L["You are ressing %s"]):format(targetName)
+			self:Print(L["You are ressing %s"]):format(target)
 		end
 	end
 end
