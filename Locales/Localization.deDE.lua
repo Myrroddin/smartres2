@@ -1,4 +1,4 @@
-﻿-- Authors: Farook, Black_Mystics
+﻿-- Authors: Farook, Black_Mystics, Xevilgrin, Dessa, Mattbnr
 -- Localization file for German version of SmartRes2
 
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "deDE")

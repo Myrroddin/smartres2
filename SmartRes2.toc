@@ -5,10 +5,10 @@
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
 ## X-Email: psvander AT gmail DOT com
-## Version: Alpha 0.62
+## Version: Alpha 0.63
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
 ## SavedVariables: SmartRes2DB
-## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU
+## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN
 ## X-Website: http://www.wowace.com/addons/smartres2/
 ## X-Credits: Based on the original SmartRes by Maia, Kyahx, Poull, and Myrroddin
 
@@ -39,5 +39,6 @@ Locales\Localization.ruRU.lua
 Locales\Localization.deDE.lua
 Locales\Localization.esES.lua
 Locales\Localization.esMX.lua
+Locales\Localization.zhCN.lua
 Locales\Localization.enUS.lua
 SmartRes2.lua

@@ -113,7 +113,8 @@ local defaults = {
 		resBarY = 375,
 		reverseGrowth = false,
 		scale = 1,
-		showBattleRes = false,
+		showBattleRes = false,		
+		visibleResBars = true,
 		randChatTbl = { -- this is here for eventual support for users to add or remove their own random messages
 			[1] = L["%%p%% is bringing %%t%% back to life!"],
 			[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
@@ -222,9 +223,23 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)
 							self.db.profile.resBarsTexture = value
 						end
-					},
-					horizontalOrientation = {
+					},					
+					--[[ resBarsBorder = {
 						order = 6,
+						type = "select",
+						dialogControl = "LSM30_Border",
+						name = L["Border"],
+						desc = L["Select the border for the res bars"],
+						values = AceGUIWidgetLSMlists.border,
+						get = function()
+							return self.db.profile.resBarsBorder
+						end,
+						set = function(info, value)
+							self.db.profile.resBarsBorder = value
+						end
+					},]] --
+					horizontalOrientation = {
+						order = 7,
 						type = "select",
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars"],
@@ -240,7 +255,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					reverseGrowth = {
-						order = 7,
+						order = 8,
 						type = "toggle",
 						name = L["Grow Upwards"],
 						desc = L["Make the res bars grow up instead of down"],
@@ -253,7 +268,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					resBarsIcon = {
-						order = 8,
+						order = 9,
 						type = "toggle",
 						name = L["Show Icon"],
 						desc = L["Show or hide the icon for res spells"],
@@ -265,7 +280,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					classColours = {
-						order = 9,
+						order = 10,
 						type = "toggle",
 						name = L["Class Colours"],
 						desc = L["Use class colours for the target on the res bars"],
@@ -277,7 +292,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					showBattleRes = {
-						order = 10,
+						order = 11,
 						type = "toggle",
 						name = L["Show Battle Resses"],
 						desc = L["Show bars for Rebirth"],
@@ -289,7 +304,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					resBarsColour = {
-						order = 11,
+						order = 12,
 						type = "color",
 						name = L["Bar Colour"],
 						desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
@@ -304,7 +319,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					collisionBarsColour = {
-						order = 12,
+						order = 13,
 						type = "color",
 						name = L["Duplicate Bar Colour"],
 						desc = L["Pick the colour for collision (duplicate) res bars"],
@@ -318,27 +333,30 @@ function SmartRes2:OnInitialize()
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end
 					},
-					--[[ resBarsBorder = {
-						order = 13,
-						type = "select",
-						dialogControl = "LSM30_Border",
-						name = L["Border"],
-						desc = L["Select the border for the res bars"],
-						values = AceGUIWidgetLSMlists.border,
-						get = function()
-							return self.db.profile.resBarsBorder
-						end,
-						set = function(info, value)
-							self.db.profile.resBarsBorder = value
-						end
-					},]] --
 					resBarsTestBars = {
 						order = 14,
 						type = "execute",
 						name = L["Test Bars"],
 						desc = L["Show the test bars"],
 						func = function() self:StartTestBars() end
-					}			   
+					},
+					visibleResBars = { 
+						order = 15,
+						type = "toggle",
+						name = L"Show Bars"],
+						desc = L["Show or hide the res bars. Everything else will still work"],
+						get = function() return self.db.profile.visibleResBars
+						set = function(info, value)
+							self.db.profile.visibleResBars = value
+						end
+					},
+					disableAddon = {
+						order = 16,
+						type = "execute",
+						name = L["Disable SmartRes2"],
+						desc = L["Completely disable Smartres2"],
+						func = function() self:DisableSmartRes2 end
+					}
 				}
 			},
 			resChatTextTab = {
@@ -580,25 +598,26 @@ function SmartRes2:OnInitialize()
 	self.resButton = resButton
 
 	-- create the Res Bars and set the user preferences
-	-- icon = icon == self.resSpellIcons[select(2, UnitClass(sender))] or self.resSpellIcons.PRIEST
-	self.res_bars = self:NewBarGroup("SmartRes2", orientation, 300)
-	self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
-	self.res_bars:SetScale(self.db.profile.scale)
-	self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
-	-- self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.ResBarsBorder))
-
-	-- set the icon to the user preference
-	if self.db.profile.resBarsIcon then
-		self.res_bars:ShowIcon()
-	else
-		self.res_bars:HideIcon()
-	end
-
-	-- set the anchor to the user preference
-	if self.db.profile.hideAnchor then
-		self.res_bars:HideAnchor()
-	else
-		self.res_bars:ShowAnchor()
+	if self.db.profile.visibleResBars then
+		icon = icon == self.resSpellIcons[select(2, UnitClass(sender))] or self.resSpellIcons.PRIEST
+		self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, "SmartRes2", 300)
+		self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
+		self.res_bars:SetScale(self.db.profile.scale)
+		self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
+		self.res_bars:SetUserPlaced(true)
+		-- self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.ResBarsBorder))
+		-- set the icon to the user preference
+		if self.db.profile.resBarsIcon then
+			self.res_bars:ShowIcon()
+		else
+			self.res_bars:HideIcon()
+		end
+		-- set the anchor to the user preference
+		if self.db.profile.hideAnchor then
+			self.res_bars:HideAnchor()
+		else
+			self.res_bars:ShowAnchor()
+		end
 	end
 
 end
@@ -628,12 +647,7 @@ end
 
 function SmartRes2:OnDisable()
 	-- called when SmartRes2 is disabled
-	ResComm.UnregisterAllCallbacks(self)
-	Media.UnregisterAllCallbacks(self)
-	self.res_bars.UnregisterAllCallbacks(self)	
-	db.UnregisterAllCallbacks(self)
-	self:UnBindKeys()
-	self:UnregisterAllEvents()
+	self:DisableSmartRes2()
 end
 
 -- General callback functions -----------------------------------------------
@@ -778,6 +792,19 @@ function SmartRes2:ResAnchorMoved(_, _, x, y)
 	self.db.profile.resBarsX, self.db.profile.resBarsY = x, y
 end
 
+-- disable SmartRes2 completely ----------------------------------------------
+function SmartRes2:DisableSmartRes2()
+	self:UnbindKeys()
+	self.UnregisterAllEvents()
+	ResComm.UnregisterAllCallbacks(self)
+	Bars.UnregisterAllCallbacks(self)
+	Media.UnregisterAllCallbacks(self)
+	db.UnregisterAllCallbacks(self)
+	wipe(doingRessing)
+	wipe(waitingForAccept)
+	wipe(resBars)
+end
+
 -- smart ressurection determination functions -------------------------------
 
 local unitOutOfRange, unitBeingRessed, unitDead
@@ -862,7 +889,6 @@ function SmartRes2:Resurrection()
 	if unit then
 		-- do something useful like setting the target of your button
 		resButton:SetAttribute("unit", unit)
-		-- return unit -- should this be commented out?
 	else
 		if unitOutOfRange then
 			self:Print(L["There are no bodies in range to res."])
@@ -899,35 +925,36 @@ function SmartRes2:CreateResBar(sender)
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, orientation,length, thickness)
-	local bar = self.res_bars:NewTimerBar(name, text, time, maxTime, icon, 0)
-	local t = self.db.profile.resBarsColour
+	if self.db.profile.visibleResBars then
+		local bar = self.res_bars:NewTimerBar(name, text, time, maxTime, icon, self.db.profile.horizontalOrientation, 0)
+		local t = self.db.profile.resBarsColour
+		bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
+		bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars
+		bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+		if self.db.profile.resBarsIcon then
+			bar:ShowIcon()
+		else
+			bar:HideIcon()
+		end	
+		--[[if self.db.profile.horizontalOrientation == "RIGHT" then
+			orientation = Bars.RIGHT_TO_LEFT
+			bar:SetOrientation(orientation)
+		else
+			orientation = Bars.LEFT_TO_RIGHT
+			bar:SetOrientation(orientation)
+		end ]]--
 
-	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
-	bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars
-	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
-	if self.db.profile.resBarsIcon then
-		bar:ShowIcon()
-	else
-		bar:HideIcon()
+		resBars[sender] = resBars[sender] or {}
+		resBars[sender][info.target] = resBars[sender][info.target] or {}
+		resBars[sender][info.target].bar = bar
+		resBars[sender][info.target].endTime = info.endTime
+		self:UpdateResColours()
 	end
-	if self.db.profile.horizontalOrientation == "RIGHT" then
-		orientation = Bars.RIGHT_TO_LEFT
-		bar:SetOrientation(orientation)
-	else
-		orientation = Bars.LEFT_TO_RIGHT
-		bar:SetOrientation(orientation)
-	end
-
-	resBars[sender] = resBars[sender] or {}
-	resBars[sender][info.target] = resBars[sender][info.target] or {}
-	resBars[sender][info.target].bar = bar
-	resBars[sender][info.target].endTime = info.endTime
-	self:UpdateResColours()
 end
 
 function SmartRes2:DeleteResBar(sender)
 	if not doingRessing[sender] then return end
-	resBars[sender]:Fade(0.5) -- half second fade
+	resBars[sender].bar:Fade(0.5) -- half second fade -- added the .bar to test
 end
 
 function SmartRes2:UpdateResColours()
