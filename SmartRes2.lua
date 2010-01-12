@@ -343,9 +343,9 @@ function SmartRes2:OnInitialize()
 					visibleResBars = { 
 						order = 15,
 						type = "toggle",
-						name = L"Show Bars"],
+						name = L["Show Bars"],
 						desc = L["Show or hide the res bars. Everything else will still work"],
-						get = function() return self.db.profile.visibleResBars
+						get = function() return self.db.profile.visibleResBars end,
 						set = function(info, value)
 							self.db.profile.visibleResBars = value
 						end
@@ -355,7 +355,7 @@ function SmartRes2:OnInitialize()
 						type = "execute",
 						name = L["Disable SmartRes2"],
 						desc = L["Completely disable Smartres2"],
-						func = function() self:DisableSmartRes2 end
+						func = function() self:DisableSmartRes2() end
 					}
 				}
 			},
@@ -600,7 +600,7 @@ function SmartRes2:OnInitialize()
 	-- create the Res Bars and set the user preferences
 	if self.db.profile.visibleResBars then
 		icon = icon == self.resSpellIcons[select(2, UnitClass(sender))] or self.resSpellIcons.PRIEST
-		self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, "SmartRes2", 300)
+		self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300)
 		self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
 		self.res_bars:SetScale(self.db.profile.scale)
 		self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
