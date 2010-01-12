@@ -1,4 +1,4 @@
---- SmartRes2
+﻿--- SmartRes2
 -- @class file
 -- @name SmartRes2.lua
 -- @author Myrroddin of Llane
@@ -954,7 +954,7 @@ end
 
 function SmartRes2:DeleteResBar(sender)
 	if not doingRessing[sender] then return end
-	resBars[sender].bar:Fade(0.5) -- half second fade -- added the .bar to test
+	resBars[sender][info.target].bar:Fade(0.5) -- half second fade -- added the .bar to test
 end
 
 function SmartRes2:UpdateResColours()
