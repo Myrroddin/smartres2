@@ -599,7 +599,7 @@ function SmartRes2:OnInitialize()
 
 	-- create the Res Bars and set the user preferences
 	if self.db.profile.visibleResBars then
-		icon = icon == self.resSpellIcons[select(2, UnitClass(sender))] or self.resSpellIcons.PRIEST
+		icon = icon == self.resSpellIcons[self.playerClass] or self.resSpellIcons.PRIEST
 		self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300)
 		self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
 		self.res_bars:SetScale(self.db.profile.scale)
