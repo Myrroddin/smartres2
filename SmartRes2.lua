@@ -953,7 +953,8 @@ function SmartRes2:CreateResBar(sender)
 end
 
 function SmartRes2:DeleteResBar(sender)
-	if not doingRessing[sender] then return end
+	local info = doingRessing[sender]
+	if not info then return end
 	resBars[sender][info.target].bar:Fade(0.5) -- half second fade -- added the .bar to test
 end
 
