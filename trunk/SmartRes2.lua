@@ -702,7 +702,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			SendChatMessage(msg, channel, nil, nil)
 		end
 		if self.db.profile.notifySelf then
-			self:Print((L["You are ressing %s"]):format(target))
+			self:Print((L["You are ressing %s"]):format(targetName))
 		end
 	end
 end
