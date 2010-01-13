@@ -697,8 +697,8 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			if self.db.profile.randMsgs then
 				msg = math.random(#self.db.profile.randChatTbl)
 			end
-			sgsub(msg, "%%%%p%%%%", sender)
-			sgsub(msg, "%%%%t%%%%", targetName)
+			msg = sgsub(msg, "%%%%p%%%%", sender)
+			msg = sgsub(msg, "%%%%t%%%%", targetName)
 			SendChatMessage(msg, channel, nil, nil)
 		end
 		if self.db.profile.notifySelf then
