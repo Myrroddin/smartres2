@@ -599,7 +599,6 @@ function SmartRes2:OnInitialize()
 
 	-- create the Res Bars and set the user preferences
 	if self.db.profile.visibleResBars then
-		icon = icon == self.resSpellIcons[self.playerClass] or self.resSpellIcons.PRIEST
 		self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300)
 		self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
 		self.res_bars:SetScale(self.db.profile.scale)
@@ -794,8 +793,8 @@ end
 
 -- disable SmartRes2 completely ----------------------------------------------
 function SmartRes2:DisableSmartRes2()
-	self:UnbindKeys()
-	self.UnregisterAllEvents()
+	self:UnBindKeys()
+	SmartRes2.UnregisterAllEvents(self)
 	ResComm.UnregisterAllCallbacks(self)
 	Bars.UnregisterAllCallbacks(self)
 	Media.UnregisterAllCallbacks(self)
@@ -936,13 +935,13 @@ function SmartRes2:CreateResBar(sender)
 		else
 			bar:HideIcon()
 		end	
-		--[[if self.db.profile.horizontalOrientation == "RIGHT" then
+		if self.db.profile.horizontalOrientation == "RIGHT" then
 			orientation = Bars.RIGHT_TO_LEFT
 			bar:SetOrientation(orientation)
 		else
 			orientation = Bars.LEFT_TO_RIGHT
 			bar:SetOrientation(orientation)
-		end ]]--
+		end
 
 		resBars[sender] = resBars[sender] or {}
 		resBars[sender][info.target] = resBars[sender][info.target] or {}
