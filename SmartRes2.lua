@@ -924,9 +924,9 @@ function SmartRes2:CreateResBar(sender)
 		text = (L["%s is ressing %s"]):format(sender, info.target)
 	end
 
-	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, orientation,length, thickness)
+	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
 	if self.db.profile.visibleResBars then
-		local bar = self.res_bars:NewTimerBar(name, text, time, maxTime, icon, self.db.profile.horizontalOrientation, 0)
+		local bar = self.res_bars:NewTimerBar(name, text, time, maxTime, icon, 0)
 		local t = self.db.profile.resBarsColour
 		bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 		bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars
