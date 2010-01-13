@@ -599,7 +599,7 @@ function SmartRes2:OnInitialize()
 
 	-- create the Res Bars and set the user preferences
 	if self.db.profile.visibleResBars then
-		self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300)
+		self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
 		self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
 		self.res_bars:SetScale(self.db.profile.scale)
 		self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
