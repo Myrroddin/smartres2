@@ -32,6 +32,7 @@ local tinsert = table.insert
 local tsort = table.sort
 local sgsub = string.gsub
 local wipe = wipe
+-- local math.random = math.random
 
 -- debugging section --------------------------------------------------------
 
@@ -625,7 +626,7 @@ function SmartRes2:OnEnable()
 	-- called when SmartRes2 is enabled	
 	-- register events so we can turn things off in combat, and back on when out of combat
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
-	self:RegisterEvent("PLAYER_REGEN_ENABLED")	
+	self:RegisterEvent("PLAYER_REGEN_ENABLED")
 	-- register Profile callbacks
 	db.RegisterCallback(self, "OnProfileChanged")
 	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
@@ -694,7 +695,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 		if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
 			local msg = L["%%p%% is ressing %%t%%"]
 			if self.db.profile.randMsgs then
-				msg = math.random(#self.db.profile.randChatTbl)
+				msg = self.db.profile.randChatTbl[math.random(#self.db.profile.randChatTbl)]
 			end
 			msg = sgsub(msg, "%%%%p%%%%", sender)
 			msg = sgsub(msg, "%%%%t%%%%", targetName)
@@ -766,7 +767,6 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 		ResComm.RegisterCallback(self, "ResComm_ResEnd")
 		ResComm.RegisterCallback(self, "ResComm_Ressed")
 		ResComm.RegisterCallback(self, "ResComm_ResExpired")
-		-- ResComm.RegisterCallback(self, "FadeFinished")
 		self.res_bars.RegisterCallback(self, "FadeFinished")
 	end
 	in_combat = false
@@ -806,7 +806,7 @@ end
 
 -- smart ressurection determination functions -------------------------------
 
-local unitOutOfRange, unitBeingRessed, unitDead
+local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting
 local CLASS_PRIORITIES = {
 	-- There might be 10 classes, but SHAMANs and DRUIDs res at equal efficiency, so no preference
 	-- non senders who use Mana should be followed after senders, as they are usually buffers
@@ -834,11 +834,12 @@ local function compareUnit(unitId, bestUnitId)
 	-- bestUnitId is our best candidate yet (maybe nil if none was found yet).
 	-- unitId is the next candidate.
 	-- we return the best of the two.
-	if not UnitIsDead(unitId) then return bestUnitId end
-	unitDead = true
+	if not UnitIsDead(unitId) then unitDead = true return bestUnitId end
+	-- unitDead = true
 	if ResComm:IsUnitBeingRessed(unitId) then unitBeingRessed = true return bestUnitId end
 	if UnitIsGhost(unitId) then return bestUnitId end
 	if not UnitInRange(unitId) then unitOutOfRange = true return bestUnitId end
+	if waitingForAccept.unitId then unitWaiting = true return bestUnitId end
 	-- UnitIsVisable does not matter as all UnitInRange are Visable.
 	-- i.e. UnitIsVisable() doesn't check LoS.
 	-- here we have a valid candidate, so check first if we already saw one to compare to.
@@ -850,7 +851,7 @@ local function compareUnit(unitId, bestUnitId)
 end
 
 local function getBestCandidate()
-	unitOutOfRange, unitBeingRessed, unitDead = nil, nil, nil
+	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting = nil, nil, nil, nil
 	local best = nil
 	for i = 1, GetNumRaidMembers() do
 		best = compareUnit("raid"..i, best)
@@ -891,7 +892,7 @@ function SmartRes2:Resurrection()
 	else
 		if unitOutOfRange then
 			self:Print(L["There are no bodies in range to res."])
-		elseif unitBeingRessed then
+		elseif unitBeingRessed or unitWaiting then
 			self:Print(L["All dead units are being ressed."])
 		elseif not unitDead then
 			self:Print(L["Everybody is alive. Congratulations!"])
