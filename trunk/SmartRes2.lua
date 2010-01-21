@@ -469,6 +469,11 @@ function SmartRes2:OnInitialize()
 						set  = function(info, value)
 							self.db.profile.manualResKey = value
 						end
+					},
+					castCommand = {
+						order = 3,
+						type = "description",
+						name = L["The command \"cast\" will fire the smart Resurrection function. Usage: /sr cast or /smartres cast. Not necessary if you use the auto res key"]
 					}
 				}
 			},
@@ -535,7 +540,7 @@ function SmartRes2:OnInitialize()
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
 
 	-- Add your options to the Blizz options window using AceConfigDialog
-	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")
+	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")	
 
 	-- support for LibAboutPanel
 	if LibStub:GetLibrary("LibAboutPanel", true) then
@@ -543,8 +548,10 @@ function SmartRes2:OnInitialize()
 	end
 
 	-- add console commands
-	self:RegisterChatCommand("sr", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
-	self:RegisterChatCommand("smartres", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
+	-- self:RegisterChatCommand("sr", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
+	-- self:RegisterChatCommand("smartres", function() InterfaceOptionsFrame_OpenToCategory(self.optionsFrame) end)
+	self:RegisterChatCommand("sr", "SlashHandler")
+	self:RegisterChatCommand("smartres", "SlashHandler")	
 
 	-- prepare spells
 	local resSpells = { -- getting the spell names
@@ -648,6 +655,16 @@ end
 function SmartRes2:OnDisable()
 	-- called when SmartRes2 is disabled
 	self:DisableSmartRes2()
+end
+
+-- process slash commands ---------------------------------------------------
+function SmartRes2:SlashHandler(input)
+	input = input:lower()
+	if input == "cast" then
+		self:Resurrection()
+	else
+		InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+	end
 end
 
 -- General callback functions -----------------------------------------------
