@@ -1007,11 +1007,9 @@ function SmartRes2:UpdateResColours()
 									chatType = "PARTY"
 								end
 							elseif chatType == "WHISPER" then
-								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
-								chatType, nil, currentRes[target].sender):format(target, sender)
+								SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, sender), chatType, nil, currentRes[target].sender)
 							else
-								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
-								chatType):format(target, sender)
+								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, sender, chatType)
 							end
 						end
 					end
@@ -1029,11 +1027,9 @@ function SmartRes2:UpdateResColours()
 									chatType = "PARTY"
 								end
 							elseif chatType == "WHISPER" then
-								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
-								chatType, nil, currentRes[target].sender):format(target, sender)
+								SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, sender), chatType, nil, currentRes[sender].target)
 							else
-								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."],
-								chatType):format(target, sender)
+								SendChatMessage(L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, sender, chatType)
 							end
 						end
 					end
