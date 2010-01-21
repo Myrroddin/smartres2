@@ -856,7 +856,7 @@ local function compareUnit(unitId, bestUnitId)
 	if ResComm:IsUnitBeingRessed(unitId) then unitBeingRessed = true return bestUnitId end
 	if UnitIsGhost(unitId) then return bestUnitId end
 	if not UnitInRange(unitId) then unitOutOfRange = true return bestUnitId end
-	if waitingForAccept.unitId then unitWaiting = true return bestUnitId end
+	if waitingForAccept[unitId] then unitWaiting = true return bestUnitId end
 	-- UnitIsVisable does not matter as all UnitInRange are Visable.
 	-- i.e. UnitIsVisable() doesn't check LoS.
 	-- here we have a valid candidate, so check first if we already saw one to compare to.
@@ -999,7 +999,7 @@ function SmartRes2:UpdateResColours()
 						-- change the colour of the one in the table
 						resBars[currentRes[target].sender][target].bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 						-- collision res chat notification stuff
-						if not self.db.profile.notifyCollision == "0-off" then
+						if self.db.profile.notifyCollision ~= "0-off" then
 							if chatType == "GROUP" then
 								if GetNumRaidMembers() > 0 then
 									chatType = "RAID"
@@ -1021,7 +1021,7 @@ function SmartRes2:UpdateResColours()
 						-- change the colour of our bar
 						resBars[sender][target].bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 						-- more collision res chat notification stuff
-						if not self.db.profile.notifyCollision == "o-off" then
+						if self.db.profile.notifyCollision ~= "o-off" then
 							if chatType == "GROUP" then
 								if GetNumRaidMembers() > 0 then
 									chatType = "RAID"
