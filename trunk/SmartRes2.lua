@@ -805,6 +805,7 @@ end
 
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting
 local raidUpdated
+local SortedResList = {}
 local CLASS_PRIORITIES = {
 	-- There might be 10 classes, but SHAMANs and DRUIDs res at equal efficiency, so no preference
 	-- non healers who use Mana should be followed after healers, as they are usually buffers
