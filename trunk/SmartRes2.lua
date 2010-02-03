@@ -807,7 +807,7 @@ local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting
 local raidUpdated
 local CLASS_PRIORITIES = {
 	-- There might be 10 classes, but SHAMANs and DRUIDs res at equal efficiency, so no preference
-	-- non senders who use Mana should be followed after senders, as they are usually buffers
+	-- non healers who use Mana should be followed after healers, as they are usually buffers
 	-- or pet summoners (ie: Mana burners)
 	-- res non Mana users last
 	PRIEST = 1, 
@@ -855,22 +855,22 @@ local function SortCurrentRaiders()
 		local id = member .. i
 		local name = UnitName(id)
 		local resprio, lvl = getClassOrder(name)
-		table.insert(SortedResList, {name = name, resprio = resprio, level = lvl})
+		tinsert(SortedResList, {name = name, resprio = resprio, level = lvl})
 	end
-	table.sort(SortedResList, function(a,b) 
+	tsort(SortedResList, function(a,b) 
 		if a.resprio == b.resprio then
 			return a.level > b.level
 		else 
 			return a.resprio < b.resprio
 		end
 	end)
-	RaidUpdated = nil
+	raidUpdated = nil
 end
 
 
 local function getBestCandidate()
 	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting = nil, nil, nil, nil
-	if RaidUpdated then SortCurrentRaiders() end	--only resort if raid changed	
+	if raidUpdated then SortCurrentRaiders() end	--only resort if raid changed	
 	for _, data in ipairs(SortedResList) do
 		local unit = data.name
 		local validUnit = verifyUnit(unit)
