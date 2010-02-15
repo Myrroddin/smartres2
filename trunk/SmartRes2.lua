@@ -32,13 +32,12 @@ local tinsert = table.insert
 local tsort = table.sort
 local sgsub = string.gsub
 local wipe = wipe
--- local math.random = math.random
 
 -- debugging section --------------------------------------------------------
 
---@debug@
+--[===[@debug@
 _G.SmartRes2 = SmartRes2
---@end-debug@
+--@end-debug@]===]
 
 -- additional libraries -----------------------------------------------------
 
@@ -82,15 +81,18 @@ local waitingForAccept = {}
 local resBars = {}
 local orientation
 local icon
---@debug@
+local LastRes
+
+--[===[@debug@
 SmartRes2.doingRessing = doingRessing
 SmartRes2.waitingForAccept = waitingForAccept
---@end-debug@
+--@end-debug@]===]
 
 -- variable for our addon preferences
 local db
 -- variable to use for multiple PLAYER_REGEN_DISABLED calls (see SmartRes2:PLAYER_REGEN_DISABLED below)
 local in_combat = false
+local Player = UnitName("player")
 
 -- addon defaults -----------------------------------------------------------
 
@@ -683,7 +685,6 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 		}
 	end
 	self:CreateResBar(sender)
-	-- self:UpdateResColours()
 	local isSame = UnitIsUnit(sender, "player")
 	if isSame == 1 then -- make sure only the player is sending messages
 		local channel = self.db.profile.chatOutput:upper()
@@ -761,6 +762,7 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 		wipe(doingRessing)
 		wipe(waitingForAccept)
 		wipe(resBars)
+		LastRes = nil
 	end
 	in_combat = true
 end
@@ -798,19 +800,19 @@ function SmartRes2:ResAnchorMoved(_, _, x, y)
 end
 
 -- smart ressurection determination functions -------------------------------
+local raidUpdated
 
 function SmartRes2:RAID_ROSTER_UPDATE()
 	raidUpdated = true
 end
 
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting
-local raidUpdated
 local SortedResList = {}
 local CLASS_PRIORITIES = {
 	-- There might be 10 classes, but SHAMANs and DRUIDs res at equal efficiency, so no preference
 	-- non healers who use Mana should be followed after healers, as they are usually buffers
 	-- or pet summoners (ie: Mana burners)
-	-- res non Mana users last
+	-- res non Mana users last (HUNTERs will get moved once Catalclysm hits)
 	PRIEST = 1, 
 	PALADIN = 2, 
 	SHAMAN = 3, 
@@ -834,6 +836,7 @@ local function verifyUnit(unit)
 	-- unit is the next candidate.
 	if not UnitIsDead(unit) then return nil end
 	unitDead = true
+	if unit == LastRes then return nil end
 	if ResComm:IsUnitBeingRessed(unit) then unitBeingRessed = true return nil end
 	if waitingForAccept[unit] then unitWaiting = true return nil end
 	if UnitIsGhost(unit) then return nil end
@@ -907,7 +910,8 @@ function SmartRes2:Resurrection()
 	if unit then
 		-- do something useful like setting the target of your button
 		resButton:SetAttribute("unit", unit)
-		tinsert(waitingForAccept, unit)
+		waitingForAccept[unit] = { target = unit, sender = Player, endTime = GetTime() + 1000 }
+		LastRes = unit
 	else
 		if unitOutOfRange then
 			self:Print(L["There are no bodies in range to res."])
