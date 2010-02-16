@@ -833,16 +833,14 @@ local function getClassOrder(unit)
 end
 
 local function verifyUnit(unit)
-	-- unit is the next candidate.
+	-- unit is the next candidate. there is NO way to check LoS, so don't ask!
 	if not UnitIsDead(unit) then return nil end
 	unitDead = true
 	if unit == LastRes then return nil end
 	if ResComm:IsUnitBeingRessed(unit) then unitBeingRessed = true return nil end
 	if waitingForAccept[unit] then unitWaiting = true return nil end
 	if UnitIsGhost(unit) then return nil end
-	if not UnitInRange(unit) then unitOutOfRange = true return nil end
-	-- UnitIsVisable does not matter as all UnitInRange are Visable.
-	-- i.e. UnitIsVisable() doesn't check LoS.
+	if IsSpellInRange(self.playerSpell, unit) == 0 then unitOutOfRange = true return nil end
 	return true
 end
 
@@ -897,7 +895,7 @@ function SmartRes2:Resurrection()
 	end
 
 	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a sender 
-	local isUsable, outOfMana = IsUsableSpell(self.playerSpell) -- determined during SmartRes2:OnInitialize() 
+	local isUsable, outOfMana = IsUsableSpell(self.playerSpell) 
 	if outOfMana then 
 	   self:Print(L["You don't have enough Mana to cast a res spell."]) 
 	   return 
@@ -919,6 +917,7 @@ function SmartRes2:Resurrection()
 			self:Print(L["All dead units are being ressed."])
 		elseif not unitDead then
 			self:Print(L["Everybody is alive. Congratulations!"])
+			wipe(waitingForAccept)
 		end
 	end
 end
@@ -1024,7 +1023,7 @@ function SmartRes2:UpdateResColours()
 							SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, sender), chatType)
 						end
 					end
-				else
+				else -- info.endTime > currentRes[target].endTime
 					-- if the bar exists
 					if resBars[sender][target].bar then
 						-- change the colour of our bar
