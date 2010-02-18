@@ -840,7 +840,10 @@ local function verifyUnit(unit)
 	if ResComm:IsUnitBeingRessed(unit) then unitBeingRessed = true return nil end
 	if waitingForAccept[unit] then unitWaiting = true return nil end
 	if UnitIsGhost(unit) then return nil end
-	if IsSpellInRange(self.playerSpell, unit) == 0 then unitOutOfRange = true return nil end
+	unitOutOfRange = IsSpellInRange(self.playerSpell, unit) ~= 1
+	if unitOutOfRange then
+		return nil
+	end
 	return true
 end
 
@@ -932,51 +935,52 @@ local function ClassColouredName(name)
 	return ("|cff%02X%02X%02X%s|r"):format(c.r * 255, c.g * 255, c.b * 255, name)
 end
 
-function SmartRes2:CreateResBar(sender)
-	local text
-	local senderClass = select(2, UnitClass(sender))
-	if senderClass == "DRUID" and in_combat then
-		icon = select(3, GetSpellInfo(20484))
-	else		
-		icon = icon == self.resSpellIcons[select(2, UnitClass(sender))] or self.resSpellIcons.PRIEST
-	end
-	local name = sender
-	local info = doingRessing[sender]
-	local time = info.endTime - GetTime()
-	local maxTime = sender.endTime
+function SmartRes2:CreateResBar(sender) 
+	local profile = self.db.profile
 
-	if self.db.profile.classColours then
-		text = (L["%s is ressing %s"]):format(ClassColouredName(sender), ClassColouredName(info.target))
-	else
-		text = (L["%s is ressing %s"]):format(sender, info.target)
+	if not profile.visibleResBars then
+		return
 	end
+	local senderClass = select(2, UnitClass(sender)) 
 
-	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
-	if self.db.profile.visibleResBars then
-		local bar = self.res_bars:NewTimerBar(name, text, time, maxTime, icon, 0)
-		local t = self.db.profile.resBarsColour
-		bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
-		bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars
-		bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
-		if self.db.profile.resBarsIcon then
-			bar:ShowIcon()
-		else
-			bar:HideIcon()
-		end	
-		if self.db.profile.horizontalOrientation == "RIGHT" then
-			orientation = Bars.RIGHT_TO_LEFT
-			bar:SetOrientation(orientation)
-		else
-			orientation = Bars.LEFT_TO_RIGHT
-			bar:SetOrientation(orientation)
-		end
+	if senderClass == "DRUID" and in_combat then 
+	    icon = select(3, GetSpellInfo(20484)) 
+	else 
+	    icon = icon == self.resSpellIcons[select(2, UnitClass(sender))] or self.resSpellIcons.PRIEST 
+	end 
+	local info = doingRessing[sender] 
+	local text 
 
-		resBars[sender] = resBars[sender] or {}
-		resBars[sender][info.target] = resBars[sender][info.target] or {}
-		resBars[sender][info.target].bar = bar
-		resBars[sender][info.target].endTime = info.endTime
-		self:UpdateResColours()
-	end
+	if profile.classColours then 
+		text = (L["%s is ressing %s"]):format(ClassColouredName(sender), ClassColouredName(info.target)) 
+	else 
+	    text = (L["%s is ressing %s"]):format(sender, info.target) 
+	end 
+	local time = info.endTime - GetTime() 
+	local maxTime = sender.endTime 
+
+	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger) 
+	local bar = self.res_bars:NewTimerBar(sender, text, time, maxTime, icon, 0) 
+	local t = profile.resBarsColour 
+
+	bar:SetBackgroundColor(t.r, t.g, t.b, t.a) 
+	bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars 
+	bar:SetTexture(Media:Fetch("statusbar", profile.resBarsTexture)) 
+
+	if profile.resBarsIcon then 
+		bar:ShowIcon() 
+	else 
+		bar:HideIcon() 
+	end 
+	orientation = (profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
+
+	bar:SetOrientation(orientation) 
+
+	resBars[sender] = resBars[sender] or {}
+	resBars[sender][info.target] = resBars[sender][info.target] or {}
+	resBars[sender][info.target].bar = bar
+	resBars[sender][info.target].endTime = info.endTime
+	self:UpdateResColours()
 end
 
 function SmartRes2:DeleteResBar(sender)
@@ -985,64 +989,60 @@ function SmartRes2:DeleteResBar(sender)
 	resBars[sender][info.target].bar:Fade(0.1) -- 1/10 second fade
 end
 
-function SmartRes2:UpdateResColours()
-	local currentRes = {}
-	local t = self.db.profile.collisionBarsColour
-	local chatType = self.db.profile.notifyCollision:upper()
-	-- collision res chat notification stuff
-	if chatType == "GROUP" then
-		if GetNumRaidMembers() > 0 then
-			chatType = "RAID"
-		elseif GetNumPartyMembers() > 0 then
-			chatType = "PARTY"
-		end
-	end
+function SmartRes2:UpdateResColours() 
+	local chatType = self.db.profile.notifyCollision:upper() 
 
-	-- add waitingForAccept entries to the table
-	for sender, v in pairs(waitingForAccept) do
-		currentRes[v.target] = currentRes[v.target] or {}
-		currentRes[v.target].endTime = v.endTime
-	end
+	-- collision res chat notification stuff 
+	if chatType == "GROUP" then 
+	    if GetNumRaidMembers() > 0 then 
+			chatType = "RAID" 
+	    elseif GetNumPartyMembers() > 0 then 
+			chatType = "PARTY" 
+	    end 
+	end 
+	local currentRes = {} 
 
-	-- iterate through the healers
+	-- add waitingForAccept entries to the table 
+	for sender, v in pairs(waitingForAccept) do 
+	    currentRes[v.target] = currentRes[v.target] or {} 
+	    currentRes[v.target].endTime = v.endTime 
+	end 
+	local colour = self.db.profile.collisionBarsColour
+	local r, g, b, a = colour.r, colour.g, colour.b, colour.a
+	local format_str = L["SmartRes2 would like you to know that %s is already being ressed by %s."]
+	
 	for sender, v in pairs(resBars) do
-		-- iterate through their targets
-		for target, info in pairs(v) do
-			-- check if the target exists
-			if currentRes[target] then
-				-- if the one we're testing ends before the one in the table
-				if info.endTime < currentRes[target].endTime then
-					-- if the bar exists
-					if resBars[currentRes[target].sender] and resBars[currentRes[target].sender][target].bar then
-						-- change the colour of the one in the table
-						resBars[currentRes[target].sender][target].bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
-						-- send chat message if set
-						if chatType == "WHISPER" then
-							SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, sender), chatType, nil, currentRes[target].sender)
-						elseif chatType ~= "0-OFF" then
-							SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, sender), chatType)
-						end
+	    for target, info in pairs(v) do
+			local cur_target = currentRes[target]
+
+			if cur_target then
+				local send_str = format_str:format(target, sender)
+
+				-- if the one we're testing ends before the one in the table and the bar exists
+				if info.endTime < cur_target.endTime and resBars[cur_target.sender] and resBars[cur_target.sender][target].bar then
+					resBars[cur_target.sender][target].bar:SetBackgroundColor(r, g, b, a)
+
+					if chatType == "WHISPER" then
+						SendChatMessage(send_str, chatType, nil, cur_target.sender)
+					elseif chatType ~= "0-OFF" then
+						SendChatMessage(send_str, chatType)
 					end
-				else -- info.endTime > currentRes[target].endTime
-					-- if the bar exists
-					if resBars[sender][target].bar then
-						-- change the colour of our bar
-						resBars[sender][target].bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
-						-- send chat message if set
-						if chatType == "WHISPER" then
-							SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, sender), chatType, nil, currentRes[sender].target)
-						elseif chatType ~= "0-OFF" then
-							SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, sender), chatType)
-						end
+				elseif resBars[sender][target].bar then
+					resBars[sender][target].bar:SetBackgroundColor(r, g, b, a)
+
+					if chatType == "WHISPER" then
+						SendChatMessage(send_str, chatType, nil, currentRes[sender].target)
+					elseif chatType ~= "0-OFF" then
+						SendChatMessage(send_str, chatType)
 					end
 				end
 			else -- otherwise add the target
-				currentRes[target] = info
-				currentRes[target].sender = sender
+				cur_target = info
+				cur_target.sender = sender
 			end
-		end
+	    end
 	end
-	wipe(currentRes)
+	wipe(currentRes) 
 end
 
 function SmartRes2:StartTestBars()
