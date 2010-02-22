@@ -205,9 +205,51 @@ function SmartRes2:OnInitialize()
 								self:EnableSmartRes2()
 							end
 						end
+					},					
+					visibleResBars = { 
+						order = 4,
+						type = "toggle",
+						name = L["Show Bars"],
+						desc = L["Show or hide the res bars. Everything else will still work"],
+						get = function() return self.db.profile.visibleResBars end,
+						set = function(info, value) self.db.profile.visibleResBars = value end
+					},					
+					reverseGrowth = {
+						order = 5,
+						type = "toggle",
+						name = L["Grow Upwards"],
+						desc = L["Make the res bars grow up instead of down"],
+						get = function() return self.db.profile.reverseGrowth end,
+						set = function(info, value)
+							self.db.profile.reverseGrowth = value
+							self.res_bars:ReverseGrowth(value)
+						end
+					},					
+					resBarsIcon = {
+						order = 6,
+						type = "toggle",
+						name = L["Show Icon"],
+						desc = L["Show or hide the icon for res spells"],
+						get = function() return	self.db.profile.resBarsIcon end,
+						set = function(info, value)
+							self.db.profile.resBarsIcon = value
+							if value then
+								self.res_bars:ShowIcon()
+							else
+								self.res_bars:HideIcon()
+							end
+						end
+					},					
+					showBattleRes = {
+						order = 7,
+						type = "toggle",
+						name = L["Show Battle Resses"],
+						desc = L["Show bars for Rebirth"],
+						get = function() return self.db.profile.showBattleRes end,
+						set = function(info, value)	self.db.profile.showBattleRes = value end
 					},
 					scale = {
-						order = 4,
+						order = 8,
 						type = "range",
 						name = L["Scale"],
 						desc = L["Set the scale for the res bars"],
@@ -221,17 +263,20 @@ function SmartRes2:OnInitialize()
 						step = 0.05
 					},
 					resBarsTexture = {
-						order = 5,
+						order = 9,
 						type = "select",
 						dialogControl = "LSM30_Statusbar",
 						name = L["Texture"],
 						desc = L["Select the texture for the res bars"],
 						values = AceGUIWidgetLSMlists.statusbar,
 						get = function() return self.db.profile.resBarsTexture end,
-						set = function(info, value)	self.db.profile.resBarsTexture = value end
+						set = function(info, value)
+							self.db.profile.resBarsTexture = value
+							self.res_bars:SetTexture(Media:Fetch("statusbar", value))
+						end
 					},					
 					--[[ resBarsBorder = {
-						order = 6,
+						order = 10,
 						type = "select",
 						dialogControl = "LSM30_Border",
 						name = L["Border"],
@@ -245,7 +290,7 @@ function SmartRes2:OnInitialize()
 						end
 					},]] --
 					horizontalOrientation = {
-						order = 7,
+						order = 11,
 						type = "select",
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars"],
@@ -256,43 +301,16 @@ function SmartRes2:OnInitialize()
 						get = function() return self.db.profile.horizontalOrientation end,
 						set = function(info, value) self.db.profile.horizontalOrientation = value end
 					},
-					reverseGrowth = {
-						order = 8,
-						type = "toggle",
-						name = L["Grow Upwards"],
-						desc = L["Make the res bars grow up instead of down"],
-						get = function() return self.db.profile.reverseGrowth end,
-						set = function(info, value)
-							self.db.profile.reverseGrowth = value
-							self.res_bars:ReverseGrowth(value)
-						end
-					},
-					resBarsIcon = {
-						order = 9,
-						type = "toggle",
-						name = L["Show Icon"],
-						desc = L["Show or hide the icon for res spells"],
-						get = function() return self.db.profile.resBarsIcon end,
-						set = function(info, value)	self.db.profile.resBarsIcon = value end
-					},
 					classColours = {
-						order = 10,
+						order = 12,
 						type = "toggle",
 						name = L["Class Colours"],
 						desc = L["Use class colours for the target on the res bars"],
 						get = function() return self.db.profile.classColours end,
 						set = function(info, value)	self.db.profile.classColours = value end
 					},
-					showBattleRes = {
-						order = 11,
-						type = "toggle",
-						name = L["Show Battle Resses"],
-						desc = L["Show bars for Rebirth"],
-						get = function() return self.db.profile.showBattleRes end,
-						set = function(info, value)	self.db.profile.showBattleRes = value end
-					},
 					resBarsColour = {
-						order = 12,
+						order = 13,
 						type = "color",
 						name = L["Bar Colour"],
 						desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
@@ -307,7 +325,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					collisionBarsColour = {
-						order = 13,
+						order = 14,
 						type = "color",
 						name = L["Duplicate Bar Colour"],
 						desc = L["Pick the colour for collision (duplicate) res bars"],
@@ -322,20 +340,12 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					resBarsTestBars = {
-						order = 14,
+						order = 15,
 						type = "execute",
 						name = L["Test Bars"],
 						desc = L["Show the test bars"],
 						func = function() self:StartTestBars() end
 					},
-					visibleResBars = { 
-						order = 15,
-						type = "toggle",
-						name = L["Show Bars"],
-						desc = L["Show or hide the res bars. Everything else will still work"],
-						get = function() return self.db.profile.visibleResBars end,
-						set = function(info, value) self.db.profile.visibleResBars = value end
-					}
 				}
 			},
 			resChatTextTab = {
@@ -369,7 +379,8 @@ function SmartRes2:OnInitialize()
 							party = L["Party"],
 							raid = L["Raid"],
 							say = L["Say"],
-							yell = L["Yell"],
+							whisper = L["Whisper"],
+							yell = L["Yell"],							
 						},
 						get = function() return self.db.profile.chatOutput end,
 						set = function(info, value)	self.db.profile.chatOutput = value end
@@ -572,24 +583,13 @@ function SmartRes2:OnInitialize()
 	if self.db.profile.visibleResBars then
 		self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
 		self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
-		self.res_bars:SetScale(self.db.profile.scale)
-		self.res_bars:ReverseGrowth(self.db.profile.reverseGrowth)
 		self.res_bars:SetUserPlaced(true)
-		-- self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.ResBarsBorder))
-		-- set the icon to the user preference
-		if self.db.profile.resBarsIcon then
-			self.res_bars:ShowIcon()
-		else
-			self.res_bars:HideIcon()
-		end
-		-- set the anchor to the user preference
 		if self.db.profile.hideAnchor then
 			self.res_bars:HideAnchor()
 		else
 			self.res_bars:ShowAnchor()
 		end
 	end
-
 end
 
 function SmartRes2:OnEnable()
@@ -648,6 +648,7 @@ function SmartRes2:DisableSmartRes2()
 	wipe(doingRessing)
 	wipe(waitingForAccept)
 	wipe(resBars)
+	LastRes = nil
 end
 
 -- General callback functions -----------------------------------------------
@@ -685,6 +686,10 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 		}
 	end
 	self:CreateResBar(sender)
+	local oldsender = self:CheckResTarget(targetName, sender) 
+	if oldsender then		--target already being ressed
+		self:AddCollisionBars(sender, targetName, oldsender)
+	end
 	local isSame = UnitIsUnit(sender, "player")
 	if isSame == 1 then -- make sure only the player is sending messages
 		local channel = self.db.profile.chatOutput:upper()
@@ -693,8 +698,8 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 				channel = "RAID"
 			elseif GetNumPartyMembers() > 0 then
 				channel = "PARTY"
-			else
-				channel = "NONE"
+			--[[else
+				channel = "NONE"]]--
 			end
 		end
 		if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
@@ -706,12 +711,23 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			end
 			msg = sgsub(msg, "%%%%p%%%%", sender)
 			msg = sgsub(msg, "%%%%t%%%%", targetName)
-			SendChatMessage(msg, channel, nil, nil)
+			if channel == "WHISPER" then
+				SendChatMessage(msg, channel, nil, target)
+			else
+				SendChatMessage(msg, channel, nil, nil)
+			end
 		end
 		if self.db.profile.notifySelf then
 			self:Print((L["You are ressing %s"]):format(targetName))
 		end
 	end
+end
+
+function SmartRes2:CheckResTarget(target, newsender)
+	for sender, info in pairs(doingRessing) do
+		if info.target == target and sender ~= newsender then return sender end
+	end
+	return nil
 end
 
 -- ResComm events - called when res ends
@@ -722,6 +738,10 @@ function SmartRes2:ResComm_ResEnd(event, sender, target)
 	-- add the target to our waiting list, and save who the last person to res him was
 	waitingForAccept[target] = { target = target, sender = sender, endTime = doingRessing[sender].endTime }
 	doingRessing[sender] = nil
+	local oldsender = self:CheckResTarget(target, sender) 
+	if oldsender and not self:CheckResTarget(target, oldsender) then	--collision bar existed and only 1 exists
+		self:DeleteCollisionBars(sender, target, oldsender)
+	end
 end
 
 -- ResComm events - called when player accepts res
@@ -806,7 +826,7 @@ function SmartRes2:RAID_ROSTER_UPDATE()
 	raidUpdated = true
 end
 
-local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting
+local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost
 local SortedResList = {}
 local CLASS_PRIORITIES = {
 	-- There might be 10 classes, but SHAMANs and DRUIDs res at equal efficiency, so no preference
@@ -834,16 +854,18 @@ end
 
 local function verifyUnit(unit)
 	-- unit is the next candidate. there is NO way to check LoS, so don't ask!
+	if UnitIsGhost(unit) then
+		unitGhost = true
+		unitDead = true
+		return nil
+	end
 	if not UnitIsDead(unit) then return nil end
 	unitDead = true
+	--if ghost then return nil end
 	if unit == LastRes then return nil end
 	if ResComm:IsUnitBeingRessed(unit) then unitBeingRessed = true return nil end
 	if waitingForAccept[unit] then unitWaiting = true return nil end
-	if UnitIsGhost(unit) then return nil end
-	unitOutOfRange = IsSpellInRange(self.playerSpell, unit) ~= 1
-	if unitOutOfRange then
-		return nil
-	end
+	if IsSpellInRange(SmartRes2.playerSpell, unit) ~= 1 then unitOutOfRange = true return nil end
 	return true
 end
 
@@ -874,7 +896,7 @@ end
 
 
 local function getBestCandidate()
-	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting = nil, nil, nil, nil
+	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost = nil, nil, nil, nil, nil
 	if raidUpdated then SortCurrentRaiders() end	--only resort if raid changed	
 	for _, data in ipairs(SortedResList) do
 		local unit = data.name
@@ -911,7 +933,7 @@ function SmartRes2:Resurrection()
 	if unit then
 		-- do something useful like setting the target of your button
 		resButton:SetAttribute("unit", unit)
-		waitingForAccept[unit] = { target = unit, sender = Player, endTime = GetTime() + 1000 }
+		waitingForAccept[unit] = { target = unit, sender = Player, endTime = doingRessing[sender].endTime }
 		LastRes = unit
 	else
 		if unitOutOfRange then
@@ -921,6 +943,8 @@ function SmartRes2:Resurrection()
 		elseif not unitDead then
 			self:Print(L["Everybody is alive. Congratulations!"])
 			wipe(waitingForAccept)
+		elseif unitGhost then
+			self:Print(L["All dead units have released."])
 		end
 	end
 end
@@ -935,114 +959,67 @@ local function ClassColouredName(name)
 	return ("|cff%02X%02X%02X%s|r"):format(c.r * 255, c.g * 255, c.b * 255, name)
 end
 
-function SmartRes2:CreateResBar(sender) 
-	local profile = self.db.profile
-
-	if not profile.visibleResBars then
-		return
+function SmartRes2:CreateResBar(sender)
+	if not self.db.profile.visibleResBars then return end
+	local text
+	local senderClass = select(2, UnitClass(sender))
+	if senderClass == "DRUID" and in_combat then
+		icon = select(3, GetSpellInfo(20484))
+	else		
+		icon = self.resSpellIcons[select(2, UnitClass(sender))] or self.resSpellIcons.PRIEST
 	end
-	local senderClass = select(2, UnitClass(sender)) 
+	local info = doingRessing[sender]
+	local time = info.endTime - GetTime()
+	local maxTime = sender.endTime
 
-	if senderClass == "DRUID" and in_combat then 
-	    icon = select(3, GetSpellInfo(20484)) 
-	else 
-	    icon = icon == self.resSpellIcons[select(2, UnitClass(sender))] or self.resSpellIcons.PRIEST 
-	end 
-	local info = doingRessing[sender] 
-	local text 
+	if self.db.profile.classColours then
+		text = (L["%s is ressing %s"]):format(ClassColouredName(sender), ClassColouredName(info.target))
+	else
+		text = (L["%s is ressing %s"]):format(sender, info.target)
+	end
 
-	if profile.classColours then 
-		text = (L["%s is ressing %s"]):format(ClassColouredName(sender), ClassColouredName(info.target)) 
-	else 
-	    text = (L["%s is ressing %s"]):format(sender, info.target) 
-	end 
-	local time = info.endTime - GetTime() 
-	local maxTime = sender.endTime 
-
-	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger) 
-	local bar = self.res_bars:NewTimerBar(sender, text, time, maxTime, icon, 0) 
-	local t = profile.resBarsColour 
-
-	bar:SetBackgroundColor(t.r, t.g, t.b, t.a) 
-	bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars 
-	bar:SetTexture(Media:Fetch("statusbar", profile.resBarsTexture)) 
-
-	if profile.resBarsIcon then 
-		bar:ShowIcon() 
-	else 
-		bar:HideIcon() 
-	end 
-	orientation = (profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
-
+	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
+	local bar = self.res_bars:NewTimerBar(sender, text, time, maxTime, icon, 0)
+	local t = self.db.profile.resBarsColour
+	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
+	bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars
+	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation) 
-
-	resBars[sender] = resBars[sender] or {}
-	resBars[sender][info.target] = resBars[sender][info.target] or {}
-	resBars[sender][info.target].bar = bar
-	resBars[sender][info.target].endTime = info.endTime
-	self:UpdateResColours()
+	resBars[sender] = bar
 end
 
 function SmartRes2:DeleteResBar(sender)
 	local info = doingRessing[sender]
 	if not info then return end
-	resBars[sender][info.target].bar:Fade(0.1) -- 1/10 second fade
+	resBars[sender]:Fade(0.1) -- 1/10 second fade
+	resBars[sender] = nil
 end
 
-function SmartRes2:UpdateResColours() 
-	local chatType = self.db.profile.notifyCollision:upper() 
-
-	-- collision res chat notification stuff 
-	if chatType == "GROUP" then 
-	    if GetNumRaidMembers() > 0 then 
-			chatType = "RAID" 
-	    elseif GetNumPartyMembers() > 0 then 
-			chatType = "PARTY" 
-	    end 
-	end 
-	local currentRes = {} 
-
-	-- add waitingForAccept entries to the table 
-	for sender, v in pairs(waitingForAccept) do 
-	    currentRes[v.target] = currentRes[v.target] or {} 
-	    currentRes[v.target].endTime = v.endTime 
-	end 
-	local colour = self.db.profile.collisionBarsColour
-	local r, g, b, a = colour.r, colour.g, colour.b, colour.a
-	local format_str = L["SmartRes2 would like you to know that %s is already being ressed by %s."]
-	
-	for sender, v in pairs(resBars) do
-	    for target, info in pairs(v) do
-			local cur_target = currentRes[target]
-
-			if cur_target then
-				local send_str = format_str:format(target, sender)
-
-				-- if the one we're testing ends before the one in the table and the bar exists
-				if info.endTime < cur_target.endTime and resBars[cur_target.sender] and resBars[cur_target.sender][target].bar then
-					resBars[cur_target.sender][target].bar:SetBackgroundColor(r, g, b, a)
-
-					if chatType == "WHISPER" then
-						SendChatMessage(send_str, chatType, nil, cur_target.sender)
-					elseif chatType ~= "0-OFF" then
-						SendChatMessage(send_str, chatType)
-					end
-				elseif resBars[sender][target].bar then
-					resBars[sender][target].bar:SetBackgroundColor(r, g, b, a)
-
-					if chatType == "WHISPER" then
-						SendChatMessage(send_str, chatType, nil, currentRes[sender].target)
-					elseif chatType ~= "0-OFF" then
-						SendChatMessage(send_str, chatType)
-					end
-				end
-			else -- otherwise add the target
-				cur_target = info
-				cur_target.sender = sender
-			end
-	    end
+function SmartRes2:AddCollisionBars(sender, target, collisionsender)
+	local t = self.db.profile.collisionBarsColour
+	local chatType = self:GetChatType()
+	resBars[sender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
+	resBars[collisionsender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
+	if chatType ~= "0-OFF" and sender ~= Player then
+		SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
 	end
-	wipe(currentRes) 
+end
+
+function SmartRes2:DeleteCollisionBars(sender, target, collisionsender)
+	local t = self.db.profile.resBarsColour
+	resBars[collisionsender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
+end
+
+function SmartRes2:GetChatType()
+	local chatType = self.db.profile.notifyCollision:upper()
+	if chatType == "GROUP" then
+		if GetNumRaidMembers() > 0 then
+			chatType = "RAID"
+		elseif GetNumPartyMembers() > 0 then
+			chatType = "PARTY"
+		end
+	end
+	return chatType
 end
 
 function SmartRes2:StartTestBars()
@@ -1060,8 +1037,7 @@ function SmartRes2:StartTestBars()
 	self:CreateResBar("Dummy")
 	doingRessing["Gabriel"] = { target = "Someone", endTime = GetTime() + 4 }
 	self:CreateResBar("Gabriel")
-	self:UpdateResColours()
-
+	
 	-- clean up
 	doingRessing["Nursenancy"] = nil
 	doingRessing["Dummy"] = nil
