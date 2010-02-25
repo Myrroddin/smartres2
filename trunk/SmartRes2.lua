@@ -101,7 +101,7 @@ local defaults = {
 		autoResKey = "",
 		chatOutput = "0-none",
 		classColours = true,
-		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
+		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 }, -- red
 		disableAddon = false,
 		hideAnchor = false,
 		horizontalOrientation = "RIGHT",
@@ -109,7 +109,7 @@ local defaults = {
 		notifyCollision = "0-off",
 		notifySelf = true,
 		randMsgs = false,
-		resBarsColour = { r = 0, g = 1, b = 0, a = 1 },
+		resBarsColour = { r = 0, g = 1, b = 0, a = 1 }, -- green
 		resBarsIcon = true,
 		-- resBarsBorder = "None",
 		resBarsTexture = "Blizzard",
@@ -119,8 +119,8 @@ local defaults = {
 		scale = 1,
 		showBattleRes = false,		
 		visibleResBars = true,
-		waitingBarsColour = { r = 1, g = 1, b = 0, a = 1 },
-		randChatTbl = { -- this is here for eventual support for users to add or remove their own random messages
+		waitingBarsColour = { r = 1, g = 0.51, b = 0, a = 1 }, -- orange
+		randChatTbl = {
 			[1] = L["%%p%% is bringing %%t%% back to life!"],
 			[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
 			[3] = L["%%p%% has to wake %%t%% from eternal slumber."],
@@ -248,9 +248,17 @@ function SmartRes2:OnInitialize()
 						desc = L["Show bars for Rebirth"],
 						get = function() return self.db.profile.showBattleRes end,
 						set = function(info, value)	self.db.profile.showBattleRes = value end
+					},					
+					classColours = {
+						order = 8,
+						type = "toggle",
+						name = L["Class Colours"],
+						desc = L["Use class colours for the target on the res bars"],
+						get = function() return self.db.profile.classColours end,
+						set = function(info, value)	self.db.profile.classColours = value end
 					},
 					scale = {
-						order = 8,
+						order = 9,
 						type = "range",
 						name = L["Scale"],
 						desc = L["Set the scale for the res bars"],
@@ -264,7 +272,7 @@ function SmartRes2:OnInitialize()
 						step = 0.05
 					},
 					resBarsTexture = {
-						order = 9,
+						order = 10,
 						type = "select",
 						dialogControl = "LSM30_Statusbar",
 						name = L["Texture"],
@@ -277,7 +285,7 @@ function SmartRes2:OnInitialize()
 						end
 					},					
 					--[[ resBarsBorder = {
-						order = 10,
+						order = 11,
 						type = "select",
 						dialogControl = "LSM30_Border",
 						name = L["Border"],
@@ -291,7 +299,7 @@ function SmartRes2:OnInitialize()
 						end
 					},]] --
 					horizontalOrientation = {
-						order = 11,
+						order = 12,
 						type = "select",
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars"],
@@ -301,14 +309,6 @@ function SmartRes2:OnInitialize()
 						},
 						get = function() return self.db.profile.horizontalOrientation end,
 						set = function(info, value) self.db.profile.horizontalOrientation = value end
-					},
-					classColours = {
-						order = 12,
-						type = "toggle",
-						name = L["Class Colours"],
-						desc = L["Use class colours for the target on the res bars"],
-						get = function() return self.db.profile.classColours end,
-						set = function(info, value)	self.db.profile.classColours = value end
 					},
 					resBarsColour = {
 						order = 13,
@@ -558,9 +558,8 @@ function SmartRes2:OnInitialize()
 		DRUID = select(3, GetSpellInfo(50769)), 	-- Revive
 		PALADIN = select(3, GetSpellInfo(7328)) 	-- Redemption
 	}  
-	self.playerClass = select(2, UnitClass("player"))  -- what class is the user?
-	self.playerSpell = resSpells[self.playerClass] -- only has data if the player can cast a res spell
-	self.playerCastTime = select(7, GetSpellInfo(self.playerSpell))
+	self.playerClass = select(2, UnitClass("player"))
+	self.playerSpell = resSpells[self.playerClass]
 	
 	-- create DataBroker Launcher
 	if DataBroker then
@@ -952,8 +951,9 @@ function SmartRes2:Resurrection()
 	local unit = getBestCandidate()
 	if unit then
 		-- do something useful like setting the target of your button
-		resButton:SetAttribute("unit", unit)
-		waitingForAccept[unit] = { target = unit, sender = Player, endTime = self.playerCastTime }
+		resButton:SetAttribute("unit", unit)		
+		local endtime = select(6, UnitCastingInfo(Player)) * 1000
+		waitingForAccept[unit] = { target = unit, sender = Player, endTime = endtime }
 		LastRes = unit
 	else
 		if unitOutOfRange then
@@ -1058,10 +1058,10 @@ function SmartRes2:StartTestBars()
 
 	-- set up the test bars
 	waitingForAccept["Someone"] = { target = "Someone", sender = "Dummy", endTime = GetTime() - 6 }
-	self:ResComm_ResStart(nil, "Nursenancy", GetTime() + 6, "Frankthetank")
-	self:ResComm_ResStart(nil, "Dummy", GetTime() + 2, "Frankthetank")
+	self:ResComm_ResStart(nil, "Nursenancy", GetTime() + 4, "Frankthetank")
+	self:ResComm_ResStart(nil, "Dummy", GetTime() + 8, "Frankthetank")
 	self:ResComm_ResStart(nil, "Gabriel", GetTime() + 6, "Someone")
-	
+		
 	-- clean up
 	doingRessing["Nursenancy"] = nil
 	doingRessing["Dummy"] = nil
