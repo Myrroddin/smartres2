@@ -7,7 +7,7 @@
 ## Notes-ruRU: Скоординированная targetless партия / Raid протрите восстановления. Evolved
 ## Notes-zhCN: 统筹targetless党/空袭擦拭恢复。演进
 ## Notes-esES: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
-## Version: Alpha 0.86
+## Version: Alpha 0.87
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
@@ -17,7 +17,7 @@
 ## SavedVariables: SmartRes2DB
 ## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, koKR, zhTW
 ## X-Website: http://wow.curse.com/downloads/wow-addons/details/smartres2.aspx
-## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal
+## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
 
 ## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets
 

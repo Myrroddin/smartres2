@@ -119,6 +119,7 @@ local defaults = {
 		scale = 1,
 		showBattleRes = false,		
 		visibleResBars = true,
+		waitingBarsColour = { r = 1, g = 1, b = 0, a = 1 },
 		randChatTbl = { -- this is here for eventual support for users to add or remove their own random messages
 			[1] = L["%%p%% is bringing %%t%% back to life!"],
 			[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
@@ -339,8 +340,23 @@ function SmartRes2:OnInitialize()
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end
 					},
-					resBarsTestBars = {
+					waitingBarsColour = {
 						order = 15,
+						type = "color",
+						name = L["Waiting Bar Colour"],
+						desc = L["Pick the colour for collision (player waiting for accept) res bars"],
+						hasAlpha = true,
+						get = function()
+							local t = self.db.profile.waitingBarsColour
+							return t.r, t.g, t.b, t.a
+						end,
+						set = function(info, r, g, b, a)
+							local t = self.db.profile.waitingBarsColour
+							t.r, t.g, t.b, t.a = r, g, b, a
+						end
+					},
+					resBarsTestBars = {
+						order = 20,
 						type = "execute",
 						name = L["Test Bars"],
 						desc = L["Show the test bars"],
@@ -544,7 +560,8 @@ function SmartRes2:OnInitialize()
 	}  
 	self.playerClass = select(2, UnitClass("player"))  -- what class is the user?
 	self.playerSpell = resSpells[self.playerClass] -- only has data if the player can cast a res spell
-
+	self.playerCastTime = select(7, GetSpellInfo(self.playerSpell))
+	
 	-- create DataBroker Launcher
 	if DataBroker then
 		local launcher = DataBroker:NewDataObject("SmartRes2", {
@@ -686,6 +703,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 		}
 	end
 	self:CreateResBar(sender)
+	if waitingForAccept[targetName] then self:AddWaitingBars(sender, targetName) end
 	local oldsender = self:CheckResTarget(targetName, sender) 
 	if oldsender then		--target already being ressed
 		self:AddCollisionBars(sender, targetName, oldsender)
@@ -738,9 +756,11 @@ function SmartRes2:ResComm_ResEnd(event, sender, target)
 	-- add the target to our waiting list, and save who the last person to res him was
 	waitingForAccept[target] = { target = target, sender = sender, endTime = doingRessing[sender].endTime }
 	doingRessing[sender] = nil
-	local oldsender = self:CheckResTarget(target, sender) 
-	if oldsender and not self:CheckResTarget(target, oldsender) then	--collision bar existed and only 1 exists
-		self:DeleteCollisionBars(sender, target, oldsender)
+	if self.db.profile.visibleResBars then 
+		local oldsender = self:CheckResTarget(target, sender) 
+		if oldsender and not self:CheckResTarget(target, oldsender) then	--collision bar existed and only 1 exists
+			self:DeleteCollisionBars(sender, target, oldsender)
+		end
 	end
 end
 
@@ -933,7 +953,7 @@ function SmartRes2:Resurrection()
 	if unit then
 		-- do something useful like setting the target of your button
 		resButton:SetAttribute("unit", unit)
-		waitingForAccept[unit] = { target = unit, sender = Player, endTime = doingRessing[sender].endTime }
+		waitingForAccept[unit] = { target = unit, sender = Player, endTime = self.playerCastTime }
 		LastRes = unit
 	else
 		if unitOutOfRange then
@@ -970,8 +990,7 @@ function SmartRes2:CreateResBar(sender)
 	end
 	local info = doingRessing[sender]
 	local time = info.endTime - GetTime()
-	local maxTime = sender.endTime
-
+	
 	if self.db.profile.classColours then
 		text = (L["%s is ressing %s"]):format(ClassColouredName(sender), ClassColouredName(info.target))
 	else
@@ -979,7 +998,7 @@ function SmartRes2:CreateResBar(sender)
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
-	local bar = self.res_bars:NewTimerBar(sender, text, time, maxTime, icon, 0)
+	local bar = self.res_bars:NewTimerBar(sender, text, time, nil, icon, 0)
 	local t = self.db.profile.resBarsColour
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars
@@ -996,12 +1015,20 @@ function SmartRes2:DeleteResBar(sender)
 end
 
 function SmartRes2:AddCollisionBars(sender, target, collisionsender)
-	local t = self.db.profile.collisionBarsColour
+	if self.db.profile.visibleResBars then 
+		local t = self.db.profile.collisionBarsColour
+		resBars[sender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
+	end
 	local chatType = self:GetChatType()
-	resBars[sender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
-	resBars[collisionsender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	if chatType ~= "0-OFF" and sender ~= Player then
 		SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
+	end
+end
+
+function SmartRes2:AddWaitingBars(sender, targetName)
+	if self.db.profile.visibleResBars then 
+		local t = self.db.profile.waitingBarsColour
+		resBars[sender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	end
 end
 
@@ -1031,12 +1058,9 @@ function SmartRes2:StartTestBars()
 
 	-- set up the test bars
 	waitingForAccept["Someone"] = { target = "Someone", sender = "Dummy", endTime = GetTime() - 6 }
-	doingRessing["Nursenancy"] = { target = "Frankthetank", endTime = GetTime() + 6 }
-	self:CreateResBar("Nursenancy")
-	doingRessing["Dummy"] = { target = "Frankthetank", endTime = GetTime() + 2 }
-	self:CreateResBar("Dummy")
-	doingRessing["Gabriel"] = { target = "Someone", endTime = GetTime() + 4 }
-	self:CreateResBar("Gabriel")
+	self:ResComm_ResStart(nil, "Nursenancy", GetTime() + 6, "Frankthetank")
+	self:ResComm_ResStart(nil, "Dummy", GetTime() + 2, "Frankthetank")
+	self:ResComm_ResStart(nil, "Gabriel", GetTime() + 6, "Someone")
 	
 	-- clean up
 	doingRessing["Nursenancy"] = nil
