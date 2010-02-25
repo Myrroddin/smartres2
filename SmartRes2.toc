@@ -7,7 +7,7 @@
 ## Notes-ruRU: Скоординированная targetless партия / Raid протрите восстановления. Evolved
 ## Notes-zhCN: 统筹targetless党/空袭擦拭恢复。演进
 ## Notes-esES: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
-## Version: Alpha 0.87
+## Version: Beta 1.01
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
