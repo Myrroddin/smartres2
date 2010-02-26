@@ -103,7 +103,7 @@ local defaults = {
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 }, -- red
 		disableAddon = false,
-		hideAnchor = false,
+		hideAnchor = true,
 		horizontalOrientation = "RIGHT",
 		manualResKey = "",
 		notifyCollision = "0-off",
@@ -113,13 +113,13 @@ local defaults = {
 		resBarsIcon = true,
 		-- resBarsBorder = "None",
 		resBarsTexture = "Blizzard",
-		resBarX = 470,
-		resBarY = 375,
+		resBarsX = 0,
+		resBarsY = 600,
 		reverseGrowth = false,
 		scale = 1,
 		showBattleRes = false,		
 		visibleResBars = true,
-		waitingBarsColour = { r = 1, g = 0.51, b = 0, a = 1 }, -- orange
+		waitingBarsColour = { r = 1, g = 0.72, b = 0.12, a = 1 }, -- orange
 		randChatTbl = {
 			[1] = L["%%p%% is bringing %%t%% back to life!"],
 			[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
@@ -695,12 +695,13 @@ end
 -- ResComm events - called when res is started
 function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 	-- check if we have the person in our table yet, and if not, add them
-	if not doingRessing[sender] then
-		doingRessing[sender] = {
-			endTime = endTime,
-			target = targetName
-		}
-	end
+	--self:Print("ResStart - "..sender.." ressing "..targetName)
+	if doingRessing[sender] then return end
+	doingRessing[sender] = {
+		endTime = endTime,
+		target = targetName
+	}
+	
 	self:CreateResBar(sender)
 	if waitingForAccept[targetName] then self:AddWaitingBars(sender, targetName) end
 	local oldsender = self:CheckResTarget(targetName, sender) 
@@ -952,8 +953,6 @@ function SmartRes2:Resurrection()
 	if unit then
 		-- do something useful like setting the target of your button
 		resButton:SetAttribute("unit", unit)		
-		local endtime = select(6, UnitCastingInfo(Player)) * 1000
-		waitingForAccept[unit] = { target = unit, sender = Player, endTime = endtime }
 		LastRes = unit
 	else
 		if unitOutOfRange then
@@ -1025,7 +1024,7 @@ function SmartRes2:AddCollisionBars(sender, target, collisionsender)
 	end
 end
 
-function SmartRes2:AddWaitingBars(sender, targetName)
+function SmartRes2:AddWaitingBars(sender, target)
 	if self.db.profile.visibleResBars then 
 		local t = self.db.profile.waitingBarsColour
 		resBars[sender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
