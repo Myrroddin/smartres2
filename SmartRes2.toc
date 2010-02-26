@@ -3,11 +3,11 @@
 ## Notes: Co-ordinated targetless Party/Raid wipe recovery. Evolved
 ## Notes-frFR: Coordonnée targetless Party / Raid essuyez récupération. Evolved
 ## Notes-deDE: Koordiniertes Zielfreies Party/Raid Wipe Wiederherstellungs Tool. Eine Weiterentwicklung
-## Notes-koKR: 좌표 targetless 파티 / 레이드 복구를 닦으십시오. 진화
-## Notes-ruRU: Скоординированная targetless партия / Raid протрите восстановления. Evolved
-## Notes-zhCN: 统筹targetless党/空袭擦拭恢复。演进
+## Notes-koKR: 지정된 타겟없이 파티/공격대를 순식간에 복구시킵니다
+## Notes-ruRU: Аддон для координации воскрешений в группах/рейдах.Информативные заметки в поле
+## Notes-zhCN: 协助目标小队/团队灭团复活。
 ## Notes-esES: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
-## Version: Beta 1.01
+## Version: Beta 1.02
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
