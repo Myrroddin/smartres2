@@ -279,10 +279,7 @@ function SmartRes2:OnInitialize()
 						desc = L["Select the texture for the res bars"],
 						values = AceGUIWidgetLSMlists.statusbar,
 						get = function() return self.db.profile.resBarsTexture end,
-						set = function(info, value)
-							self.db.profile.resBarsTexture = value
-							self.res_bars:SetTexture(Media:Fetch("statusbar", value))
-						end
+						set = function(info, value)	self.db.profile.resBarsTexture = value end
 					},					
 					--[[ resBarsBorder = {
 						order = 11,
@@ -716,8 +713,6 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 				channel = "RAID"
 			elseif GetNumPartyMembers() > 0 then
 				channel = "PARTY"
-			--[[else
-				channel = "NONE"]]--
 			end
 		end
 		if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
@@ -951,11 +946,10 @@ function SmartRes2:Resurrection()
 
 	local unit = getBestCandidate()
 	if unit then
-		-- do something useful like setting the target of your button
 		resButton:SetAttribute("unit", unit)		
 		LastRes = unit
 	else
-		if unitOutOfRange then
+		if unitOutOfRange and unitDead then
 			self:Print(L["There are no bodies in range to res."])
 		elseif unitBeingRessed or unitWaiting then
 			self:Print(L["All dead units are being ressed."])
@@ -1002,7 +996,8 @@ function SmartRes2:CreateResBar(sender)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
-	bar:SetOrientation(orientation) 
+	bar:SetOrientation(orientation)
+	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	resBars[sender] = bar
 end
 
