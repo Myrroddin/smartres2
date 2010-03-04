@@ -115,9 +115,9 @@ local defaults = {
 		randMsgs = false,
 		customchatmsg = "",
 		resBarsColour = { r = 0, g = 1, b = 0, a = 1 }, -- green
-		resBarsIcon = true,
-		--@alpha@
+		resBarsIcon = true,		
 		resBarsAlpha = 1,
+		--@alpha@
 		resBarsBorder = nil,
 		--@end-alpha@
 		resBarsTexture = "Blizzard",
@@ -186,7 +186,7 @@ function SmartRes2:OnInitialize()
 						name = L["Res Bars"]
 					},
 					hideAnchor = {
-						order = 2,
+						order = 20,
 						type = "toggle",
 						name = L["Hide Anchor"],
 						desc = L["Toggles the anchor for the res bars so you can move them"],
@@ -201,7 +201,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					disableAddon = {
-						order = 3,
+						order = 30,
 						type = "toggle",
 						name = L["Disable SmartRes2"],
 						desc = L["Completely disable Smartres2"],
@@ -216,7 +216,7 @@ function SmartRes2:OnInitialize()
 						end
 					},					
 					visibleResBars = { 
-						order = 4,
+						order = 40,
 						type = "toggle",
 						name = L["Show Bars"],
 						desc = L["Show or hide the res bars. Everything else will still work"],
@@ -224,7 +224,7 @@ function SmartRes2:OnInitialize()
 						set = function(info, value) self.db.profile.visibleResBars = value end
 					},					
 					reverseGrowth = {
-						order = 5,
+						order = 50,
 						type = "toggle",
 						name = L["Grow Upwards"],
 						desc = L["Make the res bars grow up instead of down"],
@@ -235,7 +235,7 @@ function SmartRes2:OnInitialize()
 						end
 					},					
 					resBarsIcon = {
-						order = 6,
+						order = 60,
 						type = "toggle",
 						name = L["Show Icon"],
 						desc = L["Show or hide the icon for res spells"],
@@ -250,7 +250,7 @@ function SmartRes2:OnInitialize()
 						end
 					},					
 					showBattleRes = {
-						order = 7,
+						order = 70,
 						type = "toggle",
 						name = L["Show Battle Resses"],
 						desc = L["Show bars for Rebirth"],
@@ -258,7 +258,7 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)	self.db.profile.showBattleRes = value end
 					},					
 					classColours = {
-						order = 8,
+						order = 80,
 						type = "toggle",
 						name = L["Class Colours"],
 						desc = L["Use class colours for the target on the res bars"],
@@ -266,7 +266,7 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)	self.db.profile.classColours = value end
 					},
 					scale = {
-						order = 9,
+						order = 90,
 						type = "range",
 						name = L["Scale"],
 						desc = L["Set the scale for the res bars"],
@@ -279,9 +279,8 @@ function SmartRes2:OnInitialize()
 						max = 2,
 						step = 0.05
 					},
-					--@alpha@
 					resBarsAlpha = {
-						order = 10,
+						order = 100,
 						type = "range",
 						name = L["Alpha"],
 						desc = L["Set the Alpha for the res bars"],
@@ -290,13 +289,12 @@ function SmartRes2:OnInitialize()
 							self.db.profile.resBarsAlpha = value
 							self.res_bars:SetAlpha(value)
 						end,
-						min = 0,
+						min = 0.1,
 						max = 1,
 						step = 0.1
 					},
-					--@end-alpha@
 					resBarsTexture = {
-						order = 11,
+						order = 110,
 						type = "select",
 						dialogControl = "LSM30_Statusbar",
 						name = L["Texture"],
@@ -307,7 +305,7 @@ function SmartRes2:OnInitialize()
 					},
 					--@alpha@
 					resBarsBorder = {
-						order = 12,
+						order = 120,
 						type = "select",
 						dialogControl = "LSM30_Border",
 						name = L["Border"],
@@ -317,10 +315,10 @@ function SmartRes2:OnInitialize()
 						set = function(info, value) self.db.profile.resBarsBorder = value end
 					},
 					borderThickness = {
-						order = 13,
+						order = 130,
 						type = "range",
 						name = L["Border Thickness"],
-						desc = L{"Set the thickness of the res bars border"],
+						desc = L["Set the thickness of the res bars border"],
 						get = function() return self.db.profile.borderThickness end,
 						set = function(info, value) self.db.profile.borderThickness = value end,
 						min = 0,
@@ -329,7 +327,7 @@ function SmartRes2:OnInitialize()
 					},
 					--@end-alpha@
 					horizontalOrientation = {
-						order = 12,
+						order = 140,
 						type = "select",
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars"],
@@ -341,7 +339,7 @@ function SmartRes2:OnInitialize()
 						set = function(info, value) self.db.profile.horizontalOrientation = value end
 					},
 					resBarsColour = {
-						order = 13,
+						order = 150,
 						type = "color",
 						name = L["Bar Colour"],
 						desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
@@ -356,7 +354,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					collisionBarsColour = {
-						order = 14,
+						order = 160,
 						type = "color",
 						name = L["Duplicate Bar Colour"],
 						desc = L["Pick the colour for collision (duplicate) res bars"],
@@ -371,7 +369,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					waitingBarsColour = {
-						order = 15,
+						order = 170,
 						type = "color",
 						name = L["Waiting Bar Colour"],
 						desc = L["Pick the colour for collision (player waiting for accept) res bars"],
@@ -386,7 +384,7 @@ function SmartRes2:OnInitialize()
 						end
 					},
 					resBarsTestBars = {
-						order = 20,
+						order = 200,
 						type = "execute",
 						name = L["Test Bars"],
 						desc = L["Show the test bars"],
@@ -709,9 +707,9 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 	if type == "statusbar" then
 		self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	--@alpha@
-	elseif type == "background" then
+	elseif type == "border" then
 		self.res_bars:SetBackdrop({
-			bgFile = Media:Fetch("background", self.db.profile.resBarsBorder),
+			bgFile = Media:Fetch("border", self.db.profile.resBarsBorder),
 			tile = false,
 			tileSize = self.db.profile.scale + 1,
 			edgeSize = self.db.profile.borderThickness,
@@ -1040,7 +1038,7 @@ function SmartRes2:CreateResBar(sender)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	--@alpha@
 	bar:SetBackdrop({
-		bgFile = Media:Fetch("background", self.db.profile.resBarsBorder),
+		bgFile = Media:Fetch("border", self.db.profile.resBarsBorder),
 		tile = false,
 		tileSize = self.db.profile.scale + 1,
 		edgeSize = self.db.profile.borderThickness,
