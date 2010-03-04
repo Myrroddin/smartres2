@@ -21,6 +21,7 @@ local db
 local GetNumRaidMembers = GetNumRaidMembers
 local GetNumPartyMembers = GetNumPartyMembers
 local GetSpellInfo = GetSpellInfo
+local IsSpellInRange = IsSpellInRange
 local UnitClass = UnitClass
 local UnitInRaid = UnitInRaid
 local UnitInRange = UnitInRange
@@ -99,6 +100,9 @@ local Player = UnitName("player")
 local defaults = {
 	profile = {
 		autoResKey = "",
+		--@alpha@
+		borderThickness = 1,
+		--@end-alpha@
 		chatOutput = "0-none",
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 }, -- red
@@ -112,7 +116,10 @@ local defaults = {
 		customchatmsg = "",
 		resBarsColour = { r = 0, g = 1, b = 0, a = 1 }, -- green
 		resBarsIcon = true,
-		-- resBarsBorder = "None",
+		--@alpha@
+		resBarsAlpha = 1,
+		resBarsBorder = nil,
+		--@end-alpha@
 		resBarsTexture = "Blizzard",
 		resBarsX = 0,
 		resBarsY = 600,
@@ -272,8 +279,24 @@ function SmartRes2:OnInitialize()
 						max = 2,
 						step = 0.05
 					},
-					resBarsTexture = {
+					--@alpha@
+					resBarsAlpha = {
 						order = 10,
+						type = "range",
+						name = L["Alpha"],
+						desc = L["Set the Alpha for the res bars"],
+						get = function() return self.db.profile.resBarsAlpha end,
+						set = function(info, value)
+							self.db.profile.resBarsAlpha = value
+							self.res_bars:SetAlpha(value)
+						end,
+						min = 0,
+						max = 1,
+						step = 0.1
+					},
+					--@end-alpha@
+					resBarsTexture = {
+						order = 11,
 						type = "select",
 						dialogControl = "LSM30_Statusbar",
 						name = L["Texture"],
@@ -281,21 +304,30 @@ function SmartRes2:OnInitialize()
 						values = AceGUIWidgetLSMlists.statusbar,
 						get = function() return self.db.profile.resBarsTexture end,
 						set = function(info, value)	self.db.profile.resBarsTexture = value end
-					},					
-					--[[ resBarsBorder = {
-						order = 11,
+					},
+					--@alpha@
+					resBarsBorder = {
+						order = 12,
 						type = "select",
 						dialogControl = "LSM30_Border",
 						name = L["Border"],
 						desc = L["Select the border for the res bars"],
 						values = AceGUIWidgetLSMlists.border,
-						get = function()
-							return self.db.profile.resBarsBorder
-						end,
-						set = function(info, value)
-							self.db.profile.resBarsBorder = value
-						end
-					},]] --
+						get = function() return self.db.profile.resBarsBorder end,
+						set = function(info, value) self.db.profile.resBarsBorder = value end
+					},
+					borderThickness = {
+						order = 13,
+						type = "range",
+						name = L["Border Thickness"],
+						desc = L{"Set the thickness of the res bars border"],
+						get = function() return self.db.profile.borderThickness end,
+						set = function(info, value) self.db.profile.borderThickness = value end,
+						min = 0,
+						max = 5,
+						step = 0.25
+					},
+					--@end-alpha@
 					horizontalOrientation = {
 						order = 12,
 						type = "select",
@@ -676,10 +708,17 @@ end
 function SmartRes2:UpdateMedia(callback, type, handle)
 	if type == "statusbar" then
 		self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	--@alpha@
+	elseif type == "background" then
+		self.res_bars:SetBackdrop({
+			bgFile = Media:Fetch("background", self.db.profile.resBarsBorder),
+			tile = false,
+			tileSize = self.db.profile.scale + 1,
+			edgeSize = self.db.profile.borderThickness,
+			insets = { left = 1, right = 1, top = 1, bottom = 1 }
+		})
+	--@end-alpha@
 	end
-	--[[if type == "border" then
-		self.res_bars:SetBackdrop(Media:Fetch("border", self.db.profile.resBarsBorder))
-	end]]--
 end
 
 function SmartRes2:AddCustomMsg(msg)
@@ -999,6 +1038,15 @@ function SmartRes2:CreateResBar(sender)
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	--@alpha@
+	bar:SetBackdrop({
+		bgFile = Media:Fetch("background", self.db.profile.resBarsBorder),
+		tile = false,
+		tileSize = self.db.profile.scale + 1,
+		edgeSize = self.db.profile.borderThickness,
+		insets = { left = 1, right = 1, top = 1, bottom = 1 }
+	})
+	--@end-alpha@
 	resBars[sender] = bar
 end
 
