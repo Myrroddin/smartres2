@@ -109,6 +109,7 @@ local defaults = {
 		notifyCollision = "0-off",
 		notifySelf = true,
 		randMsgs = false,
+		customchatmsg = "",
 		resBarsColour = { r = 0, g = 1, b = 0, a = 1 }, -- green
 		resBarsIcon = true,
 		-- resBarsBorder = "None",
