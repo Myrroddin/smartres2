@@ -974,7 +974,7 @@ function SmartRes2:Resurrection()
 
 	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a sender 
 	local isUsable, outOfMana = IsUsableSpell(self.playerSpell) 
-	if outOfMana ~= 1 then 
+	if outOfMana == 1 then 
 	   self:Print(L["You don't have enough Mana to cast a res spell."]) 
 	   return 
 	elseif isUsable ~= 1 then 
