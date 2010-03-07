@@ -709,7 +709,7 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 	--@alpha@
 	elseif type == "border" then
 		self.res_bars:SetBackdrop({
-			bgFile = Media:Fetch("border", self.db.profile.resBarsBorder),
+			edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
 			tile = false,
 			tileSize = self.db.profile.scale + 1,
 			edgeSize = self.db.profile.borderThickness,
@@ -974,10 +974,10 @@ function SmartRes2:Resurrection()
 
 	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a sender 
 	local isUsable, outOfMana = IsUsableSpell(self.playerSpell) 
-	if outOfMana then 
+	if outOfMana ~= 1 then 
 	   self:Print(L["You don't have enough Mana to cast a res spell."]) 
 	   return 
-	elseif not isUsable then 
+	elseif isUsable ~= 1 then 
 		self:Print(L["You cannot cast res spells."]) -- in the final code, you should never see this message
 		return 
 	end
@@ -987,7 +987,7 @@ function SmartRes2:Resurrection()
 		resButton:SetAttribute("unit", unit)		
 		LastRes = unit
 	else
-		if unitOutOfRange and unitDead then
+		if unitOutOfRange then
 			self:Print(L["There are no bodies in range to res."])
 		elseif unitBeingRessed or unitWaiting then
 			self:Print(L["All dead units are being ressed."])
@@ -1038,7 +1038,7 @@ function SmartRes2:CreateResBar(sender)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	--@alpha@
 	bar:SetBackdrop({
-		bgFile = Media:Fetch("border", self.db.profile.resBarsBorder),
+		edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
 		tile = false,
 		tileSize = self.db.profile.scale + 1,
 		edgeSize = self.db.profile.borderThickness,
