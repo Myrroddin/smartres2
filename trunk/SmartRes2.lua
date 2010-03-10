@@ -321,9 +321,9 @@ function SmartRes2:OnInitialize()
 						desc = L["Set the thickness of the res bars border"],
 						get = function() return self.db.profile.borderThickness end,
 						set = function(info, value) self.db.profile.borderThickness = value end,
-						min = 0,
-						max = 5,
-						step = 0.25
+						min = 1,
+						max = 10,
+						step = 1
 					},
 					--@end-alpha@
 					horizontalOrientation = {
@@ -713,7 +713,7 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 			tile = false,
 			tileSize = self.db.profile.scale + 1,
 			edgeSize = self.db.profile.borderThickness,
-			insets = { left = 1, right = 1, top = 1, bottom = 1 }
+			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
 	--@end-alpha@
 	end
@@ -1042,7 +1042,7 @@ function SmartRes2:CreateResBar(sender)
 		tile = false,
 		tileSize = self.db.profile.scale + 1,
 		edgeSize = self.db.profile.borderThickness,
-		insets = { left = 1, right = 1, top = 1, bottom = 1 }
+		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
 	--@end-alpha@
 	resBars[sender] = bar
@@ -1051,7 +1051,7 @@ end
 function SmartRes2:DeleteResBar(sender)
 	local info = doingRessing[sender]
 	if not info then return end
-	resBars[sender]:Fade(0.1) -- 1/10 second fade
+	resBars[sender]:Fade(0.1)
 	resBars[sender] = nil
 end
 
