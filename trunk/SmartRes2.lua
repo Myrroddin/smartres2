@@ -117,9 +117,7 @@ local defaults = {
 		resBarsColour = { r = 0, g = 1, b = 0, a = 1 }, -- green
 		resBarsIcon = true,		
 		resBarsAlpha = 1,
-		--@alpha@
 		resBarsBorder = nil,
-		--@end-alpha@
 		resBarsTexture = "Blizzard",
 		resBarsX = 0,
 		resBarsY = 600,
@@ -303,7 +301,6 @@ function SmartRes2:OnInitialize()
 						get = function() return self.db.profile.resBarsTexture end,
 						set = function(info, value)	self.db.profile.resBarsTexture = value end
 					},
-					--@alpha@
 					resBarsBorder = {
 						order = 120,
 						type = "select",
@@ -325,7 +322,6 @@ function SmartRes2:OnInitialize()
 						max = 10,
 						step = 1
 					},
-					--@end-alpha@
 					horizontalOrientation = {
 						order = 140,
 						type = "select",
@@ -706,7 +702,6 @@ end
 function SmartRes2:UpdateMedia(callback, type, handle)
 	if type == "statusbar" then
 		self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
-	--@alpha@
 	elseif type == "border" then
 		self.res_bars:SetBackdrop({
 			edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
@@ -715,7 +710,6 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 			edgeSize = self.db.profile.borderThickness,
 			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
-	--@end-alpha@
 	end
 end
 
@@ -914,7 +908,6 @@ local function verifyUnit(unit)
 	end
 	if not UnitIsDead(unit) then return nil end
 	unitDead = true
-	--if ghost then return nil end
 	if unit == LastRes then return nil end
 	if ResComm:IsUnitBeingRessed(unit) then unitBeingRessed = true return nil end
 	if waitingForAccept[unit] then unitWaiting = true return nil end
@@ -1032,11 +1025,10 @@ function SmartRes2:CreateResBar(sender)
 	local bar = self.res_bars:NewTimerBar(sender, text, time, nil, icon, 0)
 	local t = self.db.profile.resBarsColour
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
-	bar:SetColorAt(0, 0, 0, 0, 1) -- sets bars to be black behind the cast bars
+	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
-	--@alpha@
 	bar:SetBackdrop({
 		edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
 		tile = false,
@@ -1044,7 +1036,6 @@ function SmartRes2:CreateResBar(sender)
 		edgeSize = self.db.profile.borderThickness,
 		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
-	--@end-alpha@
 	resBars[sender] = bar
 end
 
