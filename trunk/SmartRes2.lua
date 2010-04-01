@@ -100,9 +100,9 @@ local Player = UnitName("player")
 local defaults = {
 	profile = {
 		autoResKey = "",
-		--@alpha@
+		--[===[@alpha@
 		borderThickness = 1,
-		--@end-alpha@
+		--@end-alpha@]===]
 		chatOutput = "0-none",
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 }, -- red
@@ -620,15 +620,13 @@ function SmartRes2:OnInitialize()
 	self.resButton = resButton
 
 	-- create the Res Bars and set the user preferences
-	if self.db.profile.visibleResBars then
-		self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
-		self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
-		self.res_bars:SetUserPlaced(true)
-		if self.db.profile.hideAnchor then
-			self.res_bars:HideAnchor()
-		else
-			self.res_bars:ShowAnchor()
-		end
+	self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
+	self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
+	self.res_bars:SetUserPlaced(true)
+	if self.db.profile.hideAnchor then
+		self.res_bars:HideAnchor()
+	else
+		self.res_bars:ShowAnchor()
 	end
 end
 
