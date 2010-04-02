@@ -89,8 +89,6 @@ SmartRes2.doingRessing = doingRessing
 SmartRes2.waitingForAccept = waitingForAccept
 --@end-debug@]===]
 
--- variable for our addon preferences
-local db
 -- variable to use for multiple PLAYER_REGEN_DISABLED calls (see SmartRes2:PLAYER_REGEN_DISABLED below)
 local in_combat = false
 local Player = UnitName("player")
@@ -100,12 +98,10 @@ local Player = UnitName("player")
 local defaults = {
 	profile = {
 		autoResKey = "",
-		--[===[@alpha@
-		borderThickness = 1,
-		--@end-alpha@]===]
+		borderThickness = 10,
 		chatOutput = "0-none",
 		classColours = true,
-		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 }, -- red
+		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		disableAddon = false,
 		hideAnchor = true,
 		horizontalOrientation = "RIGHT",
@@ -114,7 +110,7 @@ local defaults = {
 		notifySelf = true,
 		randMsgs = false,
 		customchatmsg = "",
-		resBarsColour = { r = 0, g = 1, b = 0, a = 1 }, -- green
+		resBarsColour = { r = 0, g = 1, b = 0, a = 1 },
 		resBarsIcon = true,		
 		resBarsAlpha = 1,
 		resBarsBorder = nil,
@@ -125,7 +121,7 @@ local defaults = {
 		scale = 1,
 		showBattleRes = false,		
 		visibleResBars = true,
-		waitingBarsColour = { r = 1, g = 0.72, b = 0.12, a = 1 }, -- orange
+		waitingBarsColour = { r = 0, g = 0, b = 1, a = 1 },
 		randChatTbl = {
 			[1] = L["%%p%% is bringing %%t%% back to life!"],
 			[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
@@ -162,8 +158,13 @@ local defaults = {
 function SmartRes2:OnInitialize()
 	-- register saved variables with AceDB
 	db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, "Default")
+	db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
+	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
+	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
 	defaults = nil -- done with the table, so get rid of it
 	self.db = db
+	local enabled = not self.db.profile.disableAddon
+	self:SetEnabledState(enabled)
 
 	-- addon options table
 	local options = {
@@ -207,9 +208,9 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)
 							self.db.profile.disableAddon = value
 							if value then
-								self:DisableSmartRes2()
+								self:Disable()
 							else
-								self:EnableSmartRes2()
+								self:Enable()
 							end
 						end
 					},					
@@ -631,13 +632,22 @@ function SmartRes2:OnInitialize()
 end
 
 function SmartRes2:OnEnable()
-	-- called when SmartRes2 is enabled	
-	self:EnableSmartRes2()
+	-- called when SmartRes2 is enabled
+	self:RegisterEvent("PLAYER_REGEN_DISABLED")
+	self:RegisterEvent("PLAYER_REGEN_ENABLED")
+	self:RegisterEvent("RAID_ROSTER_UPDATE")	
+	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
+	ResComm.RegisterCallback(self, "ResComm_ResStart")
+	ResComm.RegisterCallback(self, "ResComm_ResEnd")
+	ResComm.RegisterCallback(self, "ResComm_Ressed")
+	ResComm.RegisterCallback(self, "ResComm_ResExpired")
+	self.res_bars.RegisterCallback(self, "FadeFinished")
+	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
+	self:BindKeys()
 end
 
 function SmartRes2:OnDisable()
 	-- called when SmartRes2 is disabled
-	self:DisableSmartRes2()
 end
 
 -- process slash commands ---------------------------------------------------
@@ -651,42 +661,15 @@ function SmartRes2:SlashHandler(input)
 end
 
 -- enable and disable SmartRes2 ---------------------------------------------
+-- using the power of Ace3 to reduce code -----------------------------------
 
 -- enable SmartRes2 ----------------------------------------------------------
-function SmartRes2:EnableSmartRes2()
--- register events so we can turn things off in combat, and back on when out of combat
-	self:RegisterEvent("PLAYER_REGEN_DISABLED")
-	self:RegisterEvent("PLAYER_REGEN_ENABLED")
-	self:RegisterEvent("RAID_ROSTER_UPDATE")
-	-- register Profile callbacks
-	db.RegisterCallback(self, "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
-	-- register Media change callbacks
-	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")	
-	-- register LibResComm event callbacks
-	ResComm.RegisterCallback(self, "ResComm_ResStart")
-	ResComm.RegisterCallback(self, "ResComm_ResEnd")
-	ResComm.RegisterCallback(self, "ResComm_Ressed")
-	ResComm.RegisterCallback(self, "ResComm_ResExpired")	
-	-- register bars callbacks
-	self.res_bars.RegisterCallback(self, "FadeFinished")
-	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
-	-- call keybindings function
-	self:BindKeys()
+function SmartRes2:Enable()
 end
 
 -- disable SmartRes2 completely ----------------------------------------------
-function SmartRes2:DisableSmartRes2()
+function SmartRes2:Disable()
 	self:UnBindKeys()
-	SmartRes2.UnregisterAllEvents(self)
-	ResComm.UnregisterAllCallbacks(self)
-	self.res_bars.UnregisterAllCallbacks(self)
-	Media.UnregisterAllCallbacks(self)
-	wipe(doingRessing)
-	wipe(waitingForAccept)
-	wipe(resBars)
-	LastRes = nil
 end
 
 -- General callback functions -----------------------------------------------
