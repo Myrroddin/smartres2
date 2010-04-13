@@ -1,4 +1,4 @@
-﻿-- Authors: Xenobios, Mattbnr
+-- Authors: Xenobios, Mattbnr
 -- Localization file for Russian version of SmartRes2
 
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "ruRU")

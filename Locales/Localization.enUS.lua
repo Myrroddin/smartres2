@@ -1,4 +1,4 @@
-﻿-- Author      : Myrroddin of Llane
+-- Author      : Myrroddin of Llane
 -- Localization file for US English version of SmartRes2, which is the default
       
 local debug = false
