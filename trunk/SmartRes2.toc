@@ -1,4 +1,4 @@
-﻿## Interface: 30300
+## Interface: 30300
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party/Raid wipe recovery. Evolved
 ## Notes-frFR: Coordonnée targetless Party / Raid essuyez récupération. Evolved

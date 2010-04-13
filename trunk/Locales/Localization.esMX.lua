@@ -1,4 +1,4 @@
-﻿-- Authors: Silmano
+-- Authors: Silmano
 -- Localization file for Latin American Spanish version of SmartRes2
 
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "esMX")

@@ -1,4 +1,4 @@
-﻿-- Authors: Ckeurk, Xilbar, Mattbnr
+-- Authors: Ckeurk, Xilbar, Mattbnr
 -- Localization file for French version of SmartRes2
 
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "frFR")

@@ -1,4 +1,4 @@
-﻿--- SmartRes2
+--- SmartRes2
 -- @class file
 -- @name SmartRes2.lua
 -- @author Myrroddin of Llane

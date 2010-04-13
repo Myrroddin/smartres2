@@ -1,4 +1,4 @@
-﻿-- Authors: Mattbnr
+-- Authors: Mattbnr
 -- Localization file for Simplified Chinese version of SmartRes2
 
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "zhCN")

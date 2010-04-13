@@ -1,4 +1,4 @@
-﻿-- Authors: Whocare
+-- Authors: Whocare
 -- Localization file for Traditional Chinese version of SmartRes2
 
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "zhTW")
