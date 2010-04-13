@@ -3,7 +3,33 @@
 -- @name SmartRes2.lua
 -- @author Myrroddin of Llane
 
+-- localise global variables for faster access ------------------------------
+local _G = getfenv(0)
+
+local string = _G.string
+
+local table = _G.table
+local tinsert = table.insert
+local tsort = table.sort
+local wipe = table.wipe
+
+local pairs = _G.pairs
+local ipairs = _G.ipairs
+
+-- Upvalued Blizzard API ----------------------------------------------------
+local GetNumRaidMembers = _G.GetNumRaidMembers
+local GetNumPartyMembers = _G.GetNumPartyMembers
+local GetSpellInfo = _G.GetSpellInfo
+local IsSpellInRange = _G.IsSpellInRange
+local UnitClass = _G.UnitClass
+local UnitInRaid = _G.UnitInRaid
+local UnitInRange = _G.UnitInRange
+local UnitIsDead = _G.UnitIsDead
+local UnitIsGhost = _G.UnitIsGhost
+local UnitLevel = _G.UnitLevel
+
 -- declare addon ------------------------------------------------------------
+local LibStub = _G.LibStub
 
 local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
@@ -15,24 +41,6 @@ local version = GetAddOnMetadata("SmartRes2", "Version")
 SmartRes2.L = L
 -- declare the database
 local db
-
--- localise global variables for faster access ------------------------------
-
-local GetNumRaidMembers = GetNumRaidMembers
-local GetNumPartyMembers = GetNumPartyMembers
-local GetSpellInfo = GetSpellInfo
-local IsSpellInRange = IsSpellInRange
-local UnitClass = UnitClass
-local UnitInRaid = UnitInRaid
-local UnitInRange = UnitInRange
-local UnitIsDead = UnitIsDead
-local UnitIsGhost = UnitIsGhost
-local UnitLevel = UnitLevel
-local pairs = pairs
-local tinsert = table.insert
-local tsort = table.sort
-local sgsub = string.gsub
-local wipe = wipe
 
 -- debugging section --------------------------------------------------------
 
@@ -592,25 +600,25 @@ function SmartRes2:OnInitialize()
 		type = "launcher",
 		icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.PRIEST,
 		OnClick = function(clickedframe, button)
-			if button == "LeftButton" then
-				-- keep our options table in sync with the ldb object state
-				self.db.profile.hideAnchor = not self.db.profile.hideAnchor
-				if self.db.profile.hideAnchor then
-					self.res_bars:HideAnchor()
-				else
-					self.res_bars:ShowAnchor()
-				end
-				LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
-			elseif button == "RightButton" then
-				InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
-			end
+				  if button == "LeftButton" then
+					  -- keep our options table in sync with the ldb object state
+					  self.db.profile.hideAnchor = not self.db.profile.hideAnchor
+					  if self.db.profile.hideAnchor then
+						  self.res_bars:HideAnchor()
+					  else
+						  self.res_bars:ShowAnchor()
+					  end
+					  LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
+				  elseif button == "RightButton" then
+					  _G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+				  end
 		end,
 		OnTooltipShow = function(self)
-			GameTooltip:AddLine("SmartRes2".." "..version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
-			GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-			GameTooltip:Show()
-		end
-		})
+					GameTooltip:AddLine("SmartRes2".." "..version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+					GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+					GameTooltip:Show()
+				end
+	})
 		self.launcher = launcher
 	end	
 
@@ -653,10 +661,11 @@ end
 -- process slash commands ---------------------------------------------------
 function SmartRes2:SlashHandler(input)
 	input = input:lower()
+
 	if input == "cast" then
 		self:Resurrection()
 	else
-		InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+		_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
 	end
 end
 
@@ -695,8 +704,8 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 end
 
 function SmartRes2:AddCustomMsg(msg)
-	msg = sgsub(msg, "me", "%%%%p%%%%")
-	msg = sgsub(msg, "you", "%%%%t%%%%")
+	msg = string.gsub(msg, "me", "%%%%p%%%%")
+	msg = string.gsub(msg, "you", "%%%%t%%%%")
 	self.db.profile.customchatmsg = msg
 end
 
@@ -735,8 +744,8 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			elseif self.db.profile.customchatmsg ~= "" then
 				msg = self.db.profile.customchatmsg
 			end
-			msg = sgsub(msg, "%%%%p%%%%", sender)
-			msg = sgsub(msg, "%%%%t%%%%", targetName)
+			msg = string.gsub(msg, "%%%%p%%%%", sender)
+			msg = string.gsub(msg, "%%%%t%%%%", targetName)
 			if channel == "WHISPER" then
 				SendChatMessage(msg, channel, nil, target)
 			else
