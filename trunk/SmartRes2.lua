@@ -715,21 +715,27 @@ end
 function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 	-- check if we have the person in our table yet, and if not, add them
 	--self:Print("ResStart - "..sender.." ressing "..targetName)
-	if doingRessing[sender] then return end
+	if doingRessing[sender] then
+		return
+	end
 	doingRessing[sender] = {
 		endTime = endTime,
 		target = targetName
 	}
-	
 	self:CreateResBar(sender)
+
 	if waitingForAccept[targetName] then self:AddWaitingBars(sender, targetName) end
+
 	local oldsender = self:CheckResTarget(targetName, sender) 
+
 	if oldsender then		--target already being ressed
 		self:AddCollisionBars(sender, targetName, oldsender)
 	end
 	local isSame = UnitIsUnit(sender, "player")
+
 	if isSame == 1 then -- make sure only the player is sending messages
 		local channel = self.db.profile.chatOutput:upper()
+
 		if channel == "GROUP" then
 			if UnitInRaid("player") then
 				channel = "RAID"
@@ -737,8 +743,10 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 				channel = "PARTY"
 			end
 		end
+
 		if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
 			local msg = L["%%p%% is ressing %%t%%"]
+
 			if self.db.profile.randMsgs then
 				msg = self.db.profile.randChatTbl[math.random(#self.db.profile.randChatTbl)]
 			elseif self.db.profile.customchatmsg ~= "" then
@@ -746,12 +754,10 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			end
 			msg = string.gsub(msg, "%%%%p%%%%", sender)
 			msg = string.gsub(msg, "%%%%t%%%%", targetName)
-			if channel == "WHISPER" then
-				SendChatMessage(msg, channel, nil, target)
-			else
-				SendChatMessage(msg, channel, nil, nil)
-			end
+
+			SendChatMessage(msg, channel, nil, (channel == "WHISPER") and targetName or nil)
 		end
+
 		if self.db.profile.notifySelf then
 			self:Print((L["You are ressing %s"]):format(targetName))
 		end
