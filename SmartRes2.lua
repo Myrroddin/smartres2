@@ -42,12 +42,6 @@ SmartRes2.L = L
 -- declare the database
 local db
 
--- debugging section --------------------------------------------------------
-
---[===[@debug@
-_G.SmartRes2 = SmartRes2
---@end-debug@]===]
-
 -- additional libraries -----------------------------------------------------
 
 -- LibDataBroker used for LDB enabled addons like ChocolateBars
@@ -92,11 +86,6 @@ local orientation
 local icon
 local LastRes
 
---[===[@debug@
-SmartRes2.doingRessing = doingRessing
-SmartRes2.waitingForAccept = waitingForAccept
---@end-debug@]===]
-
 -- variable to use for multiple PLAYER_REGEN_DISABLED calls (see SmartRes2:PLAYER_REGEN_DISABLED below)
 local in_combat = false
 local Player = UnitName("player")
@@ -111,6 +100,10 @@ local defaults = {
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		disableAddon = false,
+		-- fontColour
+		fontFlags = "0-nothing",
+		fontScale = 10,
+		fontType = "Friz Quadrata TT",
 		hideAnchor = true,
 		horizontalOrientation = "RIGHT",
 		manualResKey = "",
@@ -283,7 +276,7 @@ function SmartRes2:OnInitialize()
 							self.res_bars:SetScale(value)
 						end,
 						min = 0.5,
-						max = 2,
+						max = 3,
 						step = 0.05
 					},
 					resBarsAlpha = {
@@ -401,7 +394,7 @@ function SmartRes2:OnInitialize()
 				name = L["Chat Output"],
 				desc = L["Chat output options"],
 				type = "group",
-				order = 2,
+				order = 20,
 				args = {
 					resChatHeader = {
 						order = 1,
@@ -470,11 +463,70 @@ function SmartRes2:OnInitialize()
 					}
 				}
 			},
+			fontTab = {
+				name = L["Fonts"],
+				desc = L["Control fonts on the res bars"],
+				type = "group",
+				order = 25,
+				args = {
+					fontType = {
+						order = 1,
+						type = "select",
+						dialogControl = "LSM30_Font",
+						name = L["Font Type"],
+						desc = L["Select a font for the text on the res bars"],
+						values = AceGUIWidgetLSMlists.font,
+						get = function() return self.db.profile.fontType end,
+						set = function(info, value) self.db.profile.fontType = value end					
+					},
+					fontSize = {
+						order = 20,
+						type = "range",
+						name = L["Font Scale"],
+						desc = L["Resize the res bars font"],
+						get = function() return self.db.profile.fontScale end,
+						set = function(info, value) self.db.profile.fontScale = value end,
+						min = 3,
+						max = 64,
+						step = 1
+					},
+					fontFlags = {
+						order = 25,
+						type = "select",
+						name = L["Font Style"],
+						desc = L["Nothing, outline, thick outline, or monochrome"],
+						get = function() return self.db.profile.fontFlags end,
+						set = function(info, value) self.db.profile.fontFlags = value end,
+						values = {
+							["0-nothing"] = L["Nothing"],
+							outline = L["Outline"],
+							thickOut = L["ThickOutline"],
+							monoChrome = L["Monochrome"]
+						}
+					},
+					--[[
+					fontColour = {
+						order = 30,
+						type = "color",
+						name = L["Colour"],
+						desc = L["Font colour on the res bars"],
+						hasAlpha = true,
+						get = function()
+							local t = self.db.profile.fontColour
+							return t.r, t.g, t.b, t.a
+						end,
+						set = function(info, r, g, b, a)
+							local t = self.db.profile.fontColour
+							t.r, t.g, t.b, t.a = r, g, b, a
+						end
+					} ]]--					
+				}			
+			},
 			keyBindingsTab = {
 				name = L["Key Bindings"],
 				desc = L["Set the keybindings"],
 				type = "group",
-				order = 3,
+				order = 30,
 				args = {
 					autoResKey = {
 						order = 1,
@@ -503,7 +555,7 @@ function SmartRes2:OnInitialize()
 				name = L["SmartRes2 Credits"],
 				desc = L["About the author and SmartRes2"],
 				type = "group",
-				order = 6,
+				order = 60,
 				args = {
 					creditsHeader1 = {
 						order = 1,
@@ -561,7 +613,7 @@ function SmartRes2:OnInitialize()
 	}
 	-- add the 'Profiles' section
 	options.args.profilesTab = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
-	options.args.profilesTab.order = 5
+	options.args.profilesTab.order = 50
 
 	-- Register your options with AceConfigRegistry
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
@@ -656,6 +708,15 @@ end
 
 function SmartRes2:OnDisable()
 	-- called when SmartRes2 is disabled
+	self:UnBindKeys()
+	self:UnregisterAllEvents()
+	Media.UnregisterAllCallbacks(self)
+	ResComm.UnregisterAllCallbacks(self)
+	self.res_bars.UnregisterAllCallbacks(self)
+	wipe(doingRessing)
+	wipe(waitingForAccept)
+	wipe(resBars)
+	LastRes = nil
 end
 
 -- process slash commands ---------------------------------------------------
@@ -674,11 +735,13 @@ end
 
 -- enable SmartRes2 ----------------------------------------------------------
 function SmartRes2:Enable()
+	self:OnEnable()
 end
 
 -- disable SmartRes2 completely ----------------------------------------------
 function SmartRes2:Disable()
-	self:UnBindKeys()
+	-- self:UnBindKeys()
+	self:OnDisable()
 end
 
 -- General callback functions -----------------------------------------------
@@ -700,6 +763,8 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 			edgeSize = self.db.profile.borderThickness,
 			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
+	elseif type == "font" then
+		self.res_bars:SetFont(Media:Fetch("font", self.db.profile.fontType))
 	end
 end
 
@@ -1006,10 +1071,14 @@ function SmartRes2:CreateResBar(sender)
 	if senderClass == "DRUID" and in_combat then
 		icon = select(3, GetSpellInfo(20484))
 	else		
-		icon = self.resSpellIcons[select(2, UnitClass(sender))] or self.resSpellIcons.PRIEST
+		icon = self.resSpellIcons[senderClass] or self.resSpellIcons.PRIEST
 	end
 	local info = doingRessing[sender]
 	local time = info.endTime - GetTime()
+	local flags = self.db.profile.fontFlags:upper()
+	if flags == "0-NOTHING" then
+		flags = nil
+	end
 	
 	if self.db.profile.classColours then
 		text = (L["%s is ressing %s"]):format(ClassColouredName(sender), ClassColouredName(info.target))
@@ -1020,10 +1089,17 @@ function SmartRes2:CreateResBar(sender)
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
 	local bar = self.res_bars:NewTimerBar(sender, text, time, nil, icon, 0)
 	local t = self.db.profile.resBarsColour
+	-- local fc = self.db.profile.fontColour
+	-- local fc.r, fc.g, fc.b, fc.a = GetTextColor()
+	-- self:Print(tostring(fc.r.." "..fc.g.." "..fc.b.." "..fc.a))
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
+	self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
+	self.res_bars:SetUserPlaced(true)
+	-- bar:SetTextColor(fc.r, fc.g, fc.b, fc.a)
+	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, flags)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
 		edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
