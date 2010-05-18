@@ -41,42 +41,17 @@ local version = GetAddOnMetadata("SmartRes2", "Version")
 SmartRes2.L = L
 -- declare the database
 local db
-
 -- additional libraries -----------------------------------------------------
-
 -- LibDataBroker used for LDB enabled addons like ChocolateBars
-local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1", true)
-if not DataBroker then
-	LoadAddOn("LibDataBroker-1.1")
-	local DataBroker = LibStub("LibDataBroker-1.1", true)
-	if not DataBroker then
-		error(format(L["%s requires the library '%s' to be available."], "SmartRes2", "LibDataBroker-1.1"))
-	end
-end
+local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1")
 -- LibBars used for bars
-local Bars = LibStub:GetLibrary("LibBars-1.0", true)
-if not Bars then
-	LoadAddOn("LibBars-1.0")
-	local Bars = LibStub:GetLibrary("LibBars-1.0", true)
-	if not Bars then
-		error(format(L["%s requires the library '%s' to be available."], "SmartRes2", "LibBars-1.0"))
-	end
-end
+local Bars = LibStub:GetLibrary("LibBars-1.0")
 -- LibResComm used for communication
-local ResComm = LibStub:GetLibrary("LibResComm-1.0", true)
-if not ResComm then
-	LoadAddOn("LibResComm-1.0")
-	local ResComm = LibStub:GetLibrary("LibResComm-1.0", true)
-	if not ResComm then
-		error(format(L["%s requires the library '%s' to be available."], "SmartRes2", "LibResComm-1.0"))
-	end
-end
+local ResComm = LibStub:GetLibrary("LibResComm-1.0")
 -- LibSharedMedia used for more textures
-local Media = LibStub:GetLibrary("LibSharedMedia-3.0", true)
+local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
 -- register the res bar textures with LibSharedMedia-3.0
 Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]])
-
--- global variables ---------------------------------------------------------
 
 -- local variables ----------------------------------------------------------
 local doingRessing = {}
@@ -91,7 +66,6 @@ local in_combat = false
 local Player = UnitName("player")
 
 -- addon defaults -----------------------------------------------------------
-
 local defaults = {
 	profile = {
 		autoResKey = "",
@@ -100,7 +74,6 @@ local defaults = {
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		disableAddon = false,
-		-- fontColour
 		fontFlags = "0-nothing",
 		fontScale = 10,
 		fontType = "Friz Quadrata TT",
@@ -331,7 +304,7 @@ function SmartRes2:OnInitialize()
 						desc = L["Change the horizontal direction of the res bars"],
 						values = {
 							["LEFT"] = L["Right to Left"],
-							["RIGHT"] = L["Left to Right"], 
+							["RIGHT"] = L["Left to Right"]
 						},
 						get = function() return self.db.profile.horizontalOrientation end,
 						set = function(info, value) self.db.profile.horizontalOrientation = value end
@@ -387,7 +360,7 @@ function SmartRes2:OnInitialize()
 						name = L["Test Bars"],
 						desc = L["Show the test bars"],
 						func = function() self:StartTestBars() end
-					},
+					}
 				}
 			},
 			resChatTextTab = {
@@ -422,7 +395,7 @@ function SmartRes2:OnInitialize()
 							raid = L["Raid"],
 							say = L["Say"],
 							whisper = L["Whisper"],
-							yell = L["Yell"],							
+							yell = L["Yell"]							
 						},
 						get = function() return self.db.profile.chatOutput end,
 						set = function(info, value)	self.db.profile.chatOutput = value end
@@ -448,7 +421,7 @@ function SmartRes2:OnInitialize()
 							raid = L["Raid"],
 							say = L["Say"],
 							whisper = L["Whisper"],
-							yell = L["Yell"],
+							yell = L["Yell"]
 						},
 						get = function() return self.db.profile.notifyCollision end,
 						set = function(info, value)	self.db.profile.notifyCollision = value	end
@@ -459,7 +432,7 @@ function SmartRes2:OnInitialize()
 						name = L["Custom Message"],
 						desc = L["Your message.  Use 'me' for yourself and 'you' for target"],
 						get = function() return self.db.profile.customchatmsg end,
-						set = function(info, value) self:AddCustomMsg(value) end,
+						set = function(info, value) self:AddCustomMsg(value) end
 					}
 				}
 			},
@@ -487,39 +460,23 @@ function SmartRes2:OnInitialize()
 						get = function() return self.db.profile.fontScale end,
 						set = function(info, value) self.db.profile.fontScale = value end,
 						min = 3,
-						max = 64,
+						max = 20,
 						step = 1
 					},
 					fontFlags = {
 						order = 25,
 						type = "select",
 						name = L["Font Style"],
-						desc = L["Nothing, outline, thick outline, or monochrome"],
-						get = function() return self.db.profile.fontFlags end,
-						set = function(info, value) self.db.profile.fontFlags = value end,
+						desc = L["Nothing, outline, thick outline, or monochrome"],						
 						values = {
 							["0-nothing"] = L["Nothing"],
 							outline = L["Outline"],
 							thickOut = L["ThickOutline"],
 							monoChrome = L["Monochrome"]
-						}
-					},
-					--[[
-					fontColour = {
-						order = 30,
-						type = "color",
-						name = L["Colour"],
-						desc = L["Font colour on the res bars"],
-						hasAlpha = true,
-						get = function()
-							local t = self.db.profile.fontColour
-							return t.r, t.g, t.b, t.a
-						end,
-						set = function(info, r, g, b, a)
-							local t = self.db.profile.fontColour
-							t.r, t.g, t.b, t.a = r, g, b, a
-						end
-					} ]]--					
+						},
+						get = function() return self.db.profile.fontFlags end,
+						set = function(info, value) self.db.profile.fontFlags = value end
+					}			
 				}			
 			},
 			keyBindingsTab = {
@@ -534,7 +491,7 @@ function SmartRes2:OnInitialize()
 						name = L["Auto Res Key"],
 						desc = L["For ressing targets who have not released their ghosts"],
 						get = function() return self.db.profile.autoResKey end,
-						set = function(info, value)	self.db.profile.autoResKey = value	end
+						set = function(info, value)	self.db.profile.autoResKey = value end
 					},
 					manualResKey = {
 						order = 2,
@@ -580,27 +537,27 @@ function SmartRes2:OnInitialize()
 					creditsDesc5 = {
 						order = 5,
 						type = "description",
-						name = "* "..L["German translation by Farook, Black_Mystics, Xevilgrin, and Dessa"],
+						name = "* "..L["German translation by Farook, Black_Mystics, Xevilgrin, and Dessa"]
 					},
 					creditsDesc6 = {
 						order = 6,
 						type = "description",
-						name = "* "..L["French translation by Ckeurk and Xilbar"],
+						name = "* "..L["French translation by Ckeurk and Xilbar"]
 					},
 					creditsDesc7 = {
 						order = 7,
 						type = "description",
-						name = "* "..L["Latin American Spanish and Spanish translation by Silmano"],
+						name = "* "..L["Latin American Spanish and Spanish translation by Silmano"]
 					},
 					creditsDesc8 = {
 						order = 8,
 						type = "description",
-						name = "* "..L["Russian translation by Xenobios"],
+						name = "* "..L["Russian translation by Xenobios"]
 					},
 					creditsDesc9 = {
 						order = 9,
 						type = "description",
-						name = "* "..L["Traditional Chinese translation by Whocare"],
+						name = "* "..L["Traditional Chinese translation by Whocare"]
 					},
 					creditsDesc10 = {
 						order = 10,
@@ -649,28 +606,27 @@ function SmartRes2:OnInitialize()
 	-- create DataBroker Launcher
 	if DataBroker then
 		local launcher = DataBroker:NewDataObject("SmartRes2", {
-		type = "launcher",
-		icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.PRIEST,
-		OnClick = function(clickedframe, button)
-				  if button == "LeftButton" then
-					  -- keep our options table in sync with the ldb object state
-					  self.db.profile.hideAnchor = not self.db.profile.hideAnchor
-					  if self.db.profile.hideAnchor then
-						  self.res_bars:HideAnchor()
-					  else
-						  self.res_bars:ShowAnchor()
-					  end
-					  LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
-				  elseif button == "RightButton" then
-					  _G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
-				  end
-		end,
-		OnTooltipShow = function(self)
-					GameTooltip:AddLine("SmartRes2".." "..version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
-					GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-					GameTooltip:Show()
+			type = "launcher",
+			icon = self.resSpellIcons[self.playerClass] or self.resSpellIcons.PRIEST,
+			OnClick = function(clickedframe, button)
+				if button == "LeftButton" then
+					-- keep our options table in sync with the ldb object state
+					self.db.profile.hideAnchor = not self.db.profile.hideAnchor
+					if self.db.profile.hideAnchor then
+						self.res_bars:HideAnchor()
+					else
+						self.res_bars:ShowAnchor()
+					end
+					LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
+				elseif button == "RightButton" then
+					_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
 				end
-	})
+			end,
+			OnTooltipShow = function(self)
+			GameTooltip:AddLine("SmartRes2".." "..version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+			GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+			GameTooltip:Show()
+		end})
 		self.launcher = launcher
 	end	
 
