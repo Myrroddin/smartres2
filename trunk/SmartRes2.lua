@@ -5,14 +5,11 @@
 
 -- localise global variables for faster access ------------------------------
 local _G = getfenv(0)
-
 local string = _G.string
-
 local table = _G.table
 local tinsert = table.insert
 local tsort = table.sort
 local wipe = table.wipe
-
 local pairs = _G.pairs
 local ipairs = _G.ipairs
 
@@ -75,7 +72,7 @@ local defaults = {
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		disableAddon = false,
 		fontFlags = "0-nothing",
-		fontScale = 10,
+		fontScale = 12,
 		fontType = "Friz Quadrata TT",
 		hideAnchor = true,
 		horizontalOrientation = "RIGHT",
@@ -168,8 +165,11 @@ function SmartRes2:OnInitialize()
 							self.db.profile.hideAnchor = value
 							if value then
 								self.res_bars:HideAnchor()
+								self.res_bars:Lock()
 							else
 								self.res_bars:ShowAnchor()
+								self.res_bars:Unlock()
+								self.res_bars:SetClampedToScreen(true)
 							end
 						end
 					},
@@ -614,8 +614,11 @@ function SmartRes2:OnInitialize()
 					self.db.profile.hideAnchor = not self.db.profile.hideAnchor
 					if self.db.profile.hideAnchor then
 						self.res_bars:HideAnchor()
+						self.res_bars:Lock()
 					else
 						self.res_bars:ShowAnchor()
+						self.res_bars:Unlock()
+						self.res_bars:SetClampedToScreen(true)
 					end
 					LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
 				elseif button == "RightButton" then
@@ -640,11 +643,13 @@ function SmartRes2:OnInitialize()
 	self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
 	self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
 	self.res_bars:SetUserPlaced(true)
+	--[[
 	if self.db.profile.hideAnchor then
 		self.res_bars:HideAnchor()
 	else
 		self.res_bars:ShowAnchor()
 	end
+	]]--
 end
 
 function SmartRes2:OnEnable()
@@ -663,7 +668,36 @@ function SmartRes2:OnEnable()
 end
 
 function SmartRes2:OnDisable()
-	-- called when SmartRes2 is disabled
+	-- called when SmartRes2 is disabled	
+end
+
+-- process slash commands ---------------------------------------------------
+function SmartRes2:SlashHandler(input)
+	input = input:lower()
+	if input == "cast" then
+		self:Resurrection()
+	else
+		_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+	end
+end
+
+-- enable SmartRes2 ----------------------------------------------------------
+function SmartRes2:Enable()
+	self:RegisterEvent("PLAYER_REGEN_DISABLED")
+	self:RegisterEvent("PLAYER_REGEN_ENABLED")
+	self:RegisterEvent("RAID_ROSTER_UPDATE")	
+	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
+	ResComm.RegisterCallback(self, "ResComm_ResStart")
+	ResComm.RegisterCallback(self, "ResComm_ResEnd")
+	ResComm.RegisterCallback(self, "ResComm_Ressed")
+	ResComm.RegisterCallback(self, "ResComm_ResExpired")
+	self.res_bars.RegisterCallback(self, "FadeFinished")
+	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
+	self:BindKeys()
+end
+
+-- disable SmartRes2 completely ----------------------------------------------
+function SmartRes2:Disable()
 	self:UnBindKeys()
 	self:UnregisterAllEvents()
 	Media.UnregisterAllCallbacks(self)
@@ -673,31 +707,6 @@ function SmartRes2:OnDisable()
 	wipe(waitingForAccept)
 	wipe(resBars)
 	LastRes = nil
-end
-
--- process slash commands ---------------------------------------------------
-function SmartRes2:SlashHandler(input)
-	input = input:lower()
-
-	if input == "cast" then
-		self:Resurrection()
-	else
-		_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
-	end
-end
-
--- enable and disable SmartRes2 ---------------------------------------------
--- using the power of Ace3 to reduce code -----------------------------------
-
--- enable SmartRes2 ----------------------------------------------------------
-function SmartRes2:Enable()
-	self:OnEnable()
-end
-
--- disable SmartRes2 completely ----------------------------------------------
-function SmartRes2:Disable()
-	-- self:UnBindKeys()
-	self:OnDisable()
 end
 
 -- General callback functions -----------------------------------------------
@@ -776,7 +785,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			msg = string.gsub(msg, "%%%%p%%%%", sender)
 			msg = string.gsub(msg, "%%%%t%%%%", targetName)
 
-			SendChatMessage(msg, channel, nil, (channel == "WHISPER") and targetName or nil)
+			Print(msg, channel, nil, (channel == "WHISPER") and targetName or nil)
 		end
 
 		if self.db.profile.notifySelf then
@@ -1045,16 +1054,10 @@ function SmartRes2:CreateResBar(sender)
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
 	local bar = self.res_bars:NewTimerBar(sender, text, time, nil, icon, 0)
 	local t = self.db.profile.resBarsColour
-	-- local fc = self.db.profile.fontColour
-	-- local fc.r, fc.g, fc.b, fc.a = GetTextColor()
-	-- self:Print(tostring(fc.r.." "..fc.g.." "..fc.b.." "..fc.a))
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
-	self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
-	self.res_bars:SetUserPlaced(true)
-	-- bar:SetTextColor(fc.r, fc.g, fc.b, fc.a)
 	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, flags)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
@@ -1081,7 +1084,7 @@ function SmartRes2:AddCollisionBars(sender, target, collisionsender)
 	end
 	local chatType = self:GetChatType()
 	if chatType ~= "0-OFF" and sender ~= Player then
-		SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
+		Print((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
 	end
 end
 
