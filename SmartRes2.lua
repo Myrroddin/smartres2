@@ -643,13 +643,14 @@ function SmartRes2:OnInitialize()
 	self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
 	self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
 	self.res_bars:SetUserPlaced(true)
-	--[[
 	if self.db.profile.hideAnchor then
 		self.res_bars:HideAnchor()
+		self.res_bars:Lock()
 	else
 		self.res_bars:ShowAnchor()
+		self.res_bars:Unlock()
+		self.res_bars:SetClampedToScreen(true)
 	end
-	]]--
 end
 
 function SmartRes2:OnEnable()
