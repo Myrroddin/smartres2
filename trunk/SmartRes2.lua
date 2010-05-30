@@ -266,28 +266,8 @@ function SmartRes2:OnInitialize()
 						max = 1,
 						step = 0.1
 					},
-					resBarsTexture = {
-						order = 110,
-						type = "select",
-						dialogControl = "LSM30_Statusbar",
-						name = L["Texture"],
-						desc = L["Select the texture for the res bars"],
-						values = AceGUIWidgetLSMlists.statusbar,
-						get = function() return self.db.profile.resBarsTexture end,
-						set = function(info, value)	self.db.profile.resBarsTexture = value end
-					},
-					resBarsBorder = {
-						order = 120,
-						type = "select",
-						dialogControl = "LSM30_Border",
-						name = L["Border"],
-						desc = L["Select the border for the res bars"],
-						values = AceGUIWidgetLSMlists.border,
-						get = function() return self.db.profile.resBarsBorder end,
-						set = function(info, value) self.db.profile.resBarsBorder = value end
-					},
 					borderThickness = {
-						order = 130,
+						order = 110,
 						type = "range",
 						name = L["Border Thickness"],
 						desc = L["Set the thickness of the res bars border"],
@@ -297,6 +277,26 @@ function SmartRes2:OnInitialize()
 						max = 10,
 						step = 1
 					},
+					resBarsTexture = {
+						order = 120,
+						type = "select",
+						dialogControl = "LSM30_Statusbar",
+						name = L["Texture"],
+						desc = L["Select the texture for the res bars"],
+						values = AceGUIWidgetLSMlists.statusbar,
+						get = function() return self.db.profile.resBarsTexture end,
+						set = function(info, value)	self.db.profile.resBarsTexture = value end
+					},
+					resBarsBorder = {
+						order = 130,
+						type = "select",
+						dialogControl = "LSM30_Border",
+						name = L["Border"],
+						desc = L["Select the border for the res bars"],
+						values = AceGUIWidgetLSMlists.border,
+						get = function() return self.db.profile.resBarsBorder end,
+						set = function(info, value) self.db.profile.resBarsBorder = value end
+					},					
 					horizontalOrientation = {
 						order = 140,
 						type = "select",
@@ -375,15 +375,23 @@ function SmartRes2:OnInitialize()
 						name = L["Chat Output"]
 					},
 					randMsgs = {
-						order = 2,
+						order = 20,
 						type = "toggle",
 						name = L["Random Res Messages"],
 						desc = L["Turn random res messages on or keep the same message. Default is off"],
 						get = function() return self.db.profile.randMsgs end,
 						set = function(info, value)	self.db.profile.randMsgs = value end
 					},
+					notifySelf = {
+						order = 30,
+						type = "toggle",
+						name = L["Self Notification"],
+						desc = L["Prints a message to yourself whom you are ressing"],
+						get = function() return self.db.profile.notifySelf end,
+						set = function(info, value)	self.db.profile.notifySelf = value end
+					},
 					chatOutput = {
-						order = 3,
+						order = 40,
 						type = "select",
 						name = L["Chat Output Type"],
 						desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, smart Group, or None"],
@@ -399,17 +407,9 @@ function SmartRes2:OnInitialize()
 						},
 						get = function() return self.db.profile.chatOutput end,
 						set = function(info, value)	self.db.profile.chatOutput = value end
-					},
-					notifySelf = {
-						order = 4,
-						type = "toggle",
-						name = L["Self Notification"],
-						desc = L["Prints a message to yourself whom you are ressing"],
-						get = function() return self.db.profile.notifySelf end,
-						set = function(info, value)	self.db.profile.notifySelf = value end
-					},
+					},					
 					notifyCollision = {
-						order = 5,
+						order = 50,
 						type = "select",
 						name = L["Duplicate Res Targets"],
 						desc = L["Notify a resser they created a collision. Could get very spammy"],
@@ -427,12 +427,31 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)	self.db.profile.notifyCollision = value	end
 					},
 					customMessage = {
-						order = 6,
+						order = 60,
 						type = "input",
 						name = L["Custom Message"],
 						desc = L["Your message.  Use 'me' for yourself and 'you' for target"],
 						get = function() return self.db.profile.customchatmsg end,
 						set = function(info, value) self:AddCustomMsg(value) end
+					},
+					addRndMessage = {
+						order = 70,
+						type = "input",
+						name = L["Add to Random Table"],
+						desc = L["Add messages to the random message output table"],
+						usage = L["%%p%% is you, %%t%% is your target. %%p%% is optional, but %%t%% is not"],
+						get = function() return self.db.profile.randMsgs end,
+						set = function(info, value) tinsert(self.db.profile.randMsgs, value) end
+					},
+					removeRndMessge = {
+						order = 80,
+						type = "MultiSelect",
+						name = L["Remove Random Messages"],
+						desc = L["Remove messages from the table you no longer want"],
+						get = function() return self.db.profile.randMsgs end,
+						set = function(info, value) self.db.profile.randMsgs = value end,
+						func = function() self:Process_RandMessages()
+						values = self.db.profile.randMsgs
 					}
 				}
 			},
@@ -452,17 +471,6 @@ function SmartRes2:OnInitialize()
 						get = function() return self.db.profile.fontType end,
 						set = function(info, value) self.db.profile.fontType = value end					
 					},
-					fontSize = {
-						order = 20,
-						type = "range",
-						name = L["Font Scale"],
-						desc = L["Resize the res bars font"],
-						get = function() return self.db.profile.fontScale end,
-						set = function(info, value) self.db.profile.fontScale = value end,
-						min = 3,
-						max = 20,
-						step = 1
-					},
 					fontFlags = {
 						order = 25,
 						type = "select",
@@ -476,7 +484,18 @@ function SmartRes2:OnInitialize()
 						},
 						get = function() return self.db.profile.fontFlags end,
 						set = function(info, value) self.db.profile.fontFlags = value end
-					}			
+					},					
+					fontSize = {
+						order = 20,
+						type = "range",
+						name = L["Font Scale"],
+						desc = L["Resize the res bars font"],
+						get = function() return self.db.profile.fontScale end,
+						set = function(info, value) self.db.profile.fontScale = value end,
+						min = 3,
+						max = 20,
+						step = 1
+					}
 				}			
 			},
 			keyBindingsTab = {
@@ -763,8 +782,14 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 		self:AddCollisionBars(sender, targetName, oldsender)
 	end
 	local isSame = UnitIsUnit(sender, "player")
+	
+	if self.db.profile.notifySelf then
+		self:Print((L["You are ressing %s"]):format(targetName))
+	end
 
-	if isSame == 1 then -- make sure only the player is sending messages
+	if isSame ~= 1 then -- make sure only the player is sending messages
+		return
+	else
 		local channel = self.db.profile.chatOutput:upper()
 
 		if channel == "GROUP" then
@@ -787,11 +812,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			msg = string.gsub(msg, "%%%%t%%%%", targetName)
 
 			Print(msg, channel, nil, (channel == "WHISPER") and targetName or nil)
-		end
-
-		if self.db.profile.notifySelf then
-			self:Print((L["You are ressing %s"]):format(targetName))
-		end
+		end		
 	end
 end
 
