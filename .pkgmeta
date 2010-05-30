@@ -45,6 +45,9 @@ externals:
         tag: latest
     Libs/LibAboutPanel:
         url: git://git.curseforge.net/wow/libaboutpanel/mainline.git
+	Libs/MultiSelect:
+		url: svn://svn.wowace.com/wow/acegui-3-0-multiselect-widget/mainline/trunk
+		tag: latest
 
 tools-used:
     - libdatabroker-1-1
