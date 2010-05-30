@@ -438,20 +438,32 @@ function SmartRes2:OnInitialize()
 						order = 70,
 						type = "input",
 						name = L["Add to Random Table"],
-						desc = L["Add messages to the random message output table"],
-						usage = L["%%p%% is you, %%t%% is your target. %%p%% is optional, but %%t%% is not"],
-						get = function() return self.db.profile.randMsgs end,
-						set = function(info, value) tinsert(self.db.profile.randMsgs, value) end
+						desc = L["Add messages to the random message output table.\nUsage: %%p%% (optional) for yourself, %%t%% (manatory) for your target.\nThey can be in any order."],
+						get = function() return "" end,
+						set = function(info, value)
+							-- Insert non-empty values into the table
+							if value and value:trim() ~= "" then
+								tinsert(self.db.profile.randMsgs, value) 
+							end
+						end
 					},
 					removeRndMessge = {
 						order = 80,
-						type = "MultiSelect",
+						type = "multiselect",
 						name = L["Remove Random Messages"],
 						desc = L["Remove messages from the table you no longer want"],
-						get = function() return self.db.profile.randMsgs end,
-						set = function(info, value) self.db.profile.randMsgs = value end,
-						func = function() self:Process_RandMessages()
-						values = self.db.profile.randMsgs
+						values = function()
+							-- Return the list of values
+							return self.db.profile.randMsgs
+						end,
+						get = function(info, index)
+							-- All values are always enabled
+							return true
+						end,
+						set = function(info, index, value)
+							-- The only possible value for "value" is false (because get always returns true), so we don't bother checking it and remove the entry from the table
+							tremove(self.db.profile.randMsgs, index)
+						end
 					}
 				}
 			},
