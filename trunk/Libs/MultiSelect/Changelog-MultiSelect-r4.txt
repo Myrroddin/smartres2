@@ -1,0 +1,28 @@
+------------------------------------------------------------------------
+r4 | necramar | 2010-05-21 23:05:44 +0000 (Fri, 21 May 2010) | 1 line
+Changed paths:
+   M /trunk/MultiSelect.lua
+
+-- fixed function SetSelected to work better with multiple selections
+------------------------------------------------------------------------
+r3 | necramar | 2010-05-19 06:02:23 +0000 (Wed, 19 May 2010) | 1 line
+Changed paths:
+   M /trunk/MultiSelect.lua
+
+-- Fixing file name
+------------------------------------------------------------------------
+r2 | necramar | 2010-05-19 05:55:38 +0000 (Wed, 19 May 2010) | 1 line
+Changed paths:
+   A /trunk/MultiSelect.lua
+   A /trunk/MultiSelect.xml
+
+-- Initial Import
+------------------------------------------------------------------------
+r1 | root | 2010-05-18 20:43:12 +0000 (Tue, 18 May 2010) | 1 line
+Changed paths:
+   A /branches
+   A /tags
+   A /trunk
+
+"acegui-3-0-multiselect-widget/mainline: Initial Import"
+------------------------------------------------------------------------
