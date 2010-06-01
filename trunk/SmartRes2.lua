@@ -8,6 +8,7 @@ local _G = getfenv(0)
 local string = _G.string
 local table = _G.table
 local tinsert = table.insert
+local tremove = table.remove
 local tsort = table.sort
 local wipe = table.wipe
 local pairs = _G.pairs
@@ -92,35 +93,7 @@ local defaults = {
 		scale = 1,
 		showBattleRes = false,		
 		visibleResBars = true,
-		waitingBarsColour = { r = 0, g = 0, b = 1, a = 1 },
-		randChatTbl = {
-			[1] = L["%%p%% is bringing %%t%% back to life!"],
-			[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
-			[3] = L["%%p%% has to wake %%t%% from eternal slumber."],
-			[4] = L["%%p%% is ending %%t%%'s dirt nap."],
-			[5] = L["No fallen heroes! %%p%% needs %%t%% to march forward to victory!"],
-			[6] = L["%%p%% doesn't think %%t%% is immortal, but after this res cast, it is close enough."],
-			[7] = L["Sleeping on the job? %%p%% is disappointed in %%t%%."],
-			[8] = L["%%p%% knew %%t%% couldn't stay out of the fire. *Sigh*"],
-			[9] = L["Once again, %%p%% pulls %%t%% and their bacon out of the fire."],
-			[10] = L["%%p%% thinks %%t%% should work on their Dodge skill."],
-			[11] = L["%%p%% refuses to accept blame for %%t%%'s death, but kindly undoes the damage."],
-			[12] = L["%%p%% grabs a stick. A-ha! %%t%% was only temporarily dead."],
-			[13] = L["%%p%% is ressing %%t%%"],
-			[14] = L["%%p%% knows %%t%% is faking. It was only a flesh wound!"],
-			[15] = L["Oh. My. God. %%p%% has to breathe life back into %%t%% AGAIN?!?"],
-			[16] = L["%%p%% knows that %%t%% dying was just an excuse to see another silly random res message."],
-			[17] = L["Think that was bad? %%p%% proudly shows %%t%% the scar tissue caused by Hogger."],
-			[18] = L["Just to be silly, %%p%% tickles %%t%% until they get back up."],
-			[19] = L["FOR THE HORDE! FOR THE ALLIANCE! %%p%% thinks %%t%% should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
-			[20] = L["And you thought the Scourge looked bad. In about 10 seconds, %%p%% knows %%t%% will want a comb, some soap, and a mirror."],
-			[21] = L["Somewhere, the Lich King is laughing at %%p%%, because he knows %%t%% will just die again eventually. More meat for the grinder!!"],
-			[22] = L["%%p%% doesn't want the Lich King to get another soldier, so is bringing %%t%% back to life."],
-			[23] = L["%%p%% wonders about these stupid res messages. %%t%% should just be happy to be alive."],
-			[24] = L["%%p%% prays over the corpse of %%t%%, and a miracle happens!"],
-			[25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %%p%% is making sure %%t%%'s death isn't permanent."],
-			[26] = L["%%p%% performs a series of lewd acts on %%t%%'s still warm corpse. Ew."]
-		}
+		waitingBarsColour = { r = 0, g = 0, b = 1, a = 1 }
 	}
 }
 
@@ -132,6 +105,7 @@ function SmartRes2:OnInitialize()
 	db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
 	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
 	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
+	db.RegisterCallback(self, "OnNewProfile", "OnProfileChanged")
 	defaults = nil -- done with the table, so get rid of it
 	self.db = db
 	local enabled = not self.db.profile.disableAddon
@@ -443,7 +417,7 @@ function SmartRes2:OnInitialize()
 						set = function(info, value)
 							-- Insert non-empty values into the table
 							if value and value:trim() ~= "" then
-								tinsert(self.db.profile.randMsgs, value) 
+								tinsert(self.db.profile.randChatTbl, value) 
 							end
 						end
 					},
@@ -454,7 +428,7 @@ function SmartRes2:OnInitialize()
 						desc = L["Remove messages from the table you no longer want"],
 						values = function()
 							-- Return the list of values
-							return self.db.profile.randMsgs
+							return self.db.profile.randChatTbl
 						end,
 						get = function(info, index)
 							-- All values are always enabled
@@ -462,7 +436,7 @@ function SmartRes2:OnInitialize()
 						end,
 						set = function(info, index, value)
 							-- The only possible value for "value" is false (because get always returns true), so we don't bother checking it and remove the entry from the table
-							tremove(self.db.profile.randMsgs, index)
+							tremove(self.db.profile.randChatTbl, index)
 						end
 					}
 				}
@@ -746,6 +720,40 @@ end
 -- called when user changes profile
 function SmartRes2:OnProfileChanged()
 	db = self.db
+	local randChatTbl = {
+		[1] = L["%%p%% is bringing %%t%% back to life!"],
+		[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
+		[3] = L["%%p%% has to wake %%t%% from eternal slumber."],
+		[4] = L["%%p%% is ending %%t%%'s dirt nap."],
+		[5] = L["No fallen heroes! %%p%% needs %%t%% to march forward to victory!"],
+		[6] = L["%%p%% doesn't think %%t%% is immortal, but after this res cast, it is close enough."],
+		[7] = L["Sleeping on the job? %%p%% is disappointed in %%t%%."],
+		[8] = L["%%p%% knew %%t%% couldn't stay out of the fire. *Sigh*"],
+		[9] = L["Once again, %%p%% pulls %%t%% and their bacon out of the fire."],
+		[10] = L["%%p%% thinks %%t%% should work on their Dodge skill."],
+		[11] = L["%%p%% refuses to accept blame for %%t%%'s death, but kindly undoes the damage."],
+		[12] = L["%%p%% grabs a stick. A-ha! %%t%% was only temporarily dead."],
+		[13] = L["%%p%% is ressing %%t%%"],
+		[14] = L["%%p%% knows %%t%% is faking. It was only a flesh wound!"],
+		[15] = L["Oh. My. God. %%p%% has to breathe life back into %%t%% AGAIN?!?"],
+		[16] = L["%%p%% knows that %%t%% dying was just an excuse to see another silly random res message."],
+		[17] = L["Think that was bad? %%p%% proudly shows %%t%% the scar tissue caused by Hogger."],
+		[18] = L["Just to be silly, %%p%% tickles %%t%% until they get back up."],
+		[19] = L["FOR THE HORDE! FOR THE ALLIANCE! %%p%% thinks %%t%% should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
+		[20] = L["And you thought the Scourge looked bad. In about 10 seconds, %%p%% knows %%t%% will want a comb, some soap, and a mirror."],
+		[21] = L["Somewhere, the Lich King is laughing at %%p%%, because he knows %%t%% will just die again eventually. More meat for the grinder!!"],
+		[22] = L["%%p%% doesn't want the Lich King to get another soldier, so is bringing %%t%% back to life."],
+		[23] = L["%%p%% wonders about these stupid res messages. %%t%% should just be happy to be alive."],
+		[24] = L["%%p%% prays over the corpse of %%t%%, and a miracle happens!"],
+		[25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %%p%% is making sure %%t%%'s death isn't permanent."],
+		[26] = L["%%p%% performs a series of lewd acts on %%t%%'s still warm corpse. Ew."]
+	}
+	
+	if self.db.profile.randChatTbl == nil then
+		self.db.profile.randChatTbl = randChatTbl
+	else
+		self.db.profile.randChatTbl = self.db.profile.randChatTbl
+	end
 end
 
 -- called when user changes the texture of the bars
@@ -793,11 +801,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 	if oldsender then		--target already being ressed
 		self:AddCollisionBars(sender, targetName, oldsender)
 	end
-	local isSame = UnitIsUnit(sender, "player")
-	
-	if self.db.profile.notifySelf then
-		self:Print((L["You are ressing %s"]):format(targetName))
-	end
+	local isSame = UnitIsUnit(sender, "player")	
 
 	if isSame ~= 1 then -- make sure only the player is sending messages
 		return
@@ -824,7 +828,10 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			msg = string.gsub(msg, "%%%%t%%%%", targetName)
 
 			Print(msg, channel, nil, (channel == "WHISPER") and targetName or nil)
-		end		
+		end
+		if self.db.profile.notifySelf then
+			self:Print((L["You are ressing %s"]):format(targetName))
+		end
 	end
 end
 
