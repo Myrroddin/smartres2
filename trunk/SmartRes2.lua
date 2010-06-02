@@ -412,7 +412,7 @@ function SmartRes2:OnInitialize()
 						order = 70,
 						type = "input",
 						name = L["Add to Random Table"],
-						desc = L["Add messages to the random message output table.\nUsage: %%p%% (optional) for yourself, %%t%% (manatory) for your target.\nThey can be in any order."],
+						desc = L["Usage: %%p%% (optional) for yourself, %%t%% (mandatory) for your target.\nThey can be in any order."],
 						get = function() return "" end,
 						set = function(info, value)
 							-- Insert non-empty values into the table
@@ -542,32 +542,7 @@ function SmartRes2:OnInitialize()
 					creditsDesc5 = {
 						order = 5,
 						type = "description",
-						name = "* "..L["German translation by Farook, Black_Mystics, Xevilgrin, and Dessa"]
-					},
-					creditsDesc6 = {
-						order = 6,
-						type = "description",
-						name = "* "..L["French translation by Ckeurk and Xilbar"]
-					},
-					creditsDesc7 = {
-						order = 7,
-						type = "description",
-						name = "* "..L["Latin American Spanish and Spanish translation by Silmano"]
-					},
-					creditsDesc8 = {
-						order = 8,
-						type = "description",
-						name = "* "..L["Russian translation by Xenobios"]
-					},
-					creditsDesc9 = {
-						order = 9,
-						type = "description",
-						name = "* "..L["Traditional Chinese translation by Whocare"]
-					},
-					creditsDesc10 = {
-						order = 10,
-						type = "description",
-						name = "* "..L["Additional translations by Mattbnr"]
+						name = "* "..L["Translators' page: http://www.wowace.com/addons/smartres2/localization/translators/"]
 					}
 				}
 			}
