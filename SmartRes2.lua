@@ -412,7 +412,7 @@ function SmartRes2:OnInitialize()
 						order = 70,
 						type = "input",
 						name = L["Add to Random Table"],
-						desc = L["Usage: %%p%% (optional) for yourself, %%t%% (mandatory) for your target.\nThey can be in any order."],
+						desc = L[ADD_OUTPUT_KEY],
 						get = function() return "" end,
 						set = function(info, value)
 							-- Insert non-empty values into the table
@@ -465,7 +465,7 @@ function SmartRes2:OnInitialize()
 						values = {
 							["0-nothing"] = L["Nothing"],
 							outline = L["Outline"],
-							thickOut = L["ThickOutline"],
+							thickOut = L[THICK_OUTLINE],
 							monoChrome = L["Monochrome"]
 						},
 						get = function() return self.db.profile.fontFlags end,
@@ -542,7 +542,7 @@ function SmartRes2:OnInitialize()
 					creditsDesc5 = {
 						order = 5,
 						type = "description",
-						name = "* "..L["Translators' page: http://www.wowace.com/addons/smartres2/localization/translators/"]
+						name = "* "..L["Thank you translators!"]
 					}
 				}
 			}
@@ -1064,6 +1064,8 @@ function SmartRes2:CreateResBar(sender)
 	local flags = self.db.profile.fontFlags:upper()
 	if flags == "0-NOTHING" then
 		flags = nil
+	elseif flags == thickOut then
+		flags = "THICKOUTLINE"
 	end
 	
 	if self.db.profile.classColours then
