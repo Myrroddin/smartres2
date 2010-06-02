@@ -412,7 +412,7 @@ function SmartRes2:OnInitialize()
 						order = 70,
 						type = "input",
 						name = L["Add to Random Table"],
-						desc = L[ADD_OUTPUT_KEY],
+						desc = L["ADD_OUTPUT_KEY"],
 						get = function() return "" end,
 						set = function(info, value)
 							-- Insert non-empty values into the table
@@ -465,7 +465,7 @@ function SmartRes2:OnInitialize()
 						values = {
 							["0-nothing"] = L["Nothing"],
 							outline = L["Outline"],
-							thickOut = L[THICK_OUTLINE],
+							thickOut = L["THICK_OUTLINE"],
 							monoChrome = L["Monochrome"]
 						},
 						get = function() return self.db.profile.fontFlags end,
