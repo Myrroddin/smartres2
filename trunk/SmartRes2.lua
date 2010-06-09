@@ -1106,8 +1106,9 @@ function SmartRes2:AddCollisionBars(sender, target, collisionsender)
 		resBars[sender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	end
 	local chatType = self:GetChatType()
+
 	if chatType ~= "0-OFF" and sender ~= Player then
-		Print((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
+		self:Print((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
 	end
 end
 
