@@ -807,7 +807,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 			msg = string.gsub(msg, "%%%%p%%%%", sender)
 			msg = string.gsub(msg, "%%%%t%%%%", targetName)
 
-			Print(msg, channel, nil, (channel == "WHISPER") and targetName or nil)
+			SendChatMessage(msg, channel, nil, (channel == "WHISPER") and targetName or nil)
 		end
 		if self.db.profile.notifySelf then
 			self:Print((L["You are ressing %s"]):format(targetName))
