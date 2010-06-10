@@ -25,6 +25,7 @@ local UnitInRange = _G.UnitInRange
 local UnitIsDead = _G.UnitIsDead
 local UnitIsGhost = _G.UnitIsGhost
 local UnitLevel = _G.UnitLevel
+local UnitName = _G.UnitName
 
 -- declare addon ------------------------------------------------------------
 local LibStub = _G.LibStub
@@ -786,6 +787,10 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 	if isSame ~= 1 then -- make sure only the player is sending messages
 		return
 	else
+		local name, realm = UnitName(targetName)
+		if name == "Myrroddin" and realm == "Llane" then
+			self:Print("You are ressing the Creator!!")
+		end
 		local channel = self.db.profile.chatOutput:upper()
 
 		if channel == "GROUP" then
@@ -1106,9 +1111,8 @@ function SmartRes2:AddCollisionBars(sender, target, collisionsender)
 		resBars[sender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	end
 	local chatType = self:GetChatType()
-
 	if chatType ~= "0-OFF" and sender ~= Player then
-		self:Print((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
+		Self:Print((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
 	end
 end
 
