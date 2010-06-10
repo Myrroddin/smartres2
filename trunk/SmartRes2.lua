@@ -105,7 +105,7 @@ function SmartRes2:OnInitialize()
 	db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, "Default")
 	db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
 	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
+	db.RegisterCallback(self, "OnProfileReset", "OnNewProfile")
 	db.RegisterCallback(self, "OnNewProfile", "OnNewProfile")
 	defaults = nil -- done with the table, so get rid of it
 	self.db = db
