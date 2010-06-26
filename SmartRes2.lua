@@ -697,12 +697,9 @@ end
 -- General callback functions -----------------------------------------------
 
 function SmartRes2:FillRandChatDefaults()
-	if not self.db.profile.randChatTbl then
-		self.db.profile.randChatTbl = {}
-	else
-		return
-	end
-
+	if self.db.profile.randChatTbl then return end
+		
+	self.db.profile.randChatTbl = {}
 	local randomMessages = {
 		[1] = L["%%p%% is bringing %%t%% back to life!"],
 		[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
