@@ -109,6 +109,7 @@ function SmartRes2:OnInitialize()
 	db.RegisterCallback(self, "OnNewProfile", "OnNewProfile")
 	defaults = nil -- done with the table, so get rid of it
 	self.db = db
+	self:FillRandChatDefaults()
 	local enabled = not self.db.profile.disableAddon
 	self:SetEnabledState(enabled)
 
@@ -695,8 +696,13 @@ end
 
 -- General callback functions -----------------------------------------------
 
--- called when new profile is created
-function SmartRes2:OnNewProfile()
+function SmartRes2:FileRandChatDefaults()
+	if not self.db.profile.randChatTbl then
+		self.db.profile.randChatTbl = {}
+	else
+		return
+	end
+
 	local randomMessages = {
 		[1] = L["%%p%% is bringing %%t%% back to life!"],
 		[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
@@ -725,18 +731,20 @@ function SmartRes2:OnNewProfile()
 		[25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %%p%% is making sure %%t%%'s death isn't permanent."],
 		[26] = L["%%p%% performs a series of lewd acts on %%t%%'s still warm corpse. Ew."]
 	}
-	if not self.db.profile.randChatTbl then
-		self.db.profile.randChatTbl = {}
-	end
-
 	for idx, message in ipairs(randomMessages) do
 		tinsert(self.db.profile.randChatTbl, message)
 	end
 end
 
+-- called when new profile is created
+function SmartRes2:OnNewProfile()
+	self:FillRandChatDefaults()
+end
+
 -- called when user changes profile
 function SmartRes2:OnProfileChanged()
 	db = self.db
+	self:FillRandChatDefaults()
 end
 
 -- called when user changes the texture of the bars
