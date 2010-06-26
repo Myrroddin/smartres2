@@ -936,7 +936,7 @@ function SmartRes2:RAID_ROSTER_UPDATE()
 	raidUpdated = true
 end
 
-local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost
+local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, UnitAFK
 local SortedResList = {}
 local CLASS_PRIORITIES = {
 	-- There might be 10 classes, but SHAMANs and DRUIDs res at equal efficiency, so no preference
@@ -964,6 +964,7 @@ end
 
 local function verifyUnit(unit)
 	-- unit is the next candidate. there is NO way to check LoS, so don't ask!
+	if UnitIsAFK(unit) then unitAFK = true return nil end
 	if UnitIsGhost(unit) then
 		unitGhost = true
 		unitDead = true
@@ -989,7 +990,7 @@ local function SortCurrentRaiders()
 	wipe(SortedResList)
 	for i = 1, num do
 		local id = member .. i
-		local name = UnitName(id)
+		local name = self:GetTrueTargetName(id)
 		local resprio, lvl = getClassOrder(name)
 		tinsert(SortedResList, {name = name, resprio = resprio, level = lvl})
 	end
@@ -1003,9 +1004,21 @@ local function SortCurrentRaiders()
 	raidUpdated = nil
 end
 
+function SmarRes2:GetTrueTargetName()
+	local tName, tRealm = UnitName(id)
+	local _, pRealm = UnitName("player")
+	if tRealm == pRealm then
+		id = tName
+		return id
+	else
+		id = tName.." - "..tRealm
+		return id
+	end
+end
+
 
 local function getBestCandidate()
-	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost = nil, nil, nil, nil, nil
+	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, UnitAFK = nil, nil, nil, nil, nil, nil
 	if raidUpdated then SortCurrentRaiders() end	--only resort if raid changed	
 	for _, data in ipairs(SortedResList) do
 		local unit = data.name
@@ -1052,6 +1065,8 @@ function SmartRes2:Resurrection()
 			wipe(waitingForAccept)
 		elseif unitGhost then
 			self:Print(L["All dead units have released."])
+		elseif UnitAFK then
+			self:Print(L["Remaining units are away from keyboard."])
 		end
 	end
 end
