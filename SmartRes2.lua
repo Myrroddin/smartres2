@@ -638,7 +638,8 @@ function SmartRes2:OnEnable()
 	-- called when SmartRes2 is enabled
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
-	self:RegisterEvent("RAID_ROSTER_UPDATE")	
+	self:RegisterEvent("RAID_ROSTER_UPDATE")
+	self:RegisterEvent("PARTY_MEMBERS_CHANGED")
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	ResComm.RegisterCallback(self, "ResComm_ResStart")
 	ResComm.RegisterCallback(self, "ResComm_ResEnd")
@@ -667,7 +668,8 @@ end
 function SmartRes2:Enable()
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
-	self:RegisterEvent("RAID_ROSTER_UPDATE")	
+	self:RegisterEvent("RAID_ROSTER_UPDATE")
+	self:RegisterEvent("PARTY_MEMBERS_CHANGED")
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	ResComm.RegisterCallback(self, "ResComm_ResStart")
 	ResComm.RegisterCallback(self, "ResComm_ResEnd")
@@ -920,6 +922,10 @@ end
 
 -- smart ressurection determination functions -------------------------------
 local raidUpdated
+
+function SmartRes2:PARTY_MEMBERS_CHANGED()
+	raidUpdated = true
+end
 
 function SmartRes2:RAID_ROSTER_UPDATE()
 	raidUpdated = true
