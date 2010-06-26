@@ -696,7 +696,7 @@ end
 
 -- General callback functions -----------------------------------------------
 
-function SmartRes2:FileRandChatDefaults()
+function SmartRes2:FillRandChatDefaults()
 	if not self.db.profile.randChatTbl then
 		self.db.profile.randChatTbl = {}
 	else
