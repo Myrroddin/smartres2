@@ -1004,7 +1004,7 @@ local function SortCurrentRaiders()
 	raidUpdated = nil
 end
 
-function SmarRes2:GetTrueTargetName()
+function SmartRes2:GetTrueTargetName()
 	local tName, tRealm = UnitName(id)
 	local _, pRealm = UnitName("player")
 	if tRealm == pRealm then
