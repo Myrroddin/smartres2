@@ -24,6 +24,7 @@ local UnitInRaid = _G.UnitInRaid
 local UnitInRange = _G.UnitInRange
 local UnitIsDead = _G.UnitIsDead
 local UnitIsGhost = _G.UnitIsGhost
+local UnitIsUnit = _G.UnitIsUnit
 local UnitLevel = _G.UnitLevel
 local UnitName = _G.UnitName
 
@@ -746,6 +747,12 @@ end
 
 -- called when user changes the texture of the bars
 function SmartRes2:UpdateMedia(callback, type, handle)
+	local flags = self.db.profile.fontFlags:upper()
+	if flags == "0-NOTHING" then
+		flags = nil
+	elseif flags == thickOut then
+		flags = "THICKOUTLINE"
+	end
 	if type == "statusbar" then
 		self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	elseif type == "border" then
@@ -757,7 +764,7 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
 	elseif type == "font" then
-		self.res_bars:SetFont(Media:Fetch("font", self.db.profile.fontType))
+		self.res_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, flags)
 	end
 end
 
@@ -789,7 +796,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 	if oldsender then		--target already being ressed
 		self:AddCollisionBars(sender, targetName, oldsender)
 	end
-	local isSame = UnitIsUnit(sender, "player")	
+	local isSame = UnitIsUnit(sender, Player)	
 
 	if isSame ~= 1 then -- make sure only the player is sending messages
 		return
@@ -801,7 +808,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 		local channel = self.db.profile.chatOutput:upper()
 
 		if channel == "GROUP" then
-			if UnitInRaid("player") then
+			if UnitInRaid(Player) then
 				channel = "RAID"
 			elseif GetNumPartyMembers() > 0 then
 				channel = "PARTY"
@@ -1006,16 +1013,14 @@ end
 
 function SmartRes2:GetTrueTargetName()
 	local tName, tRealm = UnitName(id)
-	local _, pRealm = UnitName("player")
+	local _, pRealm = UnitName(Player)
 	if tRealm == pRealm then
 		id = tName
-		return id
 	else
 		id = tName.." - "..tRealm
-		return id
 	end
+	return id
 end
-
 
 local function getBestCandidate()
 	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, UnitAFK = nil, nil, nil, nil, nil, nil
@@ -1042,13 +1047,15 @@ function SmartRes2:Resurrection()
 	end
 
 	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a sender 
-	local isUsable, outOfMana = IsUsableSpell(self.playerSpell) 
+	local _, outOfMana = IsUsableSpell(self.playerSpell) 
 	if outOfMana == 1 then 
 	   self:Print(L["You don't have enough Mana to cast a res spell."]) 
-	   return 
+	   return
+	  --[[
 	elseif isUsable ~= 1 then 
 		self:Print(L["You cannot cast res spells."]) -- in the final code, you should never see this message
-		return 
+		return
+	]]--
 	end
 
 	local unit = getBestCandidate()
