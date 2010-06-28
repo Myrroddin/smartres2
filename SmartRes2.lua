@@ -997,7 +997,7 @@ local function SortCurrentRaiders()
 	wipe(SortedResList)
 	for i = 1, num do
 		local id = member .. i
-		local name = self:GetTrueTargetName(id)
+		local name = SmartRes2:GetTrueTargetName(id)
 		local resprio, lvl = getClassOrder(name)
 		tinsert(SortedResList, {name = name, resprio = resprio, level = lvl})
 	end
