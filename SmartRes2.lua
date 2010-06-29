@@ -652,10 +652,6 @@ function SmartRes2:OnEnable()
 	self:BindKeys()
 end
 
-function SmartRes2:OnDisable()
-	-- called when SmartRes2 is disabled	
-end
-
 -- process slash commands ---------------------------------------------------
 function SmartRes2:SlashHandler(input)
 	input = input:lower()
@@ -666,24 +662,8 @@ function SmartRes2:SlashHandler(input)
 	end
 end
 
--- enable SmartRes2 ----------------------------------------------------------
-function SmartRes2:Enable()
-	self:RegisterEvent("PLAYER_REGEN_DISABLED")
-	self:RegisterEvent("PLAYER_REGEN_ENABLED")
-	self:RegisterEvent("RAID_ROSTER_UPDATE")
-	self:RegisterEvent("PARTY_MEMBERS_CHANGED")
-	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
-	ResComm.RegisterCallback(self, "ResComm_ResStart")
-	ResComm.RegisterCallback(self, "ResComm_ResEnd")
-	ResComm.RegisterCallback(self, "ResComm_Ressed")
-	ResComm.RegisterCallback(self, "ResComm_ResExpired")
-	self.res_bars.RegisterCallback(self, "FadeFinished")
-	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
-	self:BindKeys()
-end
-
 -- disable SmartRes2 completely ----------------------------------------------
-function SmartRes2:Disable()
+function SmartRes2:OnDisable()
 	self:UnBindKeys()
 	self:UnregisterAllEvents()
 	Media.UnregisterAllCallbacks(self)
@@ -966,7 +946,7 @@ local CLASS_PRIORITIES = {
 local function getClassOrder(unit)
 	local _, c = UnitClass(unit)
 	local lvl = UnitLevel(unit)
-	return CLASS_PRIORITIES[c], lvl
+	return CLASS_PRIORITIES[c] or 9, lvl
 end
 
 local function verifyUnit(unit)
@@ -1011,7 +991,7 @@ local function SortCurrentRaiders()
 	raidUpdated = nil
 end
 
-function SmartRes2:GetTrueTargetName()
+function SmartRes2:GetTrueTargetName(id)
 	local tName, tRealm = UnitName(id)
 	local _, pRealm = UnitName(Player)
 	if tRealm == pRealm then
