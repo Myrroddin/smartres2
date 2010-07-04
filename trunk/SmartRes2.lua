@@ -977,7 +977,7 @@ local function SortCurrentRaiders()
 	wipe(SortedResList)
 	for i = 1, num do
 		local id = member .. i
-		local name = SmartRes2:GetTrueTargetName(id)
+		local unit = data.name
 		local resprio, lvl = getClassOrder(name)
 		tinsert(SortedResList, {name = name, resprio = resprio, level = lvl})
 	end
@@ -989,17 +989,6 @@ local function SortCurrentRaiders()
 		end
 	end)
 	raidUpdated = nil
-end
-
-function SmartRes2:GetTrueTargetName(id)
-	local tName, tRealm = UnitName(id)
-	local _, pRealm = UnitName(Player)
-	if tRealm == pRealm then
-		id = tName
-	else
-		id = tName.." - "..tRealm
-	end
-	return id
 end
 
 local function getBestCandidate()
