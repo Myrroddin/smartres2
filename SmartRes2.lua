@@ -430,6 +430,7 @@ function SmartRes2:OnInitialize()
 						dialogControl = "Dropdown",
 						name = L["Remove Random Messages"],
 						desc = L["Remove messages from the table you no longer want"],
+						width = "double",
 						values = function()
 							-- Return the list of values
 							return self.db.profile.randChatTbl

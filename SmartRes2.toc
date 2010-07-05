@@ -40,7 +40,6 @@ Libs\LibResComm-1.0\lib.xml
 Libs\LibAboutPanel\lib.xml
 #@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
-Libs\MultiSelect\MultiSelect.xml
 
 Locales\Localization.frFR.lua
 Locales\Localization.ruRU.lua
