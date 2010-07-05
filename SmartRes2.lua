@@ -427,6 +427,7 @@ function SmartRes2:OnInitialize()
 					removeRndMessge = {
 						order = 80,
 						type = "multiselect",
+						dialogControl = "Dropdown",
 						name = L["Remove Random Messages"],
 						desc = L["Remove messages from the table you no longer want"],
 						values = function()
@@ -977,7 +978,7 @@ local function SortCurrentRaiders()
 	wipe(SortedResList)
 	for i = 1, num do
 		local id = member .. i
-		local unit = data.name
+		local name = UnitName(id)
 		local resprio, lvl = getClassOrder(name)
 		tinsert(SortedResList, {name = name, resprio = resprio, level = lvl})
 	end
