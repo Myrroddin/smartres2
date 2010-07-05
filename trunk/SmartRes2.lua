@@ -607,11 +607,13 @@ function SmartRes2:OnInitialize()
 					LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
 				elseif button == "RightButton" then
 					_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+				elseif button == "MiddleButton" then
+					self:StartTestBars()
 				end
 			end,
 			OnTooltipShow = function(self)
 			GameTooltip:AddLine("SmartRes2".." "..version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
-			GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+			GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."].." "..L["Middle click for Test Bars."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 			GameTooltip:Show()
 		end})
 		self.launcher = launcher
