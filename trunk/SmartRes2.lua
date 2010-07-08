@@ -2,6 +2,7 @@
 -- @class file
 -- @name SmartRes2.lua
 -- @author Myrroddin of Llane
+-- re-package to get latest alpha of LibResComm-1.0
 
 -- localise global variables for faster access ------------------------------
 local _G = getfenv(0)
