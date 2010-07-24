@@ -2,7 +2,6 @@
 -- @class file
 -- @name SmartRes2.lua
 -- @author Myrroddin of Llane
--- re-package to get latest alpha of LibResComm-1.0
 
 -- localise global variables for faster access ------------------------------
 local _G = getfenv(0)
@@ -24,6 +23,7 @@ local UnitClass = _G.UnitClass
 local UnitInRaid = _G.UnitInRaid
 local UnitInRange = _G.UnitInRange
 local UnitIsDead = _G.UnitIsDead
+local UnitIsDeadOrGhost = _G.UnitIsDeadOrGhost
 local UnitIsGhost = _G.UnitIsGhost
 local UnitIsUnit = _G.UnitIsUnit
 local UnitLevel = _G.UnitLevel
@@ -74,7 +74,8 @@ local defaults = {
 		chatOutput = "0-none",
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
-		disableAddon = false,
+		-- disableAddon = false,
+		enableAddon = true,
 		fontFlags = "0-nothing",
 		fontScale = 12,
 		fontType = "Friz Quadrata TT",
@@ -112,8 +113,23 @@ function SmartRes2:OnInitialize()
 	defaults = nil -- done with the table, so get rid of it
 	self.db = db
 	self:FillRandChatDefaults()
-	local enabled = not self.db.profile.disableAddon
-	self:SetEnabledState(enabled)
+	self:SetEnabledState(self.db.profile.enableAddon)
+	
+	-- prepare spells
+	local resSpells = { -- getting the spell names
+		PRIEST = GetSpellInfo(2006), -- Resurrection
+		SHAMAN = GetSpellInfo(2008), -- Ancestral Spirit
+		DRUID = GetSpellInfo(50769), -- Revive
+		PALADIN = GetSpellInfo(7328) -- Redemption
+	}
+	self.resSpellIcons = { -- need the icons too, for the res bars
+		PRIEST = select(3, GetSpellInfo(2006)), 	-- Resurrection
+		SHAMAN = select(3, GetSpellInfo(2008)), 	-- Ancestral Spirit
+		DRUID = select(3, GetSpellInfo(50769)), 	-- Revive
+		PALADIN = select(3, GetSpellInfo(7328)) 	-- Redemption
+	}  
+	self.playerClass = select(2, UnitClass("player"))
+	self.playerSpell = resSpells[self.playerClass]
 
 	-- addon options table
 	local options = {
@@ -151,18 +167,18 @@ function SmartRes2:OnInitialize()
 							end
 						end
 					},
-					disableAddon = {
+					enableAddon = {
 						order = 30,
 						type = "toggle",
-						name = L["Disable SmartRes2"],
-						desc = L["Completely disable Smartres2"],
-						get = function() return self.db.profile.disableAddon end,
+						name = L["Enable SmartRes2"],
+						desc = L["Uncheck to disable Smartres2"],
+						get = function() return self.db.profile.enableAddon end,
 						set = function(info, value)
-							self.db.profile.disableAddon = value
+							self.db.profile.enableAddon = value
 							if value then
-								self:Disable()
-							else
 								self:Enable()
+							else
+								self:Disable()
 							end
 						end
 					},					
@@ -503,6 +519,9 @@ function SmartRes2:OnInitialize()
 						desc = L["For ressing targets who have not released their ghosts"],
 						get = function() return self.db.profile.autoResKey end,
 						set = function(info, value)	self.db.profile.autoResKey = value end
+						if not self.playerSpell then
+							disabled = true
+						end
 					},
 					manualResKey = {
 						order = 2,
@@ -511,6 +530,9 @@ function SmartRes2:OnInitialize()
 						desc = L["Gives you the pointer to click on corpses"],
 						get = function() return self.db.profile.manualResKey end,
 						set  = function(info, value) self.db.profile.manualResKey = value end
+						if not self.playerSpell then
+							disabled = true
+						end
 					},
 					castCommand = {
 						order = 3,
@@ -572,22 +594,6 @@ function SmartRes2:OnInitialize()
 	-- add console commands
 	self:RegisterChatCommand("sr", "SlashHandler")
 	self:RegisterChatCommand("smartres", "SlashHandler")	
-
-	-- prepare spells
-	local resSpells = { -- getting the spell names
-		PRIEST = GetSpellInfo(2006), -- Resurrection
-		SHAMAN = GetSpellInfo(2008), -- Ancestral Spirit
-		DRUID = GetSpellInfo(50769), -- Revive
-		PALADIN = GetSpellInfo(7328) -- Redemption
-	}
-	self.resSpellIcons = { -- need the icons too, for the res bars
-		PRIEST = select(3, GetSpellInfo(2006)), 	-- Resurrection
-		SHAMAN = select(3, GetSpellInfo(2008)), 	-- Ancestral Spirit
-		DRUID = select(3, GetSpellInfo(50769)), 	-- Revive
-		PALADIN = select(3, GetSpellInfo(7328)) 	-- Redemption
-	}  
-	self.playerClass = select(2, UnitClass("player"))
-	self.playerSpell = resSpells[self.playerClass]
 	
 	-- create DataBroker Launcher
 	if DataBroker then
@@ -639,6 +645,8 @@ function SmartRes2:OnInitialize()
 		self.res_bars:Unlock()
 		self.res_bars:SetClampedToScreen(true)
 	end
+	
+	self.db.profile.disableAddon = nil -- do not need this as of 2.1.1 or higher
 end
 
 function SmartRes2:OnEnable()
@@ -655,6 +663,7 @@ function SmartRes2:OnEnable()
 	self.res_bars.RegisterCallback(self, "FadeFinished")
 	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
 	self:BindKeys()
+	self.db.profile.enableAddon = true
 end
 
 -- process slash commands ---------------------------------------------------
@@ -678,6 +687,7 @@ function SmartRes2:OnDisable()
 	wipe(waitingForAccept)
 	wipe(resBars)
 	LastRes = nil
+	self.db.profile.enableAddon = false
 end
 
 -- General callback functions -----------------------------------------------
@@ -826,13 +836,14 @@ function SmartRes2:CheckResTarget(target, newsender)
 	return nil
 end
 
--- ResComm events - called when res ends
+-- ResComm events - called when res ends or is cancelled
 function SmartRes2:ResComm_ResEnd(event, sender, target)
 	-- did the cast fail or complete?
 	if not doingRessing[sender] then return end
 	self:DeleteResBar(sender)
+	--[[ following bit probably in wrong place
 	-- add the target to our waiting list, and save who the last person to res him was
-	waitingForAccept[target] = { target = target, sender = sender, endTime = doingRessing[sender].endTime }
+	-- waitingForAccept[target] = { target = target, sender = sender, endTime = doingRessing[sender].endTime }	]]--
 	doingRessing[sender] = nil
 	if self.db.profile.visibleResBars then 
 		local oldsender = self:CheckResTarget(target, sender) 
@@ -842,10 +853,14 @@ function SmartRes2:ResComm_ResEnd(event, sender, target)
 	end
 end
 
--- ResComm events - called when player accepts res
-function SmartRes2:ResComm_Ressed(event, target)
+-- ResComm events - called when cast is complete
+function SmartRes2:ResComm_Ressed(event, target)	
+	-- add the target to our waiting list, and save who the last person to res him was
+	waitingForAccept[target] = { target = target, sender = sender, endTime = doingRessing[sender].endTime }
 	-- target accepted, remove from list
-	waitingForAccept[target] = nil
+	if UnitIsDeadOrGhost(waitingForAccept[target]) ~= 1 then
+		waitingForAccept[target] = nil
+	end
 end
 
 -- ResComm events - called when res box disappears or player declines res
@@ -1025,11 +1040,6 @@ function SmartRes2:Resurrection()
 	if outOfMana == 1 then 
 	   self:Print(L["You don't have enough Mana to cast a res spell."]) 
 	   return
-	  --[[
-	elseif isUsable ~= 1 then 
-		self:Print(L["You cannot cast res spells."]) -- in the final code, you should never see this message
-		return
-	]]--
 	end
 
 	local unit = getBestCandidate()
@@ -1087,12 +1097,18 @@ function SmartRes2:CreateResBar(sender)
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
-	local bar = self.res_bars:NewTimerBar(sender, text, time, nil, icon, 0)
+	local bar = self.res_bars:NewTimerBar(sender, text, time, nil, icon, 0)	
 	local t = self.db.profile.resBarsColour
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
+	bar:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY) -- redundancy check #1
+	if self.db.profile.resBarsIcon then -- redundancy check #2
+		bar:ShowIcon()
+	else
+		bar:HideIcon()
+	end
 	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, flags)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
@@ -1119,7 +1135,7 @@ function SmartRes2:AddCollisionBars(sender, target, collisionsender)
 	end
 	local chatType = self:GetChatType()
 	if chatType ~= "0-OFF" and sender ~= Player then
-		Self:Print((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
+		self:Print((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
 	end
 end
 
