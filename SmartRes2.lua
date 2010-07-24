@@ -519,9 +519,6 @@ function SmartRes2:OnInitialize()
 						desc = L["For ressing targets who have not released their ghosts"],
 						get = function() return self.db.profile.autoResKey end,
 						set = function(info, value)	self.db.profile.autoResKey = value end
-						if not self.playerSpell then
-							disabled = true
-						end
 					},
 					manualResKey = {
 						order = 2,
@@ -530,9 +527,6 @@ function SmartRes2:OnInitialize()
 						desc = L["Gives you the pointer to click on corpses"],
 						get = function() return self.db.profile.manualResKey end,
 						set  = function(info, value) self.db.profile.manualResKey = value end
-						if not self.playerSpell then
-							disabled = true
-						end
 					},
 					castCommand = {
 						order = 3,
@@ -856,7 +850,7 @@ end
 -- ResComm events - called when cast is complete
 function SmartRes2:ResComm_Ressed(event, target)	
 	-- add the target to our waiting list, and save who the last person to res him was
-	waitingForAccept[target] = { target = target, sender = sender, endTime = doingRessing[sender].endTime }
+	waitingForAccept[target] = { target = target, endTime = doingRessing[sender].endTime }
 	-- target accepted, remove from list
 	if UnitIsDeadOrGhost(waitingForAccept[target]) ~= 1 then
 		waitingForAccept[target] = nil
