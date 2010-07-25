@@ -113,7 +113,7 @@ function SmartRes2:OnInitialize()
 	defaults = nil -- done with the table, so get rid of it
 	self.db = db
 	self:FillRandChatDefaults()
-	self:SetEnabledState(self.db.profile.enableAddon)
+	-- self:SetEnabledState(self.db.profile.enableAddon)
 	
 	-- prepare spells
 	local resSpells = { -- getting the spell names
@@ -615,7 +615,7 @@ function SmartRes2:OnInitialize()
 			end,
 			OnTooltipShow = function(self)
 			GameTooltip:AddLine("SmartRes2".." "..version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
-			GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."].." "..L["Middle click for Test Bars."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+			GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."].."\n"..L["Middle click for Test Bars."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 			GameTooltip:Show()
 		end})
 		self.launcher = launcher
@@ -657,7 +657,7 @@ function SmartRes2:OnEnable()
 	self.res_bars.RegisterCallback(self, "FadeFinished")
 	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
 	self:BindKeys()
-	self.db.profile.enableAddon = true
+	-- self.db.profile.enableAddon = true
 end
 
 -- process slash commands ---------------------------------------------------
@@ -681,7 +681,7 @@ function SmartRes2:OnDisable()
 	wipe(waitingForAccept)
 	wipe(resBars)
 	LastRes = nil
-	self.db.profile.enableAddon = false
+	-- self.db.profile.enableAddon = false
 end
 
 -- General callback functions -----------------------------------------------
@@ -768,7 +768,6 @@ end
 -- ResComm events - called when res is started
 function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 	-- check if we have the person in our table yet, and if not, add them
-	--self:Print("ResStart - "..sender.." ressing "..targetName)
 	if doingRessing[sender] then
 		return
 	end
@@ -791,7 +790,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
 		return
 	else
 		local name, realm = UnitName(targetName)
-		if name == "Myrroddin" and realm == "Llane" then
+		if name == "Myrroddin" or name == "Jelia" or name == "Badash" or name == "Vanhoeffen" and realm == "Llane" then
 			self:Print("You are ressing the Creator!!")
 		end
 		local channel = self.db.profile.chatOutput:upper()
@@ -838,7 +837,7 @@ function SmartRes2:ResComm_ResEnd(event, sender, target)
 	--[[ following bit probably in wrong place
 	-- add the target to our waiting list, and save who the last person to res him was
 	-- waitingForAccept[target] = { target = target, sender = sender, endTime = doingRessing[sender].endTime }	]]--
-	doingRessing[sender] = nil
+	-- doingRessing[sender] = nil
 	if self.db.profile.visibleResBars then 
 		local oldsender = self:CheckResTarget(target, sender) 
 		if oldsender and not self:CheckResTarget(target, oldsender) then	--collision bar existed and only 1 exists
@@ -850,7 +849,8 @@ end
 -- ResComm events - called when cast is complete
 function SmartRes2:ResComm_Ressed(event, target)	
 	-- add the target to our waiting list, and save who the last person to res him was
-	waitingForAccept[target] = { target = target, endTime = doingRessing[sender].endTime }
+	waitingForAccept[target] = { target = target, sender = doingRessing[sender], endTime = doingRessing[sender].endTime }
+	doingRessing[sender] = nil
 	-- target accepted, remove from list
 	if UnitIsDeadOrGhost(waitingForAccept[target]) ~= 1 then
 		waitingForAccept[target] = nil
