@@ -33,7 +33,7 @@ local UnitName = _G.UnitName
 -- declare addon ------------------------------------------------------------
 local LibStub = _G.LibStub
 
-local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "AceHook-3.0", "LibBars-1.0")
+local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 
 -- get version from .toc - set to Development if no version
@@ -65,7 +65,6 @@ local LastRes
 
 -- variable to use for multiple PLAYER_REGEN_DISABLED calls (see SmartRes2:PLAYER_REGEN_DISABLED below)
 local in_combat = false
-local Player = UnitName("player")
 
 -- addon defaults -----------------------------------------------------------
 local defaults = {
@@ -672,13 +671,7 @@ function SmartRes2:OnEnable()
 	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
 	self:BindKeys()
 	if self.db.profile.guessResses then
-		self:RegisterEvent("UNIT_SPELLCAST_START")
-		self:RegisterEvent("UNIT_SPELLCAST_SENT")
-		self:RegisterEvent("UNIT_SPELLCAST_STOP")
-		self:RegisterEvent("UNIT_SPELLCAST_FAILED")
-		self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
-		self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
-		self:HookScript(WorldFrame, "OnMouseDown", "WorldFrameOnMouseDown")
+		self:StartGuessing()
 	end
 end
 
@@ -699,7 +692,6 @@ function SmartRes2:OnDisable()
 	Media.UnregisterAllCallbacks(self)
 	ResComm.UnregisterAllCallbacks(self)
 	self.res_bars.UnregisterAllCallbacks(self)
-	self:UnhookAll()
 	wipe(doingRessing)
 	wipe(waitingForAccept)
 	wipe(resBars)
@@ -787,92 +779,21 @@ end
 
 function SmartRes2:StartGuessing()
 	self:RegisterEvent("UNIT_SPELLCAST_START")
-	self:RegisterEvent("UNIT_SPELLCAST_SENT")
 	self:RegisterEvent("UNIT_SPELLCAST_STOP")
 	self:RegisterEvent("UNIT_SPELLCAST_FAILED")
 	self:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 	self:RegisterEvent("UNIT_SPELLCAST_INTERRUPTED")
-	self:HookScript(WorldFrame, "OnMouseDown", "WorldFrameOnMouseDown")
 end
 
 function SmartRes2:StopGuessing()
 	self:UnregisterEvent("UNIT_SPELLCAST_START")
-	self:UnregisterEvent("UNIT_SPELLCAST_SENT")
 	self:UnregisterEvent("UNIT_SPELLCAST_STOP")
 	self:UnregisterEvent("UNIT_SPELLCAST_FAILED")
 	self:UnregisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 	self:UnregisterEvent("UNIT_SPELLCAST_INTERRUPTED")
-	self:UnHookAll()
-end
-
-function SmartRes2:WorldFrameOnMouseDown(...)
-	if GameTooltipTextLeft1:IsVisible() then
-		local target = select(3, GameTooltipTextLeft1:GetText():find(L["corpseOf"]))
-		if target then
-			self.MouseDownTarget = target
-		end
-	end
-	self.hooks[WorldFrame]["OnMouseDown"](...)
 end
 
 -- ResComm library callback functions ---------------------------------------
-
--- ResComm events - called when res is started
-function SmartRes2:ResComm_ResStart(event, sender, endTime, targetName)
-	-- check if we have the person in our table yet, and if not, add them
-	if doingRessing[sender] then
-		return
-	end
-	doingRessing[sender] = {
-		endTime = endTime,
-		target = targetName
-	}
-	self:CreateResBar(sender)
-
-	if waitingForAccept[targetName] then self:AddWaitingBars(sender, targetName) end
-
-	local oldsender = self:CheckResTarget(targetName, sender) 
-
-	if oldsender then		--target already being ressed
-		self:AddCollisionBars(sender, targetName, oldsender)
-	end
-	local isSame = UnitIsUnit(sender, Player)	
-
-	if isSame ~= 1 then -- make sure only the player is sending messages
-		return
-	else
-		local name, realm = UnitName(targetName)
-		if name == "Myrroddin" or name == "Jelia" or name == "Badash" or name == "Vanhoeffen" and realm == "Llane" then
-			self:Print("You are ressing the Creator!!")
-		end
-		local channel = self.db.profile.chatOutput:upper()
-
-		if channel == "GROUP" then
-			if UnitInRaid(Player) then
-				channel = "RAID"
-			elseif GetNumPartyMembers() > 0 then
-				channel = "PARTY"
-			end
-		end
-
-		if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
-			local msg = L["%%p%% is ressing %%t%%"]
-
-			if self.db.profile.randMsgs then
-				msg = self.db.profile.randChatTbl[math.random(#self.db.profile.randChatTbl)]
-			elseif self.db.profile.customchatmsg ~= "" then
-				msg = self.db.profile.customchatmsg
-			end
-			msg = string.gsub(msg, "%%%%p%%%%", sender)
-			msg = string.gsub(msg, "%%%%t%%%%", targetName)
-
-			SendChatMessage(msg, channel, nil, (channel == "WHISPER") and targetName or nil)
-		end
-		if self.db.profile.notifySelf then
-			self:Print((L["You are ressing %s"]):format(targetName))
-		end
-	end
-end
 
 function SmartRes2:CheckResTarget(target, newsender)
 	for sender, info in pairs(doingRessing) do
@@ -881,30 +802,85 @@ function SmartRes2:CheckResTarget(target, newsender)
 	return nil
 end
 
+-- ResComm events - called when res is started
+function SmartRes2:ResComm_ResStart(event, sender, endTime, target)
+	-- check if we have the person in our table yet, and if not, add them
+	if doingRessing[sender] then return end
+	
+	doingRessing[sender] = {
+		endTime = endTime,
+		target = target
+	}
+	self:CreateResBar(sender)
+
+	if waitingForAccept[target] then
+		self:AddWaitingBars(sender, target)
+	end
+
+	local oldsender = self:CheckResTarget(target, sender) 
+	if oldsender then	--target already being ressed
+		self:AddCollisionBars(sender, target, oldsender)
+	end
+	
+	-- make sure only the player is sending messages
+	if not UnitIsUnit(sender, "player")	then return end
+
+	local name, realm = UnitName(target)
+	if name == "Myrroddin" or name == "Jelia" or name == "Badash" or name == "Vanhoeffen" and realm == "Llane" then
+		self:Print("You are ressing the Creator!!")
+	end
+	local channel = self.db.profile.chatOutput:upper()
+
+	if channel == "GROUP" then
+		if UnitInRaid("player") then
+			channel = "RAID"
+		elseif GetNumPartyMembers() > 0 then
+			channel = "PARTY"
+		end
+	end
+
+	if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
+		local msg = L["%%p%% is ressing %%t%%"]
+
+		if self.db.profile.randMsgs then
+			msg = self.db.profile.randChatTbl[math.random(#self.db.profile.randChatTbl)]
+		elseif self.db.profile.customchatmsg ~= "" then
+			msg = self.db.profile.customchatmsg
+		end
+		msg = string.gsub(msg, "%%%%p%%%%", sender)
+		msg = string.gsub(msg, "%%%%t%%%%", target)
+
+		SendChatMessage(msg, channel, nil, (channel == "WHISPER") and target or nil)
+	end
+	if self.db.profile.notifySelf then
+		self:Print((L["You are ressing %s"]):format(target))
+	end
+end
+
 -- ResComm events - called when res ends or is cancelled
-function SmartRes2:ResComm_ResEnd(event, sender, target)
-	-- did the cast fail or complete?
+function SmartRes2:ResComm_ResEnd(event, sender, target, complete)
+	-- did the cast fail or complete? mystery.
 	if not doingRessing[sender] then return end
+	
 	self:DeleteResBar(sender)
 	-- add the target to our waiting list, and save who the last person to res him was
-	waitingForAccept[target] = { target = target, sender = sender, endTime = doingRessing[sender].endTime }
+	if complete then
+		waitingForAccept[target] = doingRessing[sender].endTime
+	end
 	doingRessing[sender] = nil
-	if event == "UNIT_SPELLCAST_STOP" or "UNIT_SPELLCAST_FAILED" or "UNIT_SPELLCAST_INTERRUPTED" then
-		waitingForAccept[target] = nil
-	else
-		if self.db.profile.visibleResBars then 
-			local oldsender = self:CheckResTarget(target, sender) 
-			if oldsender and not self:CheckResTarget(target, oldsender) then	--collision bar existed and only 1 exists
-				self:DeleteCollisionBars(sender, target, oldsender)
-			end
+		
+	if self.db.profile.visibleResBars then 
+		local oldsender = self:CheckResTarget(target, sender) 
+		if oldsender and not self:CheckResTarget(target, oldsender) then	--collision bar existed and only 1 exists
+			self:DeleteCollisionBars(sender, target, oldsender)
 		end
 	end
 end
 
--- ResComm events - called when cast is complete
+-- ResComm events - called when cast is complete (res dialog shown)
 function SmartRes2:ResComm_Ressed(event, target)
-	-- target accepted, remove from list
-	waitingForAccept[target] = nil
+	-- target ressed, add to list
+	waitingForAccept[target] = GetTime()
 end
 
 -- ResComm events - called when res box disappears or player declines res
@@ -913,64 +889,42 @@ function SmartRes2:ResComm_ResExpired(event, target)
 	waitingForAccept[target] = nil
 end
 
-function SmartRes2:UNIT_SPELLCAST_SENT(unit, spell, rank, target)
-	if unit == pName then return end
-	if spell == self.resSpells then
-		if not target or target == "" or target == "Unknown" then
-			target = self.MouseDownTarget
+do
+	local otherResSpells = {
+		[(GetSpellInfo(2006))] = true, --Resurrection
+		[(GetSpellInfo(2008))] = true, --Ancestral Spirit
+		[(GetSpellInfo(7328))] = true, --Redemption
+		[(GetSpellInfo(50769))] = true, --Revive
+		[(GetSpellInfo(20484))] = true, --Rebirth
+		[(GetSpellInfo(8342))] = true, --Defibrillate (Goblin Jumper Cables)
+	}
+
+	function SmartRes2:UNIT_SPELLCAST_START(_, unit, spellName)
+		if not otherResSpells[spellName] or UnitIsUnit(unit, "player") or doingRessing[UnitName(unit)] then return end
+		
+		local spell, _, _, _, startTime, endTime = UnitCastingInfo(unit)
+		local sender = UnitName(unit)
+		local target = UnitName(unit .. "target")
+		if spell and target and UnitIsDeadOrGhost(target) then
+			self:ResComm_ResStart(nil, sender, (endTime / 1000), target)
 		end
-		self.Target = target
-	else
-		self.Target = nil
 	end
-end
 
-function SmartRes2:UNIT_SPELLCAST_START(unit)
-	if unit == pName then return end
-	if doingRessing[unit] then return end
-	local _, unitClass = UnitClass(unit);
-	local spell, _, _, _, starttime, endtime = UnitCastingInfo(unit)
-	local sender = UnitName(unit)
-	local senderTarget = unit .. "target"
-	if UnitExists(senderTarget) and UnitIsDead(senderTarget) and not doingRessing[sender] then
-		local targetName = UnitName(senderTarget)
-		local endTime = (endtime - starttime) /1000
-		self:ResComm_ResStart(sender, endTime, targetName)
+	function SmartRes2:UNIT_SPELLCAST_SUCCEEDED(_, unit, spellName)
+		if UnitIsUnit(unit, "player") or not doingRessing[UnitName(unit)] then return end
+		
+		local sender = UnitName(unit)
+		self:ResComm_ResEnd(nil, sender, doingRessing[sender].target, true)
 	end
-end
 
-function SmartRes2:UNIT_SPELLCAST_INTERRUPTED(unit)
-	if unit == pName then return end
-	if doingRessing[unit]  and self.Target then
-		doingRessing[unit] = nil
-		waitingForAccept[self.Target] = nil
+	function SmartRes2:UNIT_SPELLCAST_STOP(_, unit)
+		if UnitIsUnit(unit, "player") or not doingRessing[UnitName(unit)] then return end
+		
+		local sender = UnitName(unit)
+		self:ResComm_ResEnd(nil, sender, doingRessing[sender].target)
 	end
-end
-
-function SmartRes2:UNIT_SPELLCAST_FAILED(unit)
-	if unit == pName then return end
-	if doingRessing[unit]  and self.Target then
-		doingRessing[unit] = nil
-		waitingForAccept[self.Target] = nil
-	end
-end
-
-function SmartRes2:UNIT_SPELLCAST_SUCCEEDED(unit, spell, rank)
-	if unit == pName then return end
-	local target = self.Target
-	self:ResComm_Ressed(target)
-end
-
-function SmartRes2:UNIT_SPELLCAST_STOP(unit)
-	if unit == pName then return end
-	local target = self.Target
-	doingRessing[unit] = nil
-	waitingForAccept[target] = nil
-end
-
--- ResComm events - called when bar finished fading
-function SmartRes2:FadeFinished(event, bar, name)
-	self.res_bars:ReleaseBar(bar)
+	SmartRes2.UNIT_SPELLCAST_FAILED = SmartRes2.UNIT_SPELLCAST_STOP
+	SmartRes2.UNIT_SPELLCAST_INTERRUPTED = SmartRes2.UNIT_SPELLCAST_STOP
 end
 
 -- Blizzard callback functions ----------------------------------------------
@@ -1227,13 +1181,18 @@ function SmartRes2:DeleteResBar(sender)
 	resBars[sender] = nil
 end
 
+-- LibBars event - called when bar finished fading
+function SmartRes2:FadeFinished(event, bar, name)
+	self.res_bars:ReleaseBar(bar)
+end
+
 function SmartRes2:AddCollisionBars(sender, target, collisionsender)
 	if self.db.profile.visibleResBars then 
 		local t = self.db.profile.collisionBarsColour
 		resBars[sender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	end
 	local chatType = self:GetChatType()
-	if chatType ~= "0-OFF" and sender ~= Player then
+	if chatType ~= "0-OFF" and not UnitIsUnit(sender, "player") then
 		self:Print((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
 	end
 end
@@ -1270,7 +1229,8 @@ function SmartRes2:StartTestBars()
 	end
 
 	-- set up the test bars
-	waitingForAccept["Someone"] = { target = "Someone", sender = "Dummy", endTime = GetTime() - 6 }
+	--waitingForAccept["Someone"] = { target = "Someone", sender = "Dummy", endTime = GetTime() - 6 }
+	waitingForAccept["Someone"] = GetTime() - 6
 	self:ResComm_ResStart(nil, "Nursenancy", GetTime() + 4, "Frankthetank")
 	self:ResComm_ResStart(nil, "Dummy", GetTime() + 8, "Frankthetank")
 	self:ResComm_ResStart(nil, "Gabriel", GetTime() + 6, "Someone")
