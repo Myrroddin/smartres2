@@ -897,6 +897,8 @@ do
 		[(GetSpellInfo(50769))] = true, --Revive
 		[(GetSpellInfo(20484))] = true, --Rebirth
 		[(GetSpellInfo(8342))] = true, --Defibrillate (Goblin Jumper Cables)
+		[(GetSpellInfo(22999))] = true, -- Defibrillate (Goblin Jumper Cables XL)
+		[(GetSpellInfo(54732))] = true -- Defribillate (Gnomish Army Knife)
 	}
 
 	function SmartRes2:UNIT_SPELLCAST_START(_, unit, spellName)
