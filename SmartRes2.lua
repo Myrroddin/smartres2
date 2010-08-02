@@ -15,6 +15,7 @@ local pairs = _G.pairs
 local ipairs = _G.ipairs
 
 -- Upvalued Blizzard API ----------------------------------------------------
+local GetAddOnMetadata = _G.GetAddOnMetadata
 local GetNumRaidMembers = _G.GetNumRaidMembers
 local GetNumPartyMembers = _G.GetNumPartyMembers
 local GetSpellInfo = _G.GetSpellInfo
@@ -38,6 +39,18 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 
 -- get version from .toc - set to Development if no version
 local version = GetAddOnMetadata("SmartRes2", "Version")
+local resCommVersion = GetAddOnMetadata("LibResComm-1.0", "Version")
+
+if resCommVersion ~= "r51" then
+	StaticPopupDialogs["SMARTRES2_ERROR_FRAME"] = {
+		text = L["SmartRes2 works best with LibResComm-1.0 version r51 or newer. Please update at wowace.com"],
+		button1 = L["OK"],
+		timeout = 0,
+		whileDead = true,
+		hideOnEscape = true,
+	}
+	StaticPopup_Show("SMARTRES2_ERROR_FRAME");
+end
 
 -- add localisation to addon
 SmartRes2.L = L
@@ -70,6 +83,8 @@ local in_combat = false
 local defaults = {
 	profile = {
 		autoResKey = "",
+		barHeight = 16,
+		barWidth = 128,
 		borderThickness = 10,
 		chatOutput = "0-none",
 		classColours = true,
@@ -112,7 +127,7 @@ function SmartRes2:OnInitialize()
 	db.RegisterCallback(self, "OnNewProfile", "OnNewProfile")
 	defaults = nil -- done with the table, so get rid of it
 	self.db = db
-	self:FillRandChatDefaults()
+	self:FillRandChatDefaults()	
 	
 	-- prepare spells
 	local resSpells = { -- getting the spell names
@@ -245,6 +260,34 @@ function SmartRes2:OnInitialize()
 						get = function() return self.db.profile.classColours end,
 						set = function(info, value)	self.db.profile.classColours = value end
 					},
+					barHeight = {
+						order = 83,
+						type = "range",
+						name = L["Bar Height"],
+						desc = L["Control the height of the res bars"],
+						get = function() return self.db.profile.barHeight end,
+						set = function(info, value)
+							self.db.profile.barHeight = value
+							self.res_bars:SetHeight(value)
+						end,
+						min = 6,
+						max = 64,
+						step = 1
+					},
+					barWidth = {
+						order = 87,
+						type = "range",
+						name = L["Bar Width"],
+						desc = L["Control the width of the res bars"],
+						get = function() return self.db.profile.barWidth end,
+						set = function(info, value)
+							self.db.profile.barWidth = value
+							self.res_bars:SetWidth(value)
+						end,
+						min = 24,
+						max = 512,
+						step = 1
+					},
 					scale = {
 						order = 90,
 						type = "range",
@@ -256,7 +299,7 @@ function SmartRes2:OnInitialize()
 							self.res_bars:SetScale(value)
 						end,
 						min = 0.5,
-						max = 3,
+						max = 2,
 						step = 0.05
 					},
 					resBarsAlpha = {
@@ -778,6 +821,7 @@ function SmartRes2:AddCustomMsg(msg)
 end
 
 function SmartRes2:StartGuessing()
+	if in_combat and not self.db.profile.showBattleRes then return end
 	self:RegisterEvent("UNIT_SPELLCAST_START")
 	self:RegisterEvent("UNIT_SPELLCAST_STOP")
 	self:RegisterEvent("UNIT_SPELLCAST_FAILED")
@@ -945,6 +989,7 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 		-- disable callbacks during battle if we don't want to see battle resses
 		if not self.db.profile.showBattleRes then
 			ResComm.UnregisterAllCallbacks(self)
+			self:StopGuessing()
 		end
 		-- clear the ressing tables
 		wipe(doingRessing)
@@ -966,6 +1011,9 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 		self.res_bars.RegisterCallback(self, "FadeFinished")
 	end
 	in_combat = false
+	if self.db.profile.guessResses then
+		self:StartGuessing()
+	end
 end
 
 -- key binding functions ----------------------------------------------------
@@ -1164,6 +1212,8 @@ function SmartRes2:CreateResBar(sender)
 	else
 		bar:HideIcon()
 	end
+	bar:SetHeight(self.db.profile.barHeight)
+	bar:SetWidth(self.db.profile.barWidth)
 	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, flags)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
