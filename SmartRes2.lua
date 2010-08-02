@@ -39,18 +39,6 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 
 -- get version from .toc - set to Development if no version
 local version = GetAddOnMetadata("SmartRes2", "Version")
-local resCommVersion = GetAddOnMetadata("LibResComm-1.0", "Version")
-
-if resCommVersion ~= "r51" then
-	StaticPopupDialogs["SMARTRES2_ERROR_FRAME"] = {
-		text = L["SmartRes2 works best with LibResComm-1.0 version r51 or newer. Please update at wowace.com"],
-		button1 = L["OK"],
-		timeout = 0,
-		whileDead = true,
-		hideOnEscape = true,
-	}
-	StaticPopup_Show("SMARTRES2_ERROR_FRAME");
-end
 
 -- add localisation to addon
 SmartRes2.L = L
@@ -62,7 +50,18 @@ local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1")
 -- LibBars used for bars
 local Bars = LibStub:GetLibrary("LibBars-1.0")
 -- LibResComm used for communication
-local ResComm = LibStub:GetLibrary("LibResComm-1.0")
+local ResComm, ResCommVersion = LibStub:GetLibrary("LibResComm-1.0")
+if ResCommMinor < 90051 then
+	StaticPopupDialogs["SMARTRES2_ERROR_FRAME"] = {
+		text = L["SmartRes2 works best with LibResComm-1.0 version r51 or newer. Please update at wowace.com"],
+		button1 = L["OK"],
+		timeout = 0,
+		whileDead = true,
+		hideOnEscape = true,
+	}
+	StaticPopup_Show("SMARTRES2_ERROR_FRAME");
+end
+
 -- LibSharedMedia used for more textures
 local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
 -- register the res bar textures with LibSharedMedia-3.0
