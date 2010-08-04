@@ -50,7 +50,7 @@ local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1")
 -- LibBars used for bars
 local Bars = LibStub:GetLibrary("LibBars-1.0")
 -- LibResComm used for communication
-local ResComm, ResCommVersion = LibStub:GetLibrary("LibResComm-1.0")
+local ResComm, ResCommMinor = LibStub:GetLibrary("LibResComm-1.0")
 if ResCommMinor < 90051 then
 	StaticPopupDialogs["SMARTRES2_ERROR_FRAME"] = {
 		text = L["SmartRes2 works best with LibResComm-1.0 version r51 or newer. Please update at wowace.com"],
