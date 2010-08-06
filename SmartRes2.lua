@@ -20,6 +20,7 @@ local GetNumRaidMembers = _G.GetNumRaidMembers
 local GetNumPartyMembers = _G.GetNumPartyMembers
 local GetSpellInfo = _G.GetSpellInfo
 local IsSpellInRange = _G.IsSpellInRange
+local SendChatMessage = _G.SendChatMessage
 local UnitCastingInfo = _G.UnitCastingInfo
 local UnitClass = _G.UnitClass
 local UnitInRaid = _G.UnitInRaid
@@ -92,7 +93,7 @@ local defaults = {
 		fontFlags = "0-nothing",
 		fontScale = 12,
 		fontType = "Friz Quadrata TT",
-		guessResses = false,
+		guessResses = true,
 		hideAnchor = true,
 		horizontalOrientation = "RIGHT",
 		manualResKey = "",
@@ -1244,7 +1245,7 @@ function SmartRes2:AddCollisionBars(sender, target, collisionsender)
 	end
 	local chatType = self:GetChatType()
 	if chatType ~= "0-OFF" and not UnitIsUnit(sender, "player") then
-		self:Print((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
+		SendChatMessage((L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(target, collisionsender), chatType, nil, sender)
 	end
 end
 
