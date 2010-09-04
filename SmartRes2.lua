@@ -5,9 +5,11 @@
 
 -- localise global variables for faster access ------------------------------
 local _G = getfenv(0)
+local math = _G.math
 local string = _G.string
 local table = _G.table
 local tinsert = table.insert
+local tonumber = tonumber
 local tremove = table.remove
 local tsort = table.sort
 local wipe = table.wipe
@@ -16,6 +18,7 @@ local ipairs = _G.ipairs
 
 -- Upvalued Blizzard API ----------------------------------------------------
 local GetAddOnMetadata = _G.GetAddOnMetadata
+local GetItemIcon = _G.GetItemIcon
 local GetNumRaidMembers = _G.GetNumRaidMembers
 local GetNumPartyMembers = _G.GetNumPartyMembers
 local GetSpellInfo = _G.GetSpellInfo
@@ -36,10 +39,20 @@ local UnitName = _G.UnitName
 local LibStub = _G.LibStub
 
 local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
+local MY_ADDON_NAME = "SmartRes2" -- see LibVersionCheck-1.0
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 
 -- get version from .toc - set to Development if no version
 local version = GetAddOnMetadata("SmartRes2", "Version")
+local MY_ADDON_VERSION = "$Revision$"
+local newest = 90000 + tonumber( strmatch( MY_ADDON_VERSION, "%d+" ) )
+--@alpha@
+if version:match("@") then
+	version = "Development"
+else
+	version = "Alpha "..version
+end
+--@end-alpha@
 
 -- add localisation to addon
 SmartRes2.L = L
@@ -62,7 +75,8 @@ if ResCommMinor < 90051 then
 	}
 	StaticPopup_Show("SMARTRES2_ERROR_FRAME");
 end
-
+-- LibVersionCheck-1.0 to see if updates are available
+local LVC = LibStub:GetLibrary("LibVersionCheck-1.0")
 -- LibSharedMedia used for more textures
 local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
 -- register the res bar textures with LibSharedMedia-3.0
@@ -87,6 +101,7 @@ local defaults = {
 		barWidth = 128,
 		borderThickness = 10,
 		chatOutput = "0-none",
+		chkVer = true,
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		enableAddon = true,
@@ -440,6 +455,21 @@ function SmartRes2:OnInitialize()
 						get = function() return self.db.profile.notifySelf end,
 						set = function(info, value)	self.db.profile.notifySelf = value end
 					},
+					versionCheck = {
+						order = 35,
+						type = "toggle",
+						name = L["Version Check"],
+						desc = L["Check Party and Raid for updates to SmartRes2"],
+						get = function() return self.db.profile.chkVer end,
+						set = function(info, value)
+							self.db.profile.chkVer = value
+							if self.db.profile.chkVer then
+								LVC:RegisterVersion(MY_ADDON_NAME, MY_ADDON_VERSION, SmartRes2, "VersionCallback")
+							else
+								LVC:UnregisterVersion(MY_ADDON_NAME)
+							end
+						end
+					},
 					chatOutput = {
 						order = 40,
 						type = "select",
@@ -695,8 +725,6 @@ function SmartRes2:OnInitialize()
 		self.res_bars:Unlock()
 		self.res_bars:SetClampedToScreen(true)
 	end
-	
-	self.db.profile.disableAddon = nil -- do not need this as of 2.1.1 or higher
 end
 
 function SmartRes2:OnEnable()
@@ -705,6 +733,7 @@ function SmartRes2:OnEnable()
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("RAID_ROSTER_UPDATE")
 	self:RegisterEvent("PARTY_MEMBERS_CHANGED")
+	LVC:RegisterVersion(MY_ADDON_NAME, MY_ADDON_VERSION, SmartRes2, "VersionCallback")
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	ResComm.RegisterCallback(self, "ResComm_ResStart")
 	ResComm.RegisterCallback(self, "ResComm_ResEnd")
@@ -735,6 +764,7 @@ function SmartRes2:OnDisable()
 	Media.UnregisterAllCallbacks(self)
 	ResComm.UnregisterAllCallbacks(self)
 	self.res_bars.UnregisterAllCallbacks(self)
+	LVC:UnregisterVersion(MY_ADDON_NAME)
 	wipe(doingRessing)
 	wipe(waitingForAccept)
 	wipe(resBars)
@@ -1037,13 +1067,38 @@ end
 
 -- smart ressurection determination functions -------------------------------
 local raidUpdated
+local checkVer
 
 function SmartRes2:PARTY_MEMBERS_CHANGED()
 	raidUpdated = true
+	if in_combat or checkVer or not self.db.profile.chkVer then
+		return
+	else
+		LVC:SendVersionQuery(MY_ADDON_NAME, "PARTY", nil)
+	end
+	checkVer = true
 end
 
 function SmartRes2:RAID_ROSTER_UPDATE()
 	raidUpdated = true
+	if in_combat or checkVer or not self.db.profile.chkVer then
+		return
+	else
+		LVC:SendVersionQuery(MY_ADDON_NAME, "RAID", nil)
+	end
+	checkVer = true
+end
+
+function SmartRes2:VersionCallback( sender, identifier, version )
+	if identifier == MY_ADDON_NAME and version then
+		local thisVersion = tonumber( strmatch( version, "%d+" ) )
+		if thisVersion > newest then
+			newest = thisVersion
+			checkVer = false
+			self:Print(L["%s has a newer version of %s. (%s)"]):format(sender, MY_ADDON_NAME, version)
+		end
+	end
+	checkVer = true
 end
 
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, UnitAFK
@@ -1179,9 +1234,21 @@ function SmartRes2:CreateResBar(sender)
 	if not self.db.profile.visibleResBars then return end
 	local text
 	local senderClass = select(2, UnitClass(sender))
+	local spell = UnitCastingInfo(sender)
+	local engineerSpells = { -- Defibrillate has 3 translations, one per item
+		GJC = GetSpellInfo(8342), -- Goblin Jumper Cables
+		GJCXL = GetSpellInfo(22999), -- Goblin Jumper Cables XL
+		GAK = GetSpellInfo(54732) -- Gnomish Army Knife
+	}
 	if senderClass == "DRUID" and in_combat then
 		icon = select(3, GetSpellInfo(20484))
-	else		
+	elseif spell == engineerSpells.GJC then
+		icon = GetItemIcon(7148)
+	elseif spell == engineerSpells.GJCXL then
+		icon = GetItemIcon(18587)
+	elseif spell == engineerSpells.GAK then
+		icon = GetItemIcon(40772)
+	else
 		icon = self.resSpellIcons[senderClass] or self.resSpellIcons.PRIEST
 	end
 	local info = doingRessing[sender]

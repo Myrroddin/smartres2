@@ -1,7 +1,7 @@
 ## Interface: 30300
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party/Raid wipe recovery. Evolved
-## Notes-frFR: Coordonnée targetless Party / Raid essuyez récupération. Evolved
+## Notes-frFR: Coordonner la résurrection du groupe/raid sans cible.
 ## Notes-deDE: Koordiniertes Zielfreies Party/Raid Wipe Wiederherstellungs Tool. Eine Weiterentwicklung
 ## Notes-koKR: 지정된 타겟없이 파티/공격대를 순식간에 복구시킵니다
 ## Notes-ruRU: Аддон для координации воскрешений в группах/рейдах.Информативные заметки в поле
@@ -19,7 +19,7 @@
 ## X-Website: http://wow.curse.com/downloads/wow-addons/details/smartres2.aspx
 ## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
 
-## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets
+## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets, LibVersionCheck-1.0
 
 #@no-lib-strip@
 Libs\LibStub\LibStub.lua
@@ -38,6 +38,7 @@ Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 Libs\LibBars-1.0\lib.xml
 Libs\LibResComm-1.0\lib.xml
 Libs\LibAboutPanel\lib.xml
+Libs\LibVersionCheck-1.0\lib.xml
 #@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
