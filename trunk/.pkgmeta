@@ -44,6 +44,9 @@ externals:
         tag: latest
     Libs/LibAboutPanel:
         url: git://git.curseforge.net/wow/libaboutpanel/mainline.git
+	Libs/LibVersionCheck-1.0:
+		url: svn://svn.curseforge.net/wow/libversioncheck/mainline/trunk
+		tag: latest
 
 tools-used:
     - libdatabroker-1-1
