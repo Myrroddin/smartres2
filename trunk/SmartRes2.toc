@@ -1,4 +1,5 @@
 ## Interface: 30300
+## X-Compatible-With: 40000
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party/Raid wipe recovery. Evolved
 ## Notes-frFR: Coordonner la résurrection du groupe/raid sans cible.

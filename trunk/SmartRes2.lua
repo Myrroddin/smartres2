@@ -732,8 +732,7 @@ function SmartRes2:OnEnable()
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("RAID_ROSTER_UPDATE")
-	self:RegisterEvent("PARTY_MEMBERS_CHANGED")
-	LVC:RegisterVersion(MY_ADDON_NAME, MY_ADDON_VERSION, SmartRes2, "VersionCallback")
+	self:RegisterEvent("PARTY_MEMBERS_CHANGED")	
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	ResComm.RegisterCallback(self, "ResComm_ResStart")
 	ResComm.RegisterCallback(self, "ResComm_ResEnd")
@@ -744,6 +743,9 @@ function SmartRes2:OnEnable()
 	self:BindKeys()
 	if self.db.profile.guessResses then
 		self:StartGuessing()
+	end
+	if self.db.profile.chkVer then
+		LVC:RegisterVersion(MY_ADDON_NAME, MY_ADDON_VERSION, SmartRes2, "VersionCallback")
 	end
 end
 
@@ -1067,26 +1069,13 @@ end
 
 -- smart ressurection determination functions -------------------------------
 local raidUpdated
-local checkVer
 
 function SmartRes2:PARTY_MEMBERS_CHANGED()
 	raidUpdated = true
-	if in_combat or checkVer or not self.db.profile.chkVer then
-		return
-	else
-		LVC:SendVersionQuery(MY_ADDON_NAME, "PARTY", nil)
-	end
-	checkVer = true
 end
 
 function SmartRes2:RAID_ROSTER_UPDATE()
 	raidUpdated = true
-	if in_combat or checkVer or not self.db.profile.chkVer then
-		return
-	else
-		LVC:SendVersionQuery(MY_ADDON_NAME, "RAID", nil)
-	end
-	checkVer = true
 end
 
 function SmartRes2:VersionCallback( sender, identifier, version )
