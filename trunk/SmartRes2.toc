@@ -46,8 +46,7 @@ Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Locales\Localization.frFR.lua
 Locales\Localization.ruRU.lua
 Locales\Localization.deDE.lua
-Locales\Localization.esES.lua
-Locales\Localization.esMX.lua
+Locales\Localization.Spanish.lua
 Locales\Localization.zhCN.lua
 Locales\Localization.zhTW.lua
 Locales\Localization.enUS.lua

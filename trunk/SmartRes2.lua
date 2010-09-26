@@ -1069,7 +1069,6 @@ end
 
 -- smart ressurection determination functions -------------------------------
 local raidUpdated
-
 function SmartRes2:PARTY_MEMBERS_CHANGED()
 	raidUpdated = true
 end
@@ -1079,15 +1078,21 @@ function SmartRes2:RAID_ROSTER_UPDATE()
 end
 
 function SmartRes2:VersionCallback( sender, identifier, version )
+	if in_combat then return end
 	if identifier == MY_ADDON_NAME and version then
 		local thisVersion = tonumber( strmatch( version, "%d+" ) )
 		if thisVersion > newest then
 			newest = thisVersion
-			checkVer = false
-			self:Print(L["%s has a newer version of %s. (%s)"]):format(sender, MY_ADDON_NAME, version)
+			StaticPopupDialogs["SMARTRES2_ERROR_FRAME"] = {
+				text = (L["%s has a newer version of %s. (%s)"]):format(sender, MY_ADDON_NAME, version),
+				button1 = L["OK"],
+				timeout = 0,
+				whileDead = true,
+				hideOnEscape = true,
+			}
+			StaticPopup_Show("SMARTRES2_ERROR_FRAME");
 		end
 	end
-	checkVer = true
 end
 
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, UnitAFK
@@ -1096,17 +1101,17 @@ local CLASS_PRIORITIES = {
 	-- There might be 10 classes, but SHAMANs and DRUIDs res at equal efficiency, so no preference
 	-- non healers who use Mana should be followed after healers, as they are usually buffers
 	-- or pet summoners (ie: Mana burners)
-	-- res non Mana users last (HUNTERs will get moved once Catalclysm hits)
-	PRIEST = 1, 
+	-- res non Mana users last
+	PRIEST = 1,
 	PALADIN = 2, 
 	SHAMAN = 3, 
 	DRUID = 3, 
 	MAGE = 4, 
-	WARLOCK = 4, 
-	HUNTER = 4,
+	WARLOCK = 4,
 	DEATHKNIGHT = 5,
-	ROGUE = 5,
-	WARRIOR = 5
+	WARRIOR = 5,	
+	HUNTER = 5,	
+	ROGUE = 5
 }
 
 -- create resurrection tables
