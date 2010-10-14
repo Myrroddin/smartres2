@@ -7,7 +7,7 @@
 ## Notes-ruRU: Аддон для координации воскрешений в группах/рейдах.Информативные заметки в поле
 ## Notes-zhCN: 协助目标小队/团队灭团复活。
 ## Notes-esES: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
--- ## Notes-esMX: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
+## Notes-esMX: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
 ## Version: @project-version@
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
