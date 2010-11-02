@@ -9,7 +9,7 @@ local math = _G.math
 local string = _G.string
 local table = _G.table
 local tinsert = table.insert
-local tonumber = tonumber
+local tonumber = _G.tonumber
 local tremove = table.remove
 local tsort = table.sort
 local wipe = table.wipe
@@ -17,17 +17,25 @@ local pairs = _G.pairs
 local ipairs = _G.ipairs
 
 -- Upvalued Blizzard API ----------------------------------------------------
+local GameTooltip = _G.GameTooltip
 local GetAddOnMetadata = _G.GetAddOnMetadata
 local GetItemIcon = _G.GetItemIcon
 local GetNumRaidMembers = _G.GetNumRaidMembers
 local GetNumPartyMembers = _G.GetNumPartyMembers
 local GetSpellInfo = _G.GetSpellInfo
+local GetTime = _G.GetTime
+local HIGHLIGHT_FONT_COLOR = _G.HIGHLIGHT_FONT_COLOR
 local IsSpellInRange = _G.IsSpellInRange
+local IsUsableSpell = _G.IsUsableSpell
+local NORMAL_FONT_COLOR = _G.NORMAL_FONT_COLOR
+local select = _G.select
 local SendChatMessage = _G.SendChatMessage
+local UIParent = _G.UIParent
 local UnitCastingInfo = _G.UnitCastingInfo
 local UnitClass = _G.UnitClass
 local UnitInRaid = _G.UnitInRaid
 local UnitInRange = _G.UnitInRange
+local UnitIsAFK = _G.UnitIsAFK
 local UnitIsDead = _G.UnitIsDead
 local UnitIsDeadOrGhost = _G.UnitIsDeadOrGhost
 local UnitIsGhost = _G.UnitIsGhost
@@ -38,6 +46,7 @@ local UnitName = _G.UnitName
 -- declare addon ------------------------------------------------------------
 local LibStub = _G.LibStub
 
+local addonName, addon = ...
 local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
 local MY_ADDON_NAME = "SmartRes2" -- see LibVersionCheck-1.0
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
@@ -45,7 +54,7 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 -- get version from .toc - set to Development if no version
 local version = GetAddOnMetadata("SmartRes2", "Version")
 local MY_ADDON_VERSION = "$Revision$"
-local newest = 90000 + tonumber( strmatch( MY_ADDON_VERSION, "%d+" ) )
+local newest = 90000 + tonumber( string.match( MY_ADDON_VERSION, "%d+" ) )
 --@alpha@
 if version:match("@") then
 	version = "Development"
@@ -140,9 +149,9 @@ function SmartRes2:OnInitialize()
 	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
 	db.RegisterCallback(self, "OnProfileReset", "OnNewProfile")
 	db.RegisterCallback(self, "OnNewProfile", "OnNewProfile")
-	defaults = nil -- done with the table, so get rid of it
 	self.db = db
 	self:FillRandChatDefaults()	
+	self:SetEnabledState(self.db.profile.enableAddon)
 	
 	-- prepare spells
 	local resSpells = { -- getting the spell names
@@ -161,507 +170,14 @@ function SmartRes2:OnInitialize()
 	self.playerSpell = resSpells[self.playerClass]
 
 	-- addon options table
-	local options = {
-		name = "SmartRes2",
-		handler = SmartRes2,
-		type = "group",
-		childGroups = "tab",
-		args = {
-			barsOptionsTab = {
-				name = L["Res Bars"],
-				desc = L["Options for the res bars"],
-				type = "group",
-				order = 1,
-				args = {
-					barsOptionsHeader = {
-						order = 1,
-						type = "header",
-						name = L["Res Bars"]
-					},
-					hideAnchor = {
-						order = 20,
-						type = "toggle",
-						name = L["Hide Anchor"],
-						desc = L["Toggles the anchor for the res bars so you can move them"],
-						get = function() return self.db.profile.hideAnchor end,
-						set = function(info, value)
-							self.db.profile.hideAnchor = value
-							if value then
-								self.res_bars:HideAnchor()
-								self.res_bars:Lock()
-							else
-								self.res_bars:ShowAnchor()
-								self.res_bars:Unlock()
-								self.res_bars:SetClampedToScreen(true)
-							end
-						end
-					},
-					enableAddon = {
-						order = 30,
-						type = "toggle",
-						name = L["Enable SmartRes2"],
-						desc = L["Uncheck to disable Smartres2"],
-						get = function() return self.db.profile.enableAddon end,
-						set = function(info, value)
-							self.db.profile.enableAddon = value
-							if value then
-								self:Enable()
-							else
-								self:Disable()
-							end
-						end
-					},					
-					visibleResBars = { 
-						order = 40,
-						type = "toggle",
-						name = L["Show Bars"],
-						desc = L["Show or hide the res bars. Everything else will still work"],
-						get = function() return self.db.profile.visibleResBars end,
-						set = function(info, value) self.db.profile.visibleResBars = value end
-					},
-					guessResses = {
-						order = 45,
-						type = "toggle",
-						name = L["Non-CTRA compatible res monitoring"],
-						desc = L["Picks up res casts that are not broadcast via LibResComm or CTRA. This could have erroneous results, especially with mouseover or click casting"],
-						get = function() return self.db.profile.guessResses end,
-						set = function(info, value) self.db.profile.guessResses = value
-							if self.db.profile.guessResses then
-								self:StartGuessing()
-							else
-								self:StopGuessing()
-							end
-						end
-					},
-					reverseGrowth = {
-						order = 50,
-						type = "toggle",
-						name = L["Grow Upwards"],
-						desc = L["Make the res bars grow up instead of down"],
-						get = function() return self.db.profile.reverseGrowth end,
-						set = function(info, value)
-							self.db.profile.reverseGrowth = value
-							self.res_bars:ReverseGrowth(value)
-						end
-					},					
-					resBarsIcon = {
-						order = 60,
-						type = "toggle",
-						name = L["Show Icon"],
-						desc = L["Show or hide the icon for res spells"],
-						get = function() return	self.db.profile.resBarsIcon end,
-						set = function(info, value)
-							self.db.profile.resBarsIcon = value
-							if value then
-								self.res_bars:ShowIcon()
-							else
-								self.res_bars:HideIcon()
-							end
-						end
-					},					
-					showBattleRes = {
-						order = 70,
-						type = "toggle",
-						name = L["Show Battle Resses"],
-						desc = L["Show bars for Rebirth"],
-						get = function() return self.db.profile.showBattleRes end,
-						set = function(info, value)	self.db.profile.showBattleRes = value end
-					},					
-					classColours = {
-						order = 80,
-						type = "toggle",
-						name = L["Class Colours"],
-						desc = L["Use class colours for the target on the res bars"],
-						get = function() return self.db.profile.classColours end,
-						set = function(info, value)	self.db.profile.classColours = value end
-					},
-					barHeight = {
-						order = 83,
-						type = "range",
-						name = L["Bar Height"],
-						desc = L["Control the height of the res bars"],
-						get = function() return self.db.profile.barHeight end,
-						set = function(info, value)
-							self.db.profile.barHeight = value
-							self.res_bars:SetHeight(value)
-						end,
-						min = 6,
-						max = 64,
-						step = 1
-					},
-					barWidth = {
-						order = 87,
-						type = "range",
-						name = L["Bar Width"],
-						desc = L["Control the width of the res bars"],
-						get = function() return self.db.profile.barWidth end,
-						set = function(info, value)
-							self.db.profile.barWidth = value
-							self.res_bars:SetWidth(value)
-						end,
-						min = 24,
-						max = 512,
-						step = 1
-					},
-					scale = {
-						order = 90,
-						type = "range",
-						name = L["Scale"],
-						desc = L["Set the scale for the res bars"],
-						get = function() return self.db.profile.scale end,
-						set = function(info, value)
-							self.db.profile.scale = value
-							self.res_bars:SetScale(value)
-						end,
-						min = 0.5,
-						max = 2,
-						step = 0.05
-					},
-					resBarsAlpha = {
-						order = 100,
-						type = "range",
-						name = L["Alpha"],
-						desc = L["Set the Alpha for the res bars"],
-						get = function() return self.db.profile.resBarsAlpha end,
-						set = function(info, value)
-							self.db.profile.resBarsAlpha = value
-							self.res_bars:SetAlpha(value)
-						end,
-						min = 0.1,
-						max = 1,
-						step = 0.1
-					},
-					borderThickness = {
-						order = 110,
-						type = "range",
-						name = L["Border Thickness"],
-						desc = L["Set the thickness of the res bars border"],
-						get = function() return self.db.profile.borderThickness end,
-						set = function(info, value) self.db.profile.borderThickness = value end,
-						min = 1,
-						max = 10,
-						step = 1
-					},
-					resBarsTexture = {
-						order = 120,
-						type = "select",
-						dialogControl = "LSM30_Statusbar",
-						name = L["Texture"],
-						desc = L["Select the texture for the res bars"],
-						values = AceGUIWidgetLSMlists.statusbar,
-						get = function() return self.db.profile.resBarsTexture end,
-						set = function(info, value)	self.db.profile.resBarsTexture = value end
-					},
-					resBarsBorder = {
-						order = 130,
-						type = "select",
-						dialogControl = "LSM30_Border",
-						name = L["Border"],
-						desc = L["Select the border for the res bars"],
-						values = AceGUIWidgetLSMlists.border,
-						get = function() return self.db.profile.resBarsBorder end,
-						set = function(info, value) self.db.profile.resBarsBorder = value end
-					},					
-					horizontalOrientation = {
-						order = 140,
-						type = "select",
-						name = L["Horizontal Direction"],
-						desc = L["Change the horizontal direction of the res bars"],
-						values = {
-							["LEFT"] = L["Right to Left"],
-							["RIGHT"] = L["Left to Right"]
-						},
-						get = function() return self.db.profile.horizontalOrientation end,
-						set = function(info, value) self.db.profile.horizontalOrientation = value end
-					},
-					resBarsColour = {
-						order = 150,
-						type = "color",
-						name = L["Bar Colour"],
-						desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
-						hasAlpha = true,
-						get = function()
-							local t = self.db.profile.resBarsColour
-							return t.r, t.g, t.b, t.a
-						end,
-						set = function(info, r, g, b, a)
-							local t = self.db.profile.resBarsColour
-							t.r, t.g, t.b, t.a = r, g, b, a
-						end
-					},
-					collisionBarsColour = {
-						order = 160,
-						type = "color",
-						name = L["Duplicate Bar Colour"],
-						desc = L["Pick the colour for collision (duplicate) res bars"],
-						hasAlpha = true,
-						get = function()
-							local t = self.db.profile.collisionBarsColour
-							return t.r, t.g, t.b, t.a
-						end,
-						set = function(info, r, g, b, a)
-							local t = self.db.profile.collisionBarsColour
-							t.r, t.g, t.b, t.a = r, g, b, a
-						end
-					},
-					waitingBarsColour = {
-						order = 170,
-						type = "color",
-						name = L["Waiting Bar Colour"],
-						desc = L["Pick the colour for collision (player waiting for accept) res bars"],
-						hasAlpha = true,
-						get = function()
-							local t = self.db.profile.waitingBarsColour
-							return t.r, t.g, t.b, t.a
-						end,
-						set = function(info, r, g, b, a)
-							local t = self.db.profile.waitingBarsColour
-							t.r, t.g, t.b, t.a = r, g, b, a
-						end
-					},
-					resBarsTestBars = {
-						order = 200,
-						type = "execute",
-						name = L["Test Bars"],
-						desc = L["Show the test bars"],
-						func = function() self:StartTestBars() end
-					}
-				}
-			},
-			resChatTextTab = {
-				name = L["Chat Output"],
-				desc = L["Chat output options"],
-				type = "group",
-				order = 20,
-				args = {
-					resChatHeader = {
-						order = 1,
-						type = "header",
-						name = L["Chat Output"]
-					},
-					randMsgs = {
-						order = 20,
-						type = "toggle",
-						name = L["Random Res Messages"],
-						desc = L["Turn random res messages on or keep the same message. Default is off"],
-						get = function() return self.db.profile.randMsgs end,
-						set = function(info, value)	self.db.profile.randMsgs = value end
-					},
-					notifySelf = {
-						order = 30,
-						type = "toggle",
-						name = L["Self Notification"],
-						desc = L["Prints a message to yourself whom you are ressing"],
-						get = function() return self.db.profile.notifySelf end,
-						set = function(info, value)	self.db.profile.notifySelf = value end
-					},
-					versionCheck = {
-						order = 35,
-						type = "toggle",
-						name = L["Version Check"],
-						desc = L["Check Party and Raid for updates to SmartRes2"],
-						get = function() return self.db.profile.chkVer end,
-						set = function(info, value)
-							self.db.profile.chkVer = value
-							if self.db.profile.chkVer then
-								LVC:RegisterVersion(MY_ADDON_NAME, MY_ADDON_VERSION, SmartRes2, "VersionCallback")
-							else
-								LVC:UnregisterVersion(MY_ADDON_NAME)
-							end
-						end
-					},
-					chatOutput = {
-						order = 40,
-						type = "select",
-						name = L["Chat Output Type"],
-						desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, smart Group, or None"],
-						values = {
-							["0-none"] = L["None"],
-							group = L["Group"],
-							guild = L["Guild"],
-							party = L["Party"],
-							raid = L["Raid"],
-							say = L["Say"],
-							whisper = L["Whisper"],
-							yell = L["Yell"]							
-						},
-						get = function() return self.db.profile.chatOutput end,
-						set = function(info, value)	self.db.profile.chatOutput = value end
-					},					
-					notifyCollision = {
-						order = 50,
-						type = "select",
-						name = L["Duplicate Res Targets"],
-						desc = L["Notify a resser they created a collision. Could get very spammy"],
-						values = {
-							["0-off"] = L["Off"],
-							group = L["Group"],
-							guild = L["Guild"],
-							party = L["Party"],
-							raid = L["Raid"],
-							say = L["Say"],
-							whisper = L["Whisper"],
-							yell = L["Yell"]
-						},
-						get = function() return self.db.profile.notifyCollision end,
-						set = function(info, value)	self.db.profile.notifyCollision = value	end
-					},
-					customMessage = {
-						order = 60,
-						type = "input",
-						name = L["Custom Message"],
-						desc = L["Your message.  Use 'me' for yourself and 'you' for target"],
-						get = function() return self.db.profile.customchatmsg end,
-						set = function(info, value) self:AddCustomMsg(value) end
-					},
-					addRndMessage = {
-						order = 70,
-						type = "input",
-						name = L["Add to Random Table"],
-						desc = L["ADD_OUTPUT_KEY"],
-						get = function() return "" end,
-						set = function(info, value)
-							-- Insert non-empty values into the table
-							if value and value:trim() ~= "" then
-								tinsert(self.db.profile.randChatTbl, value) 
-							end
-						end
-					},
-					removeRndMessge = {
-						order = 80,
-						type = "multiselect",
-						dialogControl = "Dropdown",
-						name = L["Remove Random Messages"],
-						desc = L["Remove messages from the table you no longer want"],
-						width = "double",
-						values = function()
-							-- Return the list of values
-							return self.db.profile.randChatTbl
-						end,
-						get = function(info, index)
-							-- All values are always enabled
-							return true
-						end,
-						set = function(info, index, value)
-							-- The only possible value for "value" is false (because get always returns true), so we don't bother checking it and remove the entry from the table
-							tremove(self.db.profile.randChatTbl, index)
-						end
-					}
-				}
-			},
-			fontTab = {
-				name = L["Fonts"],
-				desc = L["Control fonts on the res bars"],
-				type = "group",
-				order = 25,
-				args = {
-					fontType = {
-						order = 1,
-						type = "select",
-						dialogControl = "LSM30_Font",
-						name = L["Font Type"],
-						desc = L["Select a font for the text on the res bars"],
-						values = AceGUIWidgetLSMlists.font,
-						get = function() return self.db.profile.fontType end,
-						set = function(info, value) self.db.profile.fontType = value end					
-					},
-					fontFlags = {
-						order = 25,
-						type = "select",
-						name = L["Font Style"],
-						desc = L["Nothing, outline, thick outline, or monochrome"],						
-						values = {
-							["0-nothing"] = L["Nothing"],
-							outline = L["Outline"],
-							thickOut = L["THICK_OUTLINE"],
-							monoChrome = L["Monochrome"]
-						},
-						get = function() return self.db.profile.fontFlags end,
-						set = function(info, value) self.db.profile.fontFlags = value end
-					},					
-					fontSize = {
-						order = 20,
-						type = "range",
-						name = L["Font Scale"],
-						desc = L["Resize the res bars font"],
-						get = function() return self.db.profile.fontScale end,
-						set = function(info, value) self.db.profile.fontScale = value end,
-						min = 3,
-						max = 20,
-						step = 1
-					}
-				}			
-			},
-			keyBindingsTab = {
-				name = L["Key Bindings"],
-				desc = L["Set the keybindings"],
-				type = "group",
-				order = 30,
-				args = {
-					autoResKey = {
-						order = 1,
-						type = "keybinding",
-						name = L["Auto Res Key"],
-						desc = L["For ressing targets who have not released their ghosts"],
-						get = function() return self.db.profile.autoResKey end,
-						set = function(info, value)	self.db.profile.autoResKey = value end
-					},
-					manualResKey = {
-						order = 2,
-						type = "keybinding",
-						name = L["Manual Target Key"],
-						desc = L["Gives you the pointer to click on corpses"],
-						get = function() return self.db.profile.manualResKey end,
-						set  = function(info, value) self.db.profile.manualResKey = value end
-					},
-					castCommand = {
-						order = 3,
-						type = "description",
-						name = L["The command \"cast\" will fire the smart Resurrection function. Usage: /sr cast or /smartres cast. Not necessary if you use the auto res key"]
-					}
-				}
-			},
-			creditsTab = {
-				name = L["SmartRes2 Credits"],
-				desc = L["About the author and SmartRes2"],
-				type = "group",
-				order = 60,
-				args = {
-					creditsHeader1 = {
-						order = 1,
-						type = "header",
-						name = L["Credits"]
-					},
-					creditsDesc1 = {
-						order = 2,
-						type = "description",
-						name = "* "..L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes. SmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."]
-					},
-					creditsDesc2 = {
-						order = 3,
-						type = "description",
-						name = "* "..L["I would personally like to thank Jerry on the wowace forums for coding the new, smarter, resurrection function."]
-					},
-					creditsDesc3 = {
-						order = 4,
-						type = "description",
-						name = "* "..L["Many bugfixes and development help from Onaforeignshore"]
-					},
-					creditsDesc5 = {
-						order = 5,
-						type = "description",
-						name = "* "..L["Thank you translators!"]
-					}
-				}
-			}
-		}
-	}
+	
+	self.options = self:OptionsTable() -- see SmartRes2Options.lua
 	-- add the 'Profiles' section
-	options.args.profilesTab = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
-	options.args.profilesTab.order = 50
+	_G.options.args.profilesTab = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
+	_G.options.args.profilesTab.order = 50
 
 	-- Register your options with AceConfigRegistry
-	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
+	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", self.options)
 
 	-- Add your options to the Blizz options window using AceConfigDialog
 	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")	
@@ -708,7 +224,7 @@ function SmartRes2:OnInitialize()
 	end	
 
 	-- create a secure button for ressing
-	local resButton = CreateFrame("button", "SmartRes2Button", UIParent, "SecureActionButtonTemplate")
+	local resButton = _G.CreateFrame("button", "SmartRes2Button", UIParent, "SecureActionButtonTemplate")
 	resButton:SetAttribute("type", "spell")
 	resButton:SetScript("PreClick", function() self:Resurrection() end)
 	self.resButton = resButton
@@ -828,7 +344,7 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 	local flags = self.db.profile.fontFlags:upper()
 	if flags == "0-NOTHING" then
 		flags = nil
-	elseif flags == thickOut then
+	elseif flags == "thickOut" then
 		flags = "THICKOUTLINE"
 	end
 	if type == "statusbar" then
@@ -1053,12 +569,12 @@ end
 function SmartRes2:BindKeys()
 	-- only binds keys if the player can cast an out of combat res spell
 	if not self.playerSpell then return end
-	SetOverrideBindingClick(self.resButton, false, self.db.profile.autoResKey, "SmartRes2Button")
-	SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualResKey, self.playerSpell)
+	_G.SetOverrideBindingClick(self.resButton, false, self.db.profile.autoResKey, "SmartRes2Button")
+	_G.SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualResKey, self.playerSpell)
 end
 
 function SmartRes2:UnBindKeys()
-	ClearOverrideBindings(self.resButton)
+	_G.ClearOverrideBindings(self.resButton)
 end
 
 -- anchor management functions ----------------------------------------------
@@ -1080,22 +596,22 @@ end
 function SmartRes2:VersionCallback( sender, identifier, version )
 	if in_combat then return end
 	if identifier == MY_ADDON_NAME and version then
-		local thisVersion = tonumber( strmatch( version, "%d+" ) )
+		local thisVersion = tonumber( string.match( version, "%d+" ) )
 		if thisVersion > newest then
 			newest = thisVersion
-			StaticPopupDialogs["SMARTRES2_ERROR_FRAME"] = {
+			_G.StaticPopupDialogs["SMARTRES2_ERROR_FRAME"] = {
 				text = (L["%s has a newer version of %s. (%s)"]):format(sender, MY_ADDON_NAME, version),
 				button1 = L["OK"],
 				timeout = 0,
 				whileDead = true,
 				hideOnEscape = true,
 			}
-			StaticPopup_Show("SMARTRES2_ERROR_FRAME");
+			_G.StaticPopup_Show("SMARTRES2_ERROR_FRAME");
 		end
 	end
 end
 
-local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, UnitAFK
+local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK
 local SortedResList = {}
 local CLASS_PRIORITIES = {
 	-- There might be 10 classes, but SHAMANs and DRUIDs res at equal efficiency, so no preference
@@ -1164,7 +680,7 @@ local function SortCurrentRaiders()
 end
 
 local function getBestCandidate()
-	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, UnitAFK = nil, nil, nil, nil, nil, nil
+	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
 	if raidUpdated then SortCurrentRaiders() end	--only resort if raid changed	
 	for _, data in ipairs(SortedResList) do
 		local unit = data.name
@@ -1208,7 +724,7 @@ function SmartRes2:Resurrection()
 			wipe(waitingForAccept)
 		elseif unitGhost then
 			self:Print(L["All dead units have released."])
-		elseif UnitAFK then
+		elseif unitAFK then
 			self:Print(L["Remaining units are away from keyboard."])
 		end
 	end
@@ -1220,7 +736,7 @@ local function ClassColouredName(name)
 	if not name then return "|cffcccccc"..L["Unknown"].."|r" end
 	local _, class = UnitClass(name)
 	if not class then return "|cffcccccc"..name.."|r" end
-	local c = RAID_CLASS_COLORS[class]
+	local c = _G.RAID_CLASS_COLORS[class]
 	return ("|cff%02X%02X%02X%s|r"):format(c.r * 255, c.g * 255, c.b * 255, name)
 end
 
@@ -1250,7 +766,7 @@ function SmartRes2:CreateResBar(sender)
 	local flags = self.db.profile.fontFlags:upper()
 	if flags == "0-NOTHING" then
 		flags = nil
-	elseif flags == thickOut then
+	elseif flags == "thickOut" then
 		flags = "THICKOUTLINE"
 	end
 	
@@ -1342,7 +858,6 @@ function SmartRes2:StartTestBars()
 	end
 
 	-- set up the test bars
-	--waitingForAccept["Someone"] = { target = "Someone", sender = "Dummy", endTime = GetTime() - 6 }
 	waitingForAccept["Someone"] = GetTime() - 6
 	self:ResComm_ResStart(nil, "Nursenancy", GetTime() + 4, "Frankthetank")
 	self:ResComm_ResStart(nil, "Dummy", GetTime() + 8, "Frankthetank")

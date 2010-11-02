@@ -2,17 +2,17 @@
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party/Raid wipe recovery. Evolved
 ## Notes-frFR: Coordonner la résurrection du groupe/raid sans cible.
-## Notes-deDE: Koordiniertes Zielfreies Party/Raid Wipe Wiederherstellungs Tool. Eine Weiterentwicklung
-## Notes-koKR: 지정된 타겟없이 파티/공격대를 순식간에 복구시킵니다
+## Notes-deDE: Koordinierte, ziellose Wiederbelebung von Gruppen/Schlachtzügen. In Entwicklung
+## Notes-koKR: 지정된 타겟없이 파티/공격대를 순식간에 복구시킵니다. .toc 파일 내 Notes 예
 ## Notes-ruRU: Аддон для координации воскрешений в группах/рейдах.Информативные заметки в поле
 ## Notes-zhCN: 协助目标小队/团队灭团复活。
+## Notes-zhTW: 無目標團撲協同復活。升級了。
 ## Notes-esES: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
 ## Notes-esMX: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
 ## Version: @project-version@
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
-## X-Email: psvander AT gmail DOT com
 ## X-Donate: http://pledgie.com/campaigns/5989
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
 ## SavedVariables: SmartRes2DB
@@ -20,7 +20,7 @@
 ## X-Website: http://wow.curse.com/downloads/wow-addons/details/smartres2.aspx
 ## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
 
-## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets, LibVersionCheck-1.0
+## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets
 
 #@no-lib-strip@
 Libs\LibStub\LibStub.lua
@@ -39,9 +39,9 @@ Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 Libs\LibBars-1.0\lib.xml
 Libs\LibResComm-1.0\lib.xml
 Libs\LibAboutPanel\lib.xml
-Libs\LibVersionCheck-1.0\lib.xml
 #@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+Libs\LibVersionCheck-1.0\LibVersionCheck-1.0\lib.xml
 
 Locales\Localization.frFR.lua
 Locales\Localization.ruRU.lua
