@@ -46,15 +46,11 @@ local UnitName = _G.UnitName
 -- declare addon ------------------------------------------------------------
 local LibStub = _G.LibStub
 
-local addonName, addon = ...
 local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
-local MY_ADDON_NAME = "SmartRes2" -- see LibVersionCheck-1.0
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 
 -- get version from .toc - set to Development if no version
 local version = GetAddOnMetadata("SmartRes2", "Version")
-local MY_ADDON_VERSION = "$Revision$"
-local newest = 90000 + tonumber( string.match( MY_ADDON_VERSION, "%d+" ) )
 --@alpha@
 if version:match("@") then
 	version = "Development"
@@ -84,8 +80,6 @@ if ResCommMinor < 90051 then
 	}
 	StaticPopup_Show("SMARTRES2_ERROR_FRAME");
 end
--- LibVersionCheck-1.0 to see if updates are available
-local LVC = LibStub:GetLibrary("LibVersionCheck-1.0")
 -- LibSharedMedia used for more textures
 local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
 -- register the res bar textures with LibSharedMedia-3.0
@@ -110,7 +104,6 @@ local defaults = {
 		barWidth = 128,
 		borderThickness = 10,
 		chatOutput = "0-none",
-		chkVer = true,
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		enableAddon = true,
@@ -169,12 +162,11 @@ function SmartRes2:OnInitialize()
 	self.playerClass = select(2, UnitClass("player"))
 	self.playerSpell = resSpells[self.playerClass]
 
-	-- addon options table
-	
+	-- addon options table	
 	self.options = self:OptionsTable() -- see SmartRes2Options.lua
 	-- add the 'Profiles' section
-	_G.options.args.profilesTab = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
-	_G.options.args.profilesTab.order = 50
+	self.options.args.profilesTab = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
+	self.options.args.profilesTab.order = 50
 
 	-- Register your options with AceConfigRegistry
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", self.options)
@@ -260,9 +252,6 @@ function SmartRes2:OnEnable()
 	if self.db.profile.guessResses then
 		self:StartGuessing()
 	end
-	if self.db.profile.chkVer then
-		LVC:RegisterVersion(MY_ADDON_NAME, MY_ADDON_VERSION, SmartRes2, "VersionCallback")
-	end
 end
 
 -- process slash commands ---------------------------------------------------
@@ -282,7 +271,6 @@ function SmartRes2:OnDisable()
 	Media.UnregisterAllCallbacks(self)
 	ResComm.UnregisterAllCallbacks(self)
 	self.res_bars.UnregisterAllCallbacks(self)
-	LVC:UnregisterVersion(MY_ADDON_NAME)
 	wipe(doingRessing)
 	wipe(waitingForAccept)
 	wipe(resBars)
@@ -591,24 +579,6 @@ end
 
 function SmartRes2:RAID_ROSTER_UPDATE()
 	raidUpdated = true
-end
-
-function SmartRes2:VersionCallback( sender, identifier, version )
-	if in_combat then return end
-	if identifier == MY_ADDON_NAME and version then
-		local thisVersion = tonumber( string.match( version, "%d+" ) )
-		if thisVersion > newest then
-			newest = thisVersion
-			_G.StaticPopupDialogs["SMARTRES2_ERROR_FRAME"] = {
-				text = (L["%s has a newer version of %s. (%s)"]):format(sender, MY_ADDON_NAME, version),
-				button1 = L["OK"],
-				timeout = 0,
-				whileDead = true,
-				hideOnEscape = true,
-			}
-			_G.StaticPopup_Show("SMARTRES2_ERROR_FRAME");
-		end
-	end
 end
 
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK

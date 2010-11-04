@@ -41,7 +41,6 @@ Libs\LibResComm-1.0\lib.xml
 Libs\LibAboutPanel\lib.xml
 #@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
-Libs\LibVersionCheck-1.0\LibVersionCheck-1.0\lib.xml
 
 Locales\Localization.frFR.lua
 Locales\Localization.ruRU.lua
@@ -51,3 +50,4 @@ Locales\Localization.zhCN.lua
 Locales\Localization.zhTW.lua
 Locales\Localization.enUS.lua
 SmartRes2.lua
+SmartRes2Options.lua
