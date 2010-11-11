@@ -107,6 +107,9 @@ local defaults = {
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		enableAddon = true,
+		flashCollision = true,
+		flashInterval = 0.2,
+		flashTimes = 5,
 		fontFlags = "0-nothing",
 		fontScale = 12,
 		fontType = "Friz Quadrata TT",
@@ -114,6 +117,7 @@ local defaults = {
 		hideAnchor = true,
 		horizontalOrientation = "RIGHT",
 		manualResKey = "",
+		maxBars = 10,
 		notifyCollision = "0-off",
 		notifySelf = true,
 		randMsgs = false,
@@ -161,6 +165,12 @@ function SmartRes2:OnInitialize()
 	}  
 	self.playerClass = select(2, UnitClass("player"))
 	self.playerSpell = resSpells[self.playerClass]
+	self.massRes = nil
+	self.massResIcon = nil
+	if select(4, _G.GetBuildInfo()) >= 40000 then
+		SmartRes2.massRes = GetSpellInfo(83968)
+		SmartRes2.massResIcon = select(3, GetSpellInfo(self.massRes))
+	end
 
 	-- addon options table	
 	self.options = self:OptionsTable() -- see SmartRes2Options.lua
@@ -232,6 +242,10 @@ function SmartRes2:OnInitialize()
 		self.res_bars:ShowAnchor()
 		self.res_bars:Unlock()
 		self.res_bars:SetClampedToScreen(true)
+	end
+	
+	local function animateBar(self)
+		SmartRes2.res_bars:GetBar(sender):AnimateToGroup(SmartRes2.res_bars)
 	end
 end
 
@@ -476,6 +490,7 @@ do
 		[(GetSpellInfo(7328))] = true, --Redemption
 		[(GetSpellInfo(50769))] = true, --Revive
 		[(GetSpellInfo(20484))] = true, --Rebirth
+		[(GetSpellInfo(83968))] = true, -- Mass Resurrection
 		[(GetSpellInfo(8342))] = true, --Defibrillate (Goblin Jumper Cables)
 		[(GetSpellInfo(22999))] = true, -- Defibrillate (Goblin Jumper Cables XL)
 		[(GetSpellInfo(54732))] = true -- Defribillate (Gnomish Army Knife)
@@ -484,7 +499,7 @@ do
 	function SmartRes2:UNIT_SPELLCAST_START(_, unit, spellName)
 		if not otherResSpells[spellName] or UnitIsUnit(unit, "player") or doingRessing[UnitName(unit)] then return end
 		
-		local spell, _, _, _, startTime, endTime = UnitCastingInfo(unit)
+		local spell, _, _, _, _, endTime = UnitCastingInfo(unit)
 		local sender = UnitName(unit)
 		local target = UnitName(unit .. "target")
 		if spell and target and UnitIsDeadOrGhost(target) then
@@ -728,6 +743,8 @@ function SmartRes2:CreateResBar(sender)
 		icon = GetItemIcon(18587)
 	elseif spell == engineerSpells.GAK then
 		icon = GetItemIcon(40772)
+	elseif spell == self.massRes then
+		icon = self.massResIcon
 	else
 		icon = self.resSpellIcons[senderClass] or self.resSpellIcons.PRIEST
 	end
@@ -789,6 +806,11 @@ function SmartRes2:AddCollisionBars(sender, target, collisionsender)
 	if self.db.profile.visibleResBars then 
 		local t = self.db.profile.collisionBarsColour
 		resBars[sender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
+		if self.db.profile.flashCollision then
+			local interval = self.db.profile.flashInterval
+			local times = self.db.profile.flashTimes
+			resBars[sender]:Flash(interval, times)
+		end
 	end
 	local chatType = self:GetChatType()
 	if chatType ~= "0-OFF" and not UnitIsUnit(sender, "player") then
