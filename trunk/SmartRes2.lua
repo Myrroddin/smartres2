@@ -108,7 +108,7 @@ local defaults = {
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		enableAddon = true,
 		flashCollision = true,
-		flashInterval = 0.2,
+		flashInterval = 0.5,
 		flashTimes = 5,
 		fontFlags = "0-nothing",
 		fontScale = 12,
@@ -820,8 +820,13 @@ end
 
 function SmartRes2:AddWaitingBars(sender, target)
 	if self.db.profile.visibleResBars then 
-		local t = self.db.profile.waitingBarsColour
+		local t = self.db.profile.waitingBarsColour		
 		resBars[sender]:SetBackgroundColor(t.r, t.g, t.b, t.a)
+		if self.db.profile.flashCollision then
+			local interval = self.db.profile.flashInterval
+			local times = self.db.profile.flashTimes
+			resBars[sender]:Flash(interval, times)
+		end
 	end
 end
 
