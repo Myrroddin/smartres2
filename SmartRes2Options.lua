@@ -139,7 +139,7 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.flashInterval end,
 						set = function(info, value) self.db.profile.flashInterval = value end,
 						min = 0.1,
-						max = 0.5,
+						max = 2,
 						step = 0.1
 					},
 					flashTimes = {
