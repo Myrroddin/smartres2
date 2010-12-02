@@ -234,7 +234,7 @@ function SmartRes2:OnInitialize()
 	-- create the Res Bars and set the user preferences
 	self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
 	self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
-	self.res_bars:SetUserPlaced(true)
+	self.res_bars:SetUserPlaced(false)
 	if self.db.profile.hideAnchor then
 		self.res_bars:HideAnchor()
 		self.res_bars:Lock()
@@ -285,9 +285,13 @@ function SmartRes2:OnDisable()
 	Media.UnregisterAllCallbacks(self)
 	ResComm.UnregisterAllCallbacks(self)
 	self.res_bars.UnregisterAllCallbacks(self)
+	--[[
 	wipe(doingRessing)
 	wipe(waitingForAccept)
 	wipe(resBars)
+	wipe(otherRes)
+	]]--
+	doingRessing, waitingForAccept, resBars, otherRes = nil, nil, nil, nil
 	LastRes = nil
 end
 
@@ -483,6 +487,7 @@ function SmartRes2:ResComm_ResExpired(event, target)
 	waitingForAccept[target] = nil
 end
 
+local otherRes = {}
 do
 	local otherResSpells = {
 		[(GetSpellInfo(2006))] = true, --Resurrection
@@ -505,6 +510,7 @@ do
 		if spell and target and UnitIsDeadOrGhost(target) then
 			self:ResComm_ResStart(nil, sender, (endTime / 1000), target)
 		end
+		otherRes[playerName] = target
 	end
 
 	function SmartRes2:UNIT_SPELLCAST_SUCCEEDED(_, unit, spellName)
@@ -512,6 +518,10 @@ do
 		
 		local sender = UnitName(unit)
 		self:ResComm_ResEnd(nil, sender, doingRessing[sender].target, true)
+		local target = otherRes[playerName]
+		if otherRes[playerName] then
+			otherRes[playerName] = nil
+		end
 	end
 
 	function SmartRes2:UNIT_SPELLCAST_STOP(_, unit)
@@ -519,9 +529,22 @@ do
 		
 		local sender = UnitName(unit)
 		self:ResComm_ResEnd(nil, sender, doingRessing[sender].target)
+		local target = activeRes[playerName]
+		if otherRes[playerName] then
+			otherRes[playerName] = nil
+		end
 	end
 	SmartRes2.UNIT_SPELLCAST_FAILED = SmartRes2.UNIT_SPELLCAST_STOP
-	SmartRes2.UNIT_SPELLCAST_INTERRUPTED = SmartRes2.UNIT_SPELLCAST_STOP
+	SmartRes2.UNIT_SPELLCAST_INTERRUPTED = SmartRes2.UNIT_SPELLCAST_STOP	
+end
+
+function SmartRes2:OtherUnitBeingRessed(unit)
+	for resser, ressed in pairs(otherRes) do
+		if unit == ressed then
+			return true, resser
+		end
+	end
+	return false
 end
 
 -- Blizzard callback functions ----------------------------------------------
@@ -633,7 +656,7 @@ local function verifyUnit(unit)
 	if not UnitIsDead(unit) then return nil end
 	unitDead = true
 	if unit == LastRes then return nil end
-	if ResComm:IsUnitBeingRessed(unit) then unitBeingRessed = true return nil end
+	if (ResComm:IsUnitBeingRessed(unit)) or (SmartRes2:OtherUnitBeingRessed(unit)) then unitBeingRessed = true return nil end
 	if waitingForAccept[unit] then unitWaiting = true return nil end
 	if IsSpellInRange(SmartRes2.playerSpell, unit) ~= 1 then unitOutOfRange = true return nil end
 	return true
@@ -707,6 +730,8 @@ function SmartRes2:Resurrection()
 		elseif not unitDead then
 			self:Print(L["Everybody is alive. Congratulations!"])
 			wipe(waitingForAccept)
+			wipe(otherRes)
+			wipe(doingRessing)
 		elseif unitGhost then
 			self:Print(L["All dead units have released."])
 		elseif unitAFK then
