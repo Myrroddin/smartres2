@@ -22,7 +22,7 @@ function addon:OptionsTable()
 				order = 1,
 				args = {
 					barsOptionsHeader = {
-						order = 1,
+						order = 10,
 						type = "header",
 						name = L["Res Bars"]
 					},
@@ -124,15 +124,21 @@ function addon:OptionsTable()
 						set = function(info, value)	self.db.profile.classColours = value end
 					},
 					flashCollision = {
-						order = 93,
+						order = 100,
 						type = "toggle",
 						name = L["Collision Flashing"],
 						desc = L["Make collision bars flash"],
 						get = function() return self.db.profile.flashCollision end,
 						set = function(info, value) self.db.profile.flashCollision = value end
 					},
+					spacer1 = {
+						type = "description",
+						name = "",
+						order = 110,
+						width = "full"
+					},
 					flashInterval = {
-						order = 95,
+						order = 120,
 						type = "range",
 						name = L["Collision Flash Interval"],
 						desc = L["How often the flashing occurs"],
@@ -143,7 +149,7 @@ function addon:OptionsTable()
 						step = 0.1
 					},
 					flashTimes = {
-						order = 97,
+						order = 130,
 						type = "range",
 						name = L["Collision Bar Flash Count"],
 						desc = L["How many times the flashing happens"],
@@ -154,7 +160,7 @@ function addon:OptionsTable()
 						step = 1
 					},
 					numMaxBars = {
-						order = 100,
+						order = 140,
 						type = "range",
 						name = L["Maximum Bars"],
 						desc = L["Set the maximum of displayed bars"],
@@ -168,7 +174,7 @@ function addon:OptionsTable()
 						step = 1
 					},
 					barHeight = {
-						order = 110,
+						order = 150,
 						type = "range",
 						name = L["Bar Height"],
 						desc = L["Control the height of the res bars"],
@@ -182,7 +188,7 @@ function addon:OptionsTable()
 						step = 1
 					},
 					barWidth = {
-						order = 120,
+						order = 160,
 						type = "range",
 						name = L["Bar Width"],
 						desc = L["Control the width of the res bars"],
@@ -196,7 +202,7 @@ function addon:OptionsTable()
 						step = 1
 					},
 					scale = {
-						order = 130,
+						order = 170,
 						type = "range",
 						name = L["Scale"],
 						desc = L["Set the scale for the res bars"],
@@ -210,7 +216,7 @@ function addon:OptionsTable()
 						step = 0.05
 					},
 					resBarsAlpha = {
-						order = 140,
+						order = 180,
 						type = "range",
 						name = L["Alpha"],
 						desc = L["Set the Alpha for the res bars"],
@@ -224,7 +230,7 @@ function addon:OptionsTable()
 						step = 0.1
 					},
 					borderThickness = {
-						order = 150,
+						order = 190,
 						type = "range",
 						name = L["Border Thickness"],
 						desc = L["Set the thickness of the res bars border"],
@@ -234,8 +240,14 @@ function addon:OptionsTable()
 						max = 10,
 						step = 1
 					},
+					spacer2 = {
+						type = "description",
+						name = "",
+						order = 200,
+						width = "full"
+					},
 					resBarsTexture = {
-						order = 160,
+						order = 210,
 						type = "select",
 						dialogControl = "LSM30_Statusbar",
 						name = L["Texture"],
@@ -245,7 +257,7 @@ function addon:OptionsTable()
 						set = function(info, value)	self.db.profile.resBarsTexture = value end
 					},
 					resBarsBorder = {
-						order = 170,
+						order = 220,
 						type = "select",
 						dialogControl = "LSM30_Border",
 						name = L["Border"],
@@ -255,7 +267,7 @@ function addon:OptionsTable()
 						set = function(info, value) self.db.profile.resBarsBorder = value end
 					},					
 					horizontalOrientation = {
-						order = 180,
+						order = 230,
 						type = "select",
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars"],
@@ -266,8 +278,14 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.horizontalOrientation end,
 						set = function(info, value) self.db.profile.horizontalOrientation = value end
 					},
+					spacer3 = {
+						type = "description",
+						name = "",
+						order = 240,
+						width = "full"
+					},
 					resBarsColour = {
-						order = 190,
+						order = 250,
 						type = "color",
 						name = L["Bar Colour"],
 						desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
@@ -282,7 +300,7 @@ function addon:OptionsTable()
 						end
 					},
 					collisionBarsColour = {
-						order = 200,
+						order = 260,
 						type = "color",
 						name = L["Duplicate Bar Colour"],
 						desc = L["Pick the colour for collision (duplicate) res bars"],
@@ -297,7 +315,7 @@ function addon:OptionsTable()
 						end
 					},
 					waitingBarsColour = {
-						order = 210,
+						order = 270,
 						type = "color",
 						name = L["Waiting Bar Colour"],
 						desc = L["Pick the colour for collision (player waiting for accept) res bars"],
@@ -311,8 +329,14 @@ function addon:OptionsTable()
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end
 					},
+					spacer4 = {
+						type = "description",
+						name = "",
+						order = 280,
+						width = "full"
+					},
 					resBarsTestBars = {
-						order = 220,
+						order = 290,
 						type = "execute",
 						name = L["Test Bars"],
 						desc = L["Show the test bars"],
@@ -327,7 +351,7 @@ function addon:OptionsTable()
 				order = 20,
 				args = {
 					resChatHeader = {
-						order = 1,
+						order = 10,
 						type = "header",
 						name = L["Chat Output"]
 					},
@@ -347,8 +371,14 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.notifySelf end,
 						set = function(info, value)	self.db.profile.notifySelf = value end
 					},
-					chatOutput = {
+					spacer5 = {
+						type = "description",
+						name = "",
 						order = 40,
+						width = "full"
+					},
+					chatOutput = {
+						order = 50,
 						type = "select",
 						name = L["Chat Output Type"],
 						desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, smart Group, or None"],
@@ -366,7 +396,7 @@ function addon:OptionsTable()
 						set = function(info, value)	self.db.profile.chatOutput = value end
 					},					
 					notifyCollision = {
-						order = 50,
+						order = 60,
 						type = "select",
 						name = L["Duplicate Res Targets"],
 						desc = L["Notify a resser they created a collision. Could get very spammy"],
@@ -383,8 +413,14 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.notifyCollision end,
 						set = function(info, value)	self.db.profile.notifyCollision = value	end
 					},
+					spacer6 = {
+						type = "description",
+						name = "",
+						order = 70,
+						width = "full"
+					},
 					customMessage = {
-						order = 60,
+						order = 80,
 						type = "input",
 						name = L["Custom Message"],
 						desc = L["Your message.  Use 'me' for yourself and 'you' for target"],
@@ -392,7 +428,7 @@ function addon:OptionsTable()
 						set = function(info, value) self:AddCustomMsg(value) end
 					},
 					addRndMessage = {
-						order = 70,
+						order = 90,
 						type = "input",
 						name = L["Add to Random Table"],
 						desc = L["ADD_OUTPUT_KEY"],
@@ -404,8 +440,14 @@ function addon:OptionsTable()
 							end
 						end
 					},
+					spacer7 = {
+						type = "description",
+						name = "",
+						order = 100,
+						width = "full"
+					},
 					removeRndMessge = {
-						order = 80,
+						order = 110,
 						type = "multiselect",
 						dialogControl = "Dropdown",
 						name = L["Remove Random Messages"],
@@ -433,7 +475,7 @@ function addon:OptionsTable()
 				order = 30,
 				args = {
 					fontType = {
-						order = 1,
+						order = 10,
 						type = "select",
 						dialogControl = "LSM30_Font",
 						name = L["Font Type"],
@@ -443,7 +485,7 @@ function addon:OptionsTable()
 						set = function(info, value) self.db.profile.fontType = value end					
 					},								
 					fontSize = {
-						order = 10,
+						order = 20,
 						type = "range",
 						name = L["Font Scale"],
 						desc = L["Resize the res bars font"],
@@ -454,7 +496,7 @@ function addon:OptionsTable()
 						step = 1
 					},
 					fontFlags = {
-						order = 20,
+						order = 30,
 						type = "select",
 						name = L["Font Style"],
 						desc = L["Nothing, outline, thick outline, or monochrome"],						
@@ -476,7 +518,7 @@ function addon:OptionsTable()
 				order = 40,
 				args = {
 					autoResKey = {
-						order = 1,
+						order = 10,
 						type = "keybinding",
 						name = L["Auto Res Key"],
 						desc = L["For ressing targets who have not released their ghosts"],
@@ -484,7 +526,7 @@ function addon:OptionsTable()
 						set = function(info, value)	self.db.profile.autoResKey = value end
 					},
 					manualResKey = {
-						order = 2,
+						order = 20,
 						type = "keybinding",
 						name = L["Manual Target Key"],
 						desc = L["Gives you the pointer to click on corpses"],
@@ -492,7 +534,7 @@ function addon:OptionsTable()
 						set  = function(info, value) self.db.profile.manualResKey = value end
 					},
 					castCommand = {
-						order = 3,
+						order = 30,
 						type = "description",
 						name = L["The command \"cast\" will fire the smart Resurrection function. Usage: /sr cast or /smartres cast. Not necessary if you use the auto res key"]
 					}
