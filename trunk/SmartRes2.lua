@@ -529,7 +529,7 @@ do
 		
 		local sender = UnitName(unit)
 		self:ResComm_ResEnd(nil, sender, doingRessing[sender].target)
-		local target = activeRes[playerName]
+		local target = otherRes[playerName]
 		if otherRes[playerName] then
 			otherRes[playerName] = nil
 		end
