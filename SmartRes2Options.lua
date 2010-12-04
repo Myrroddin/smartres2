@@ -26,8 +26,20 @@ function addon:OptionsTable()
 						type = "header",
 						name = L["Res Bars"]
 					},
-					hideAnchor = {
+					resBarsTestBars = {
 						order = 20,
+						type = "execute",
+						name = L["Test Bars"],
+						desc = L["Show the test bars"],
+						func = function() self:StartTestBars() end
+					},
+					spacer1 = {
+						type = "description",
+						name = "",
+						order = 30
+					},			
+					hideAnchor = {
+						order = 40,
 						type = "toggle",
 						name = L["Hide Anchor"],
 						desc = L["Toggles the anchor for the res bars so you can move them"],
@@ -35,17 +47,17 @@ function addon:OptionsTable()
 						set = function(info, value)
 							self.db.profile.hideAnchor = value
 							if value then
-								self.res_bars:HideAnchor()
-								self.res_bars:Lock()
+								self.rez_bars:HideAnchor()
+								self.rez_bars:Lock()
 							else
-								self.res_bars:ShowAnchor()
-								self.res_bars:Unlock()
-								self.res_bars:SetClampedToScreen(true)
+								self.rez_bars:ShowAnchor()
+								self.rez_bars:Unlock()
+								self.rez_bars:SetClampedToScreen(true)
 							end
 						end
 					},
 					enableAddon = {
-						order = 30,
+						order = 50,
 						type = "toggle",
 						name = L["Enable SmartRes2"],
 						desc = L["Uncheck to disable Smartres2"],
@@ -60,7 +72,7 @@ function addon:OptionsTable()
 						end
 					},					
 					visibleResBars = { 
-						order = 40,
+						order = 60,
 						type = "toggle",
 						name = L["Show Bars"],
 						desc = L["Show or hide the res bars. Everything else will still work"],
@@ -68,7 +80,7 @@ function addon:OptionsTable()
 						set = function(info, value) self.db.profile.visibleResBars = value end
 					},
 					guessResses = {
-						order = 50,
+						order = 70,
 						type = "toggle",
 						name = L["Non-CTRA compatible res monitoring"],
 						desc = L["Picks up res casts that are not broadcast via LibResComm or CTRA. This could have erroneous results, especially with mouseover or click casting"],
@@ -82,18 +94,18 @@ function addon:OptionsTable()
 						end
 					},
 					reverseGrowth = {
-						order = 60,
+						order = 80,
 						type = "toggle",
 						name = L["Grow Upwards"],
 						desc = L["Make the res bars grow up instead of down"],
 						get = function() return self.db.profile.reverseGrowth end,
 						set = function(info, value)
 							self.db.profile.reverseGrowth = value
-							self.res_bars:ReverseGrowth(value)
+							self.rez_bars:ReverseGrowth(value)
 						end
 					},					
 					resBarsIcon = {
-						order = 70,
+						order = 90,
 						type = "toggle",
 						name = L["Show Icon"],
 						desc = L["Show or hide the icon for res spells"],
@@ -101,14 +113,14 @@ function addon:OptionsTable()
 						set = function(info, value)
 							self.db.profile.resBarsIcon = value
 							if value then
-								self.res_bars:ShowIcon()
+								self.rez_bars:ShowIcon()
 							else
-								self.res_bars:HideIcon()
+								self.rez_bars:HideIcon()
 							end
 						end
 					},					
 					showBattleRes = {
-						order = 80,
+						order = 100,
 						type = "toggle",
 						name = L["Show Battle Resses"],
 						desc = L["Show bars for Rebirth"],
@@ -116,7 +128,7 @@ function addon:OptionsTable()
 						set = function(info, value)	self.db.profile.showBattleRes = value end
 					},					
 					classColours = {
-						order = 90,
+						order = 110,
 						type = "toggle",
 						name = L["Class Colours"],
 						desc = L["Use class colours for the target on the res bars"],
@@ -124,21 +136,20 @@ function addon:OptionsTable()
 						set = function(info, value)	self.db.profile.classColours = value end
 					},
 					flashCollision = {
-						order = 100,
+						order = 120,
 						type = "toggle",
 						name = L["Collision Flashing"],
 						desc = L["Make collision bars flash"],
 						get = function() return self.db.profile.flashCollision end,
 						set = function(info, value) self.db.profile.flashCollision = value end
 					},
-					spacer1 = {
+					spacer2 = {
 						type = "description",
 						name = "",
-						order = 110,
-						width = "full"
+						order = 130
 					},
 					flashInterval = {
-						order = 120,
+						order = 140,
 						type = "range",
 						name = L["Collision Flash Interval"],
 						desc = L["How often the flashing occurs"],
@@ -149,7 +160,7 @@ function addon:OptionsTable()
 						step = 0.1
 					},
 					flashTimes = {
-						order = 130,
+						order = 150,
 						type = "range",
 						name = L["Collision Bar Flash Count"],
 						desc = L["How many times the flashing happens"],
@@ -160,77 +171,77 @@ function addon:OptionsTable()
 						step = 1
 					},
 					numMaxBars = {
-						order = 140,
+						order = 160,
 						type = "range",
 						name = L["Maximum Bars"],
 						desc = L["Set the maximum of displayed bars"],
 						get = function() return self.db.profile.maxBars end,
 						set = function(info, value)
 							self.db.profile.maxBars = value
-							self.res_bars:SetMaxBars(value)
+							self.rez_bars:SetMaxBars(value)
 						end,
 						min = 1,
 						max = 39,
 						step = 1
 					},
 					barHeight = {
-						order = 150,
+						order = 170,
 						type = "range",
 						name = L["Bar Height"],
 						desc = L["Control the height of the res bars"],
 						get = function() return self.db.profile.barHeight end,
 						set = function(info, value)
 							self.db.profile.barHeight = value
-							self.res_bars:SetHeight(value)
+							self.rez_bars:SetHeight(value)
 						end,
 						min = 6,
 						max = 64,
 						step = 1
 					},
 					barWidth = {
-						order = 160,
+						order = 180,
 						type = "range",
 						name = L["Bar Width"],
 						desc = L["Control the width of the res bars"],
 						get = function() return self.db.profile.barWidth end,
 						set = function(info, value)
 							self.db.profile.barWidth = value
-							self.res_bars:SetWidth(value)
+							self.rez_bars:SetWidth(value)
 						end,
 						min = 24,
 						max = 512,
 						step = 1
 					},
 					scale = {
-						order = 170,
+						order = 190,
 						type = "range",
 						name = L["Scale"],
 						desc = L["Set the scale for the res bars"],
 						get = function() return self.db.profile.scale end,
 						set = function(info, value)
 							self.db.profile.scale = value
-							self.res_bars:SetScale(value)
+							self.rez_bars:SetScale(value)
 						end,
 						min = 0.5,
 						max = 2,
 						step = 0.05
 					},
 					resBarsAlpha = {
-						order = 180,
+						order = 200,
 						type = "range",
 						name = L["Alpha"],
 						desc = L["Set the Alpha for the res bars"],
 						get = function() return self.db.profile.resBarsAlpha end,
 						set = function(info, value)
 							self.db.profile.resBarsAlpha = value
-							self.res_bars:SetAlpha(value)
+							self.rez_bars:SetAlpha(value)
 						end,
 						min = 0.1,
 						max = 1,
 						step = 0.1
 					},
 					borderThickness = {
-						order = 190,
+						order = 210,
 						type = "range",
 						name = L["Border Thickness"],
 						desc = L["Set the thickness of the res bars border"],
@@ -240,14 +251,13 @@ function addon:OptionsTable()
 						max = 10,
 						step = 1
 					},
-					spacer2 = {
+					spacer3 = {
 						type = "description",
 						name = "",
-						order = 200,
-						width = "full"
+						order = 220
 					},
 					resBarsTexture = {
-						order = 210,
+						order = 230,
 						type = "select",
 						dialogControl = "LSM30_Statusbar",
 						name = L["Texture"],
@@ -257,7 +267,7 @@ function addon:OptionsTable()
 						set = function(info, value)	self.db.profile.resBarsTexture = value end
 					},
 					resBarsBorder = {
-						order = 220,
+						order = 240,
 						type = "select",
 						dialogControl = "LSM30_Border",
 						name = L["Border"],
@@ -267,7 +277,7 @@ function addon:OptionsTable()
 						set = function(info, value) self.db.profile.resBarsBorder = value end
 					},					
 					horizontalOrientation = {
-						order = 230,
+						order = 250,
 						type = "select",
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars"],
@@ -278,14 +288,13 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.horizontalOrientation end,
 						set = function(info, value) self.db.profile.horizontalOrientation = value end
 					},
-					spacer3 = {
+					spacer4 = {
 						type = "description",
 						name = "",
-						order = 240,
-						width = "full"
+						order = 260
 					},
 					resBarsColour = {
-						order = 250,
+						order = 270,
 						type = "color",
 						name = L["Bar Colour"],
 						desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
@@ -300,7 +309,7 @@ function addon:OptionsTable()
 						end
 					},
 					collisionBarsColour = {
-						order = 260,
+						order = 280,
 						type = "color",
 						name = L["Duplicate Bar Colour"],
 						desc = L["Pick the colour for collision (duplicate) res bars"],
@@ -315,7 +324,7 @@ function addon:OptionsTable()
 						end
 					},
 					waitingBarsColour = {
-						order = 270,
+						order = 290,
 						type = "color",
 						name = L["Waiting Bar Colour"],
 						desc = L["Pick the colour for collision (player waiting for accept) res bars"],
@@ -328,20 +337,7 @@ function addon:OptionsTable()
 							local t = self.db.profile.waitingBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end
-					},
-					spacer4 = {
-						type = "description",
-						name = "",
-						order = 280,
-						width = "full"
-					},
-					resBarsTestBars = {
-						order = 290,
-						type = "execute",
-						name = L["Test Bars"],
-						desc = L["Show the test bars"],
-						func = function() self:StartTestBars() end
-					}
+					}	
 				}
 			},
 			resChatTextTab = {
@@ -374,8 +370,7 @@ function addon:OptionsTable()
 					spacer5 = {
 						type = "description",
 						name = "",
-						order = 40,
-						width = "full"
+						order = 40
 					},
 					chatOutput = {
 						order = 50,
@@ -416,8 +411,7 @@ function addon:OptionsTable()
 					spacer6 = {
 						type = "description",
 						name = "",
-						order = 70,
-						width = "full"
+						order = 70
 					},
 					customMessage = {
 						order = 80,
@@ -425,7 +419,8 @@ function addon:OptionsTable()
 						name = L["Custom Message"],
 						desc = L["Your message.  Use 'me' for yourself and 'you' for target"],
 						get = function() return self.db.profile.customchatmsg end,
-						set = function(info, value) self:AddCustomMsg(value) end
+						set = function(info, value) self:AddCustomMsg(value) end,
+						width = "full"
 					},
 					addRndMessage = {
 						order = 90,
@@ -438,13 +433,13 @@ function addon:OptionsTable()
 							if value and value:trim() ~= "" then
 								tinsert(self.db.profile.randChatTbl, value) 
 							end
-						end
+						end,
+						width = "full"
 					},
 					spacer7 = {
 						type = "description",
 						name = "",
-						order = 100,
-						width = "full"
+						order = 100
 					},
 					removeRndMessge = {
 						order = 110,
@@ -452,7 +447,7 @@ function addon:OptionsTable()
 						dialogControl = "Dropdown",
 						name = L["Remove Random Messages"],
 						desc = L["Remove messages from the table you no longer want"],
-						width = "double",
+						width = "full",
 						values = function()
 							-- Return the list of values
 							return self.db.profile.randChatTbl

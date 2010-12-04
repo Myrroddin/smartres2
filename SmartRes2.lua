@@ -125,7 +125,7 @@ local defaults = {
 		resBarsColour = { r = 0, g = 1, b = 0, a = 1 },
 		resBarsIcon = true,		
 		resBarsAlpha = 1,
-		resBarsBorder = nil,
+		resBarsBorder = "None",
 		resBarsTexture = "Blizzard",
 		resBarsX = 0,
 		resBarsY = 600,
@@ -203,12 +203,12 @@ function SmartRes2:OnInitialize()
 					-- keep our options table in sync with the ldb object state
 					self.db.profile.hideAnchor = not self.db.profile.hideAnchor
 					if self.db.profile.hideAnchor then
-						self.res_bars:HideAnchor()
-						self.res_bars:Lock()
+						self.rez_bars:HideAnchor()
+						self.rez_bars:Lock()
 					else
-						self.res_bars:ShowAnchor()
-						self.res_bars:Unlock()
-						self.res_bars:SetClampedToScreen(true)
+						self.rez_bars:ShowAnchor()
+						self.rez_bars:Unlock()
+						self.rez_bars:SetClampedToScreen(true)
 					end
 					LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
 				elseif button == "RightButton" then
@@ -232,20 +232,16 @@ function SmartRes2:OnInitialize()
 	self.resButton = resButton
 
 	-- create the Res Bars and set the user preferences
-	self.res_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
-	self.res_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
-	self.res_bars:SetUserPlaced(false)
+	self.rez_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
+	self.rez_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
+	self.rez_bars:SetUserPlaced(false)
 	if self.db.profile.hideAnchor then
-		self.res_bars:HideAnchor()
-		self.res_bars:Lock()
+		self.rez_bars:HideAnchor()
+		self.rez_bars:Lock()
 	else
-		self.res_bars:ShowAnchor()
-		self.res_bars:Unlock()
-		self.res_bars:SetClampedToScreen(true)
-	end
-	
-	local function animateBar(self)
-		SmartRes2.res_bars:GetBar(sender):AnimateToGroup(SmartRes2.res_bars)
+		self.rez_bars:ShowAnchor()
+		self.rez_bars:Unlock()
+		self.rez_bars:SetClampedToScreen(true)
 	end
 end
 
@@ -260,8 +256,8 @@ function SmartRes2:OnEnable()
 	ResComm.RegisterCallback(self, "ResComm_ResEnd")
 	ResComm.RegisterCallback(self, "ResComm_Ressed")
 	ResComm.RegisterCallback(self, "ResComm_ResExpired")
-	self.res_bars.RegisterCallback(self, "FadeFinished")
-	self.res_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
+	self.rez_bars.RegisterCallback(self, "FadeFinished")
+	self.rez_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
 	self:BindKeys()
 	if self.db.profile.guessResses then
 		self:StartGuessing()
@@ -284,14 +280,12 @@ function SmartRes2:OnDisable()
 	self:UnregisterAllEvents()
 	Media.UnregisterAllCallbacks(self)
 	ResComm.UnregisterAllCallbacks(self)
-	self.res_bars.UnregisterAllCallbacks(self)
-	--[[
+	self.rez_bars.UnregisterAllCallbacks(self)
 	wipe(doingRessing)
 	wipe(waitingForAccept)
 	wipe(resBars)
-	wipe(otherRes)
-	]]--
-	doingRessing, waitingForAccept, resBars, otherRes = nil, nil, nil, nil
+	-- wipe(otherRes)
+	-- doingRessing, waitingForAccept, resBars, otherRes = nil, nil, nil, nil
 	LastRes = nil
 end
 
@@ -354,9 +348,9 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 		flags = "THICKOUTLINE"
 	end
 	if type == "statusbar" then
-		self.res_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+		self.rez_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	elseif type == "border" then
-		self.res_bars:SetBackdrop({
+		self.rez_bars:SetBackdrop({
 			edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
 			tile = false,
 			tileSize = self.db.profile.scale + 1,
@@ -364,7 +358,7 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
 	elseif type == "font" then
-		self.res_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, flags)
+		self.rez_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, flags)
 	end
 end
 
@@ -582,7 +576,7 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 		ResComm.RegisterCallback(self, "ResComm_ResEnd")
 		ResComm.RegisterCallback(self, "ResComm_Ressed")
 		ResComm.RegisterCallback(self, "ResComm_ResExpired")
-		self.res_bars.RegisterCallback(self, "FadeFinished")
+		self.rez_bars.RegisterCallback(self, "FadeFinished")
 	end
 	in_combat = false
 	if self.db.profile.guessResses then
@@ -789,13 +783,13 @@ function SmartRes2:CreateResBar(sender)
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
-	local bar = self.res_bars:NewTimerBar(sender, text, time, nil, icon, 0)	
+	local bar = self.rez_bars:NewTimerBar(sender, text, time, nil, icon, 0)	
 	local t = self.db.profile.resBarsColour
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
-	bar:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY) -- redundancy check #1
+	-- bar:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY) -- redundancy check #1
 	if self.db.profile.resBarsIcon then -- redundancy check #2
 		bar:ShowIcon()
 	else
@@ -824,7 +818,7 @@ end
 
 -- LibBars event - called when bar finished fading
 function SmartRes2:FadeFinished(event, bar, name)
-	self.res_bars:ReleaseBar(bar)
+	self.rez_bars:ReleaseBar(bar)
 end
 
 function SmartRes2:AddCollisionBars(sender, target, collisionsender)
@@ -873,6 +867,7 @@ function SmartRes2:GetChatType()
 end
 
 function SmartRes2:StartTestBars()
+	if not self.db.profile.enableAddon then return end
 	-- we don't want the test bars to throw an error if notify collision is on
 	local settings = self.db.profile.notifyCollision
 	if settings ~= "0-off" then
