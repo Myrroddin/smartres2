@@ -89,6 +89,7 @@ Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]
 local doingRessing = {}
 local waitingForAccept = {}
 local resBars = {}
+local otherRes = {}
 local orientation
 local icon
 local LastRes
@@ -284,8 +285,7 @@ function SmartRes2:OnDisable()
 	wipe(doingRessing)
 	wipe(waitingForAccept)
 	wipe(resBars)
-	-- wipe(otherRes)
-	-- doingRessing, waitingForAccept, resBars, otherRes = nil, nil, nil, nil
+	wipe(otherRes)
 	LastRes = nil
 end
 
@@ -481,7 +481,6 @@ function SmartRes2:ResComm_ResExpired(event, target)
 	waitingForAccept[target] = nil
 end
 
-local otherRes = {}
 do
 	local otherResSpells = {
 		[(GetSpellInfo(2006))] = true, --Resurrection
