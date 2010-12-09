@@ -89,7 +89,6 @@ Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]
 local doingRessing = {}
 local waitingForAccept = {}
 local resBars = {}
-local otherRes = {}
 local orientation
 local icon
 local LastRes
@@ -285,7 +284,6 @@ function SmartRes2:OnDisable()
 	wipe(doingRessing)
 	wipe(waitingForAccept)
 	wipe(resBars)
-	wipe(otherRes)
 	LastRes = nil
 end
 
@@ -503,7 +501,6 @@ do
 		if spell and target and UnitIsDeadOrGhost(target) then
 			self:ResComm_ResStart(nil, sender, (endTime / 1000), target)
 		end
-		otherRes[playerName] = target
 	end
 
 	function SmartRes2:UNIT_SPELLCAST_SUCCEEDED(_, unit, spellName)
@@ -511,10 +508,6 @@ do
 		
 		local sender = UnitName(unit)
 		self:ResComm_ResEnd(nil, sender, doingRessing[sender].target, true)
-		local target = otherRes[playerName]
-		if otherRes[playerName] then
-			otherRes[playerName] = nil
-		end
 	end
 
 	function SmartRes2:UNIT_SPELLCAST_STOP(_, unit)
@@ -522,22 +515,9 @@ do
 		
 		local sender = UnitName(unit)
 		self:ResComm_ResEnd(nil, sender, doingRessing[sender].target)
-		local target = otherRes[playerName]
-		if otherRes[playerName] then
-			otherRes[playerName] = nil
-		end
 	end
 	SmartRes2.UNIT_SPELLCAST_FAILED = SmartRes2.UNIT_SPELLCAST_STOP
 	SmartRes2.UNIT_SPELLCAST_INTERRUPTED = SmartRes2.UNIT_SPELLCAST_STOP	
-end
-
-function SmartRes2:OtherUnitBeingRessed(unit)
-	for resser, ressed in pairs(otherRes) do
-		if unit == ressed then
-			return true, resser
-		end
-	end
-	return false
 end
 
 -- Blizzard callback functions ----------------------------------------------
@@ -649,7 +629,7 @@ local function verifyUnit(unit)
 	if not UnitIsDead(unit) then return nil end
 	unitDead = true
 	if unit == LastRes then return nil end
-	if (ResComm:IsUnitBeingRessed(unit)) or (SmartRes2:OtherUnitBeingRessed(unit)) then unitBeingRessed = true return nil end
+	if ResComm:IsUnitBeingRessed(unit) then unitBeingRessed = true return nil end
 	if waitingForAccept[unit] then unitWaiting = true return nil end
 	if IsSpellInRange(SmartRes2.playerSpell, unit) ~= 1 then unitOutOfRange = true return nil end
 	return true
@@ -788,8 +768,7 @@ function SmartRes2:CreateResBar(sender)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
-	-- bar:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY) -- redundancy check #1
-	if self.db.profile.resBarsIcon then -- redundancy check #2
+	if self.db.profile.resBarsIcon then
 		bar:ShowIcon()
 	else
 		bar:HideIcon()
