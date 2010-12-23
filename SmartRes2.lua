@@ -51,13 +51,13 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 
 -- get version from .toc - set to Development if no version
 local version = GetAddOnMetadata("SmartRes2", "Version")
---@alpha@
+--[===[@alpha@
 if version:match("@") then
 	version = "Development"
 else
 	version = "Alpha "..version
 end
---@end-alpha@
+--@end-alpha@]===]
 
 -- add localisation to addon
 SmartRes2.L = L
@@ -452,14 +452,14 @@ function SmartRes2:ResComm_ResEnd(event, sender, target, complete)
 	-- did the cast fail or complete? mystery.
 	if not doingRessing[sender] then return end
 	
-	self:DeleteResBar(sender)
 	-- add the target to our waiting list, and save who the last person to res him was
 	if complete then
 		waitingForAccept[target] = doingRessing[sender].endTime
 	end
 	doingRessing[sender] = nil
 		
-	if self.db.profile.visibleResBars then 
+	if self.db.profile.visibleResBars then
+		self:DeleteResBar(sender)
 		local oldsender = self:CheckResTarget(target, sender) 
 		if oldsender and not self:CheckResTarget(target, oldsender) then	--collision bar existed and only 1 exists
 			self:DeleteCollisionBars(sender, target, oldsender)
@@ -489,7 +489,7 @@ do
 		[(GetSpellInfo(83968))] = true, -- Mass Resurrection
 		[(GetSpellInfo(8342))] = true, --Defibrillate (Goblin Jumper Cables)
 		[(GetSpellInfo(22999))] = true, -- Defibrillate (Goblin Jumper Cables XL)
-		[(GetSpellInfo(54732))] = true -- Defribillate (Gnomish Army Knife)
+		[(GetSpellInfo(54732))] = true -- Defibillate (Gnomish Army Knife)
 	}
 
 	function SmartRes2:UNIT_SPELLCAST_START(_, unit, spellName)
@@ -703,7 +703,6 @@ function SmartRes2:Resurrection()
 		elseif not unitDead then
 			self:Print(L["Everybody is alive. Congratulations!"])
 			wipe(waitingForAccept)
-			wipe(otherRes)
 			wipe(doingRessing)
 		elseif unitGhost then
 			self:Print(L["All dead units have released."])
@@ -726,7 +725,7 @@ end
 function SmartRes2:CreateResBar(sender)
 	if not self.db.profile.visibleResBars then return end
 	local text
-	local senderClass = select(2, UnitClass(sender))
+	local _, senderClass = UnitClass(sender)
 	local spell = UnitCastingInfo(sender)
 	local engineerSpells = { -- Defibrillate has 3 translations, one per item
 		GJC = GetSpellInfo(8342), -- Goblin Jumper Cables
