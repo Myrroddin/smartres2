@@ -70,16 +70,6 @@ local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1")
 local Bars = LibStub:GetLibrary("LibBars-1.0")
 -- LibResComm used for communication
 local ResComm, ResCommMinor = LibStub:GetLibrary("LibResComm-1.0")
-if ResCommMinor < 90051 then
-	StaticPopupDialogs["SMARTRES2_ERROR_FRAME"] = {
-		text = L["SmartRes2 works best with LibResComm-1.0 version r51 or newer. Please update at wowace.com"],
-		button1 = L["OK"],
-		timeout = 0,
-		whileDead = true,
-		hideOnEscape = true,
-	}
-	StaticPopup_Show("SMARTRES2_ERROR_FRAME");
-end
 -- LibSharedMedia used for more textures
 local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
 -- register the res bar textures with LibSharedMedia-3.0
