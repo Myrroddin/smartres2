@@ -1,4 +1,4 @@
-## Interface: 40100
+## Interface: 40200
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party/Raid wipe recovery. Evolved
 ## Notes-frFR: Coordonner la résurrection du groupe/raid sans cible.
