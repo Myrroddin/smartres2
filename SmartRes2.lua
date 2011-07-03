@@ -159,7 +159,7 @@ function SmartRes2:OnInitialize()
 	self.massResIcon = nil
 	if select(4, _G.GetBuildInfo()) >= 40000 then
 		SmartRes2.massRes = GetSpellInfo(83968)
-		SmartRes2.massResIcon = select(3, GetSpellInfo(self.massRes))
+		SmartRes2.massResIcon = select(3, GetSpellInfo(SmartRes2.massRes))
 	end
 
 	-- addon options table	
@@ -258,7 +258,7 @@ end
 function SmartRes2:SlashHandler(input)
 	input = input:lower()
 	if input == "cast" then
-		self:Resurrection()
+		SmartRes2:Resurrection()
 	else
 		_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
 	end
@@ -730,8 +730,8 @@ function SmartRes2:CreateResBar(sender)
 		icon = GetItemIcon(18587)
 	elseif spell == engineerSpells.GAK then
 		icon = GetItemIcon(40772)
-	elseif spell == self.massRes then
-		icon = self.massResIcon
+	elseif spell == SmartRes2.massRes then
+		icon = SmartRes2.massResIcon
 	else
 		icon = self.resSpellIcons[senderClass] or self.resSpellIcons.PRIEST
 	end
