@@ -97,9 +97,6 @@ local defaults = {
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		enableAddon = true,
-		flashCollision = true,
-		flashInterval = 0.5,
-		flashTimes = 5,
 		fontFlags = "0-nothing",
 		fontScale = 12,
 		fontType = "Friz Quadrata TT",
@@ -155,12 +152,6 @@ function SmartRes2:OnInitialize()
 	}  
 	self.playerClass = select(2, UnitClass("player"))
 	self.playerSpell = resSpells[self.playerClass]
-	self.massRes = nil
-	self.massResIcon = nil
-	if select(4, _G.GetBuildInfo()) >= 40000 then
-		SmartRes2.massRes = GetSpellInfo(83968)
-		SmartRes2.massResIcon = select(3, GetSpellInfo(SmartRes2.massRes))
-	end
 
 	-- addon options table	
 	self.options = self:OptionsTable() -- see SmartRes2Options.lua
@@ -255,6 +246,8 @@ function SmartRes2:OnEnable()
 end
 
 -- process slash commands ---------------------------------------------------
+-- developer version. let's see if we can find out why the macro command isn't working
+--@debug@
 function SmartRes2:SlashHandler(input)
 	input = input:lower()
 	if input == "cast" then
@@ -263,6 +256,15 @@ function SmartRes2:SlashHandler(input)
 		_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
 	end
 end
+--@end-debug@
+
+-- public version
+--[===[@non-debug@
+-- process slash commands ---------------------------------------------------
+function SmartRes2:SlashHandler(input)
+	_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+end
+--@end-non-debug@]===]
 
 -- disable SmartRes2 completely ----------------------------------------------
 function SmartRes2:OnDisable()
@@ -677,7 +679,7 @@ function SmartRes2:Resurrection()
 	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a sender 
 	local _, outOfMana = IsUsableSpell(self.playerSpell) 
 	if outOfMana == 1 then 
-	   self:Print(L["You don't have enough Mana to cast a res spell."]) 
+	   self:Print(ERR_OUT_OF_MANA) 
 	   return
 	end
 
@@ -687,7 +689,7 @@ function SmartRes2:Resurrection()
 		LastRes = unit
 	else
 		if unitOutOfRange then
-			self:Print(L["There are no bodies in range to res."])
+			self:Print(SPELL_FAILED_CUSTOM_ERROR_64_NONE)
 		elseif unitBeingRessed or unitWaiting then
 			self:Print(L["All dead units are being ressed."])
 		elseif not unitDead then
@@ -705,7 +707,7 @@ end
 -- resbar functions ---------------------------------------------------------
 
 local function ClassColouredName(name)
-	if not name then return "|cffcccccc"..L["Unknown"].."|r" end
+	if not name then return "|cffcccccc"..UNKNOWN.."|r" end
 	local _, class = UnitClass(name)
 	if not class then return "|cffcccccc"..name.."|r" end
 	local c = _G.RAID_CLASS_COLORS[class]
@@ -730,8 +732,6 @@ function SmartRes2:CreateResBar(sender)
 		icon = GetItemIcon(18587)
 	elseif spell == engineerSpells.GAK then
 		icon = GetItemIcon(40772)
-	elseif spell == SmartRes2.massRes then
-		icon = SmartRes2.massResIcon
 	else
 		icon = self.resSpellIcons[senderClass] or self.resSpellIcons.PRIEST
 	end

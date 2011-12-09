@@ -130,46 +130,16 @@ function addon:OptionsTable()
 					classColours = {
 						order = 110,
 						type = "toggle",
-						name = L["Class Colours"],
+						name = CLASS_COLORS,
 						desc = L["Use class colours for the target on the res bars"],
 						get = function() return self.db.profile.classColours end,
 						set = function(info, value)	self.db.profile.classColours = value end
-					},
-					flashCollision = {
-						order = 120,
-						type = "toggle",
-						name = L["Collision Flashing"],
-						desc = L["Make collision bars flash"],
-						get = function() return self.db.profile.flashCollision end,
-						set = function(info, value) self.db.profile.flashCollision = value end
 					},
 					spacer2 = {
 						type = "description",
 						name = "",
 						order = 130
-					},
-					flashInterval = {
-						order = 140,
-						type = "range",
-						name = L["Collision Flash Interval"],
-						desc = L["How often the flashing occurs"],
-						get = function() return self.db.profile.flashInterval end,
-						set = function(info, value) self.db.profile.flashInterval = value end,
-						min = 0.1,
-						max = 2,
-						step = 0.1
-					},
-					flashTimes = {
-						order = 150,
-						type = "range",
-						name = L["Collision Bar Flash Count"],
-						desc = L["How many times the flashing happens"],
-						get = function() return self.db.profile.flashTimes end,
-						set = function(info, value) self.db.profile.flashTimes = value end,
-						min = 1,
-						max = 10,
-						step = 1
-					},
+					},					
 					numMaxBars = {
 						order = 160,
 						type = "range",
@@ -260,7 +230,7 @@ function addon:OptionsTable()
 						order = 230,
 						type = "select",
 						dialogControl = "LSM30_Statusbar",
-						name = L["Texture"],
+						name = TEXTURES_SUBHEADER,
 						desc = L["Select the texture for the res bars"],
 						values = AceGUIWidgetLSMlists.statusbar,
 						get = function() return self.db.profile.resBarsTexture end,
@@ -341,7 +311,7 @@ function addon:OptionsTable()
 				}
 			},
 			resChatTextTab = {
-				name = L["Chat Output"],
+				name = CHAT_OPTIONS_LABEL,
 				desc = L["Chat output options"],
 				type = "group",
 				order = 20,
@@ -349,7 +319,7 @@ function addon:OptionsTable()
 					resChatHeader = {
 						order = 10,
 						type = "header",
-						name = L["Chat Output"]
+						name = CHAT_OPTIONS_LABEL
 					},
 					randMsgs = {
 						order = 20,
@@ -378,14 +348,14 @@ function addon:OptionsTable()
 						name = L["Chat Output Type"],
 						desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, smart Group, or None"],
 						values = {
-							["0-none"] = L["None"],
-							group = L["Group"],
-							guild = L["Guild"],
-							party = L["Party"],
-							raid = L["Raid"],
-							say = L["Say"],
-							whisper = L["Whisper"],
-							yell = L["Yell"]							
+							["0-none"] = NONE,
+							group = GROUP,
+							guild = CHAT_MSG_GUILD,
+							party = CHAT_MSG_PARTY,
+							raid = CHAT_MSG_RAID,
+							say = CHAT_MSG_SAY,
+							whisper = CHAT_MSG_WHISPER_INFORM,
+							yell = CHAT_MSG_YELL							
 						},
 						get = function() return self.db.profile.chatOutput end,
 						set = function(info, value)	self.db.profile.chatOutput = value end
@@ -396,14 +366,14 @@ function addon:OptionsTable()
 						name = L["Duplicate Res Targets"],
 						desc = L["Notify a resser they created a collision. Could get very spammy"],
 						values = {
-							["0-off"] = L["Off"],
-							group = L["Group"],
-							guild = L["Guild"],
-							party = L["Party"],
-							raid = L["Raid"],
-							say = L["Say"],
-							whisper = L["Whisper"],
-							yell = L["Yell"]
+							["0-off"] = OFF,
+							group = GROUP,
+							guild = CHAT_MSG_GUILD,
+							party = CHAT_MSG_PARTY,
+							raid = CHAT_MSG_RAID,
+							say = CHAT_MSG_SAY,
+							whisper = CHAT_MSG_WHISPER_INFORM,
+							yell = CHAT_MSG_YELL
 						},
 						get = function() return self.db.profile.notifyCollision end,
 						set = function(info, value)	self.db.profile.notifyCollision = value	end
@@ -482,7 +452,7 @@ function addon:OptionsTable()
 					fontSize = {
 						order = 20,
 						type = "range",
-						name = L["Font Scale"],
+						name = FONT_SIZE,
 						desc = L["Resize the res bars font"],
 						get = function() return self.db.profile.fontScale end,
 						set = function(info, value) self.db.profile.fontScale = value end,
@@ -507,8 +477,7 @@ function addon:OptionsTable()
 				}			
 			},
 			keyBindingsTab = {
-				name = L["Key Bindings"],
-				desc = L["Set the keybindings"],
+				name = KEY_BINDINGS,
 				type = "group",
 				order = 40,
 				args = {
@@ -528,11 +497,13 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.manualResKey end,
 						set  = function(info, value) self.db.profile.manualResKey = value end
 					},
+					--@debug@
 					castCommand = {
 						order = 30,
 						type = "description",
 						name = L["The command \"cast\" will fire the smart Resurrection function. Usage: /sr cast or /smartres cast. Not necessary if you use the auto res key"]
 					}
+					--@end-debug@
 				}
 			},
 			creditsTab = {
