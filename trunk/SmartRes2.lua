@@ -154,7 +154,7 @@ function SmartRes2:OnInitialize()
 	self.playerClass = select(2, UnitClass("player"))
 	self.playerSpell = resSpells[self.playerClass]
 	self.massResSpell = GetSpellInfo(83968)
-	self.massResSpellIcon = select(3, GetspellInfo(self.massResSpell))
+	self.massResSpellIcon = select(3, GetSpellInfo(83968))
 
 	-- addon options table	
 	self.options = self:OptionsTable() -- see SmartRes2Options.lua
