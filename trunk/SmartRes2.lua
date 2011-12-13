@@ -104,6 +104,7 @@ local defaults = {
 		hideAnchor = true,
 		horizontalOrientation = "RIGHT",
 		manualResKey = "",
+		massResKey = "",
 		maxBars = 10,
 		notifyCollision = "0-off",
 		notifySelf = true,
@@ -152,6 +153,8 @@ function SmartRes2:OnInitialize()
 	}  
 	self.playerClass = select(2, UnitClass("player"))
 	self.playerSpell = resSpells[self.playerClass]
+	self.massResSpell = GetSpellInfo(83968)
+	self.massResSpellIcon = select(3, GetspellInfo(self.massResSpell))
 
 	-- addon options table	
 	self.options = self:OptionsTable() -- see SmartRes2Options.lua
@@ -211,6 +214,12 @@ function SmartRes2:OnInitialize()
 	resButton:SetAttribute("type", "spell")
 	resButton:SetScript("PreClick", function() self:Resurrection() end)
 	self.resButton = resButton
+	
+	-- create seperate button for Mass Resurrection
+	local massResButton = _G.CreateFrame("button", "SR2MassResButton", UIPARENT, "SecureActionButtonTemplate")
+	massResButton:SetAttribute("type", "spell")
+	massResButton:SetScript("PreClick", function() self:MassResurrection() end)
+	self.massResButton = massResButton
 
 	-- create the Res Bars and set the user preferences
 	self.rez_bars = self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
@@ -489,9 +498,13 @@ do
 		
 		local spell, _, _, _, _, endTime = UnitCastingInfo(unit)
 		local sender = UnitName(unit)
-		local target = UnitName(unit .. "target")
-		if spell and target and UnitIsDeadOrGhost(target) then
-			self:ResComm_ResStart(nil, sender, (endTime / 1000), target)
+		if otherResSpells[spellName] ~= self.massResSpell then
+			local target = UnitName(unit .. "target")
+			if spell and target and UnitIsDeadOrGhost(target) then
+				self:ResComm_ResStart(nil, sender, (endTime / 1000), target)
+			end
+		else
+			self:MassResurrection(sender)
 		end
 	end
 
@@ -541,6 +554,7 @@ end
 
 function SmartRes2:PLAYER_REGEN_ENABLED()
 	self:BindKeys()
+	self:BindMassRes()
 	-- reenable callbacks during battle if we don't want to see battle resses
 	if not self.db.profile.showBattleRes then
 		ResComm.RegisterCallback(self, "ResComm_ResStart")
@@ -556,6 +570,11 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 end
 
 -- key binding functions ----------------------------------------------------
+function SmartRes2:BindMassRes()
+	-- guild level may be cached, therefore redundant check
+	if _G.GetGuildLevel() <= 24 or not _G.GetGuildInfo("player") then return end
+	_G.SetOverrideBindingClick(self.massResButton, false, self.db.profile.massResKey, "SR2MassResButton")
+end
 
 function SmartRes2:BindKeys()
 	-- only binds keys if the player can cast an out of combat res spell
@@ -566,15 +585,15 @@ end
 
 function SmartRes2:UnBindKeys()
 	_G.ClearOverrideBindings(self.resButton)
+	_G.ClearOverrideBindings(self.massResButton)
 end
 
 -- anchor management functions ----------------------------------------------
-
 function SmartRes2:ResAnchorMoved(_, _, x, y)
 	self.db.profile.resBarsX, self.db.profile.resBarsY = x, y
 end
 
--- smart ressurection determination functions -------------------------------
+-- smart resurrection determination functions -------------------------------
 local raidUpdated
 function SmartRes2:PARTY_MEMBERS_CHANGED()
 	raidUpdated = true
@@ -582,6 +601,42 @@ end
 
 function SmartRes2:RAID_ROSTER_UPDATE()
 	raidUpdated = true
+end
+
+function SmartRes2:MassResurrection(sender)
+	local massResButton = self.massResButton
+	massResButton:SetAttribute("unit", nil)
+
+	if GetNumPartyMembers() == 0 and not UnitInRaid("player") then
+		self:Print(L["You are not in a group."])
+		return
+	else
+		massResButton:SetAttribute("spell", self.massResSpell)
+	end
+	
+	if not IsUsableSpell(self.massResSpell) and UnitIsUnit(sender, "player") then
+		self:Print(L["You cannot cast Mass Resurrection right now."])
+		return
+	end
+	
+	local spellName, _, _, _, _, endTime = UnitCastingInfo(sender)
+	if not UnitIsUnit(sender, "player") and spellName ~= self.massResSpell then
+		return
+	end
+	
+	local groupSize = GetNumRaidMembers()
+	if groupSize == 0 then
+		groupSize = GetNumPartyMembers()
+	end
+	
+	for i, groupSize do
+		if UnitIsDeadOrGhost(i) then
+			if UnitIsUnit(sender, "player") then
+				massResButton:SetAttribute("unit", UnitName(i))
+			end
+			self:ResComm_ResStart(nil, sender, (endTime / 1000), UnitName(i))
+		end
+	end
 end
 
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK
@@ -732,6 +787,8 @@ function SmartRes2:CreateResBar(sender)
 		icon = GetItemIcon(18587)
 	elseif spell == engineerSpells.GAK then
 		icon = GetItemIcon(40772)
+	elseif spell == self.massResSpell then
+		icon = self.massResSpellIcon
 	else
 		icon = self.resSpellIcons[senderClass] or self.resSpellIcons.PRIEST
 	end

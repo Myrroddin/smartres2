@@ -130,7 +130,7 @@ function addon:OptionsTable()
 					classColours = {
 						order = 110,
 						type = "toggle",
-						name = CLASS_COLORS,
+						name = _G.CLASS_COLORS,
 						desc = L["Use class colours for the target on the res bars"],
 						get = function() return self.db.profile.classColours end,
 						set = function(info, value)	self.db.profile.classColours = value end
@@ -230,7 +230,7 @@ function addon:OptionsTable()
 						order = 230,
 						type = "select",
 						dialogControl = "LSM30_Statusbar",
-						name = TEXTURES_SUBHEADER,
+						name = _G.TEXTURES_SUBHEADER,
 						desc = L["Select the texture for the res bars"],
 						values = AceGUIWidgetLSMlists.statusbar,
 						get = function() return self.db.profile.resBarsTexture end,
@@ -311,7 +311,7 @@ function addon:OptionsTable()
 				}
 			},
 			resChatTextTab = {
-				name = CHAT_OPTIONS_LABEL,
+				name = _G.CHAT_OPTIONS_LABEL,
 				desc = L["Chat output options"],
 				type = "group",
 				order = 20,
@@ -319,7 +319,7 @@ function addon:OptionsTable()
 					resChatHeader = {
 						order = 10,
 						type = "header",
-						name = CHAT_OPTIONS_LABEL
+						name = _G.CHAT_OPTIONS_LABEL
 					},
 					randMsgs = {
 						order = 20,
@@ -348,14 +348,14 @@ function addon:OptionsTable()
 						name = L["Chat Output Type"],
 						desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, smart Group, or None"],
 						values = {
-							["0-none"] = NONE,
-							group = GROUP,
-							guild = CHAT_MSG_GUILD,
-							party = CHAT_MSG_PARTY,
-							raid = CHAT_MSG_RAID,
-							say = CHAT_MSG_SAY,
-							whisper = CHAT_MSG_WHISPER_INFORM,
-							yell = CHAT_MSG_YELL							
+							["0-none"] = _G.NONE,
+							group = _G.GROUP,
+							guild = _G.CHAT_MSG_GUILD,
+							party = _G.CHAT_MSG_PARTY,
+							raid = _G.CHAT_MSG_RAID,
+							say = _G.CHAT_MSG_SAY,
+							whisper = _G.CHAT_MSG_WHISPER_INFORM,
+							yell = _G.CHAT_MSG_YELL							
 						},
 						get = function() return self.db.profile.chatOutput end,
 						set = function(info, value)	self.db.profile.chatOutput = value end
@@ -366,14 +366,14 @@ function addon:OptionsTable()
 						name = L["Duplicate Res Targets"],
 						desc = L["Notify a resser they created a collision. Could get very spammy"],
 						values = {
-							["0-off"] = OFF,
-							group = GROUP,
-							guild = CHAT_MSG_GUILD,
-							party = CHAT_MSG_PARTY,
-							raid = CHAT_MSG_RAID,
-							say = CHAT_MSG_SAY,
-							whisper = CHAT_MSG_WHISPER_INFORM,
-							yell = CHAT_MSG_YELL
+							["0-off"] = _G.OFF,
+							group = _G.GROUP,
+							guild = _G.CHAT_MSG_GUILD,
+							party = _G.CHAT_MSG_PARTY,
+							raid = _G.CHAT_MSG_RAID,
+							say = _G.CHAT_MSG_SAY,
+							whisper = _G.CHAT_MSG_WHISPER_INFORM,
+							yell = _G.CHAT_MSG_YELL
 						},
 						get = function() return self.db.profile.notifyCollision end,
 						set = function(info, value)	self.db.profile.notifyCollision = value	end
@@ -452,7 +452,7 @@ function addon:OptionsTable()
 					fontSize = {
 						order = 20,
 						type = "range",
-						name = FONT_SIZE,
+						name = _G.FONT_SIZE,
 						desc = L["Resize the res bars font"],
 						get = function() return self.db.profile.fontScale end,
 						set = function(info, value) self.db.profile.fontScale = value end,
@@ -477,7 +477,7 @@ function addon:OptionsTable()
 				}			
 			},
 			keyBindingsTab = {
-				name = KEY_BINDINGS,
+				name = _G.KEY_BINDINGS,
 				type = "group",
 				order = 40,
 				args = {
@@ -496,6 +496,14 @@ function addon:OptionsTable()
 						desc = L["Gives you the pointer to click on corpses"],
 						get = function() return self.db.profile.manualResKey end,
 						set  = function(info, value) self.db.profile.manualResKey = value end
+					},
+					massResKey = {
+						order = 25,
+						type = "keybinding",
+						name = L["Mass Resurrection Key"],
+						desc = L["Press to start the guild perk Mass Resurrection"],
+						get = function() return self.db.profile.massResKey end,
+						set = function(info, value) self.db.profile.massResKey = value end
 					},
 					--@debug@
 					castCommand = {
