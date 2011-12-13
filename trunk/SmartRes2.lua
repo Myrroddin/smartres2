@@ -629,7 +629,7 @@ function SmartRes2:MassResurrection(sender)
 		groupSize = GetNumPartyMembers()
 	end
 	
-	for i, groupSize do
+	for i = 1, groupSize do
 		if UnitIsDeadOrGhost(i) then
 			if UnitIsUnit(sender, "player") then
 				massResButton:SetAttribute("unit", UnitName(i))
