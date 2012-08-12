@@ -20,11 +20,10 @@ local ipairs = _G.ipairs
 local GameTooltip = _G.GameTooltip
 local GetAddOnMetadata = _G.GetAddOnMetadata
 local GetItemIcon = _G.GetItemIcon
-local GetNumRaidMembers = _G.GetNumRaidMembers
-local GetNumPartyMembers = _G.GetNumPartyMembers
 local GetSpellInfo = _G.GetSpellInfo
 local GetTime = _G.GetTime
 local HIGHLIGHT_FONT_COLOR = _G.HIGHLIGHT_FONT_COLOR
+local IsInRaid = _G.IsInRaid
 local IsSpellInRange = _G.IsSpellInRange
 local IsUsableSpell = _G.IsUsableSpell
 local NORMAL_FONT_COLOR = _G.NORMAL_FONT_COLOR
@@ -33,8 +32,6 @@ local SendChatMessage = _G.SendChatMessage
 local UIParent = _G.UIParent
 local UnitCastingInfo = _G.UnitCastingInfo
 local UnitClass = _G.UnitClass
-local UnitInRaid = _G.UnitInRaid
-local UnitInRange = _G.UnitInRange
 local UnitIsAFK = _G.UnitIsAFK
 local UnitIsDead = _G.UnitIsDead
 local UnitIsDeadOrGhost = _G.UnitIsDeadOrGhost
@@ -51,13 +48,13 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 
 -- get version from .toc - set to Development if no version
 local version = GetAddOnMetadata("SmartRes2", "Version")
---[===[@alpha@
+--@alpha@
 if version:match("@") then
 	version = "Development"
 else
 	version = "Alpha "..version
 end
---@end-alpha@]===]
+--@end-alpha@
 
 -- add localisation to addon
 SmartRes2.L = L
@@ -143,13 +140,15 @@ function SmartRes2:OnInitialize()
 		PRIEST = GetSpellInfo(2006), -- Resurrection
 		SHAMAN = GetSpellInfo(2008), -- Ancestral Spirit
 		DRUID = GetSpellInfo(50769), -- Revive
-		PALADIN = GetSpellInfo(7328) -- Redemption
+		PALADIN = GetSpellInfo(7328), -- Redemption
+		MONK = GetSpellInfo(115178) -- Resuscitate
 	}
 	self.resSpellIcons = { -- need the icons too, for the res bars
 		PRIEST = select(3, GetSpellInfo(2006)), 	-- Resurrection
 		SHAMAN = select(3, GetSpellInfo(2008)), 	-- Ancestral Spirit
 		DRUID = select(3, GetSpellInfo(50769)), 	-- Revive
-		PALADIN = select(3, GetSpellInfo(7328)) 	-- Redemption
+		PALADIN = select(3, GetSpellInfo(7328)), 	-- Redemption
+		MONK = select(3, GetSpellInfo(115178))		-- Resuscitate
 	}  
 	self.playerClass = select(2, UnitClass("player"))
 	self.playerSpell = resSpells[self.playerClass]
@@ -239,8 +238,7 @@ function SmartRes2:OnEnable()
 	-- called when SmartRes2 is enabled
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
-	self:RegisterEvent("RAID_ROSTER_UPDATE")
-	self:RegisterEvent("PARTY_MEMBERS_CHANGED")	
+	self:RegisterEvent("GROUP_ROSTER_UPDATE")
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	ResComm.RegisterCallback(self, "ResComm_ResStart")
 	ResComm.RegisterCallback(self, "ResComm_ResEnd")
@@ -271,7 +269,12 @@ end
 --[===[@non-debug@
 -- process slash commands ---------------------------------------------------
 function SmartRes2:SlashHandler(input)
-	_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+	input = input:lower()
+	if input == "test" then
+		SmartRes2:StartTestBars()
+	else
+		_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+	end
 end
 --@end-non-debug@]===]
 
@@ -423,9 +426,9 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, target)
 	local channel = self.db.profile.chatOutput:upper()
 
 	if channel == "GROUP" then
-		if UnitInRaid("player") then
+		if IsInRaid() then
 			channel = "RAID"
-		elseif GetNumPartyMembers() > 0 then
+		else
 			channel = "PARTY"
 		end
 	end
@@ -487,6 +490,7 @@ do
 		[(GetSpellInfo(7328))] = true, --Redemption
 		[(GetSpellInfo(50769))] = true, --Revive
 		[(GetSpellInfo(20484))] = true, --Rebirth
+		[(GetSpellInfo(115178))] = true, -- Resuscitate
 		[(GetSpellInfo(83968))] = true, -- Mass Resurrection
 		[(GetSpellInfo(8342))] = true, --Defibrillate (Goblin Jumper Cables)
 		[(GetSpellInfo(22999))] = true, -- Defibrillate (Goblin Jumper Cables XL)
@@ -595,19 +599,16 @@ end
 
 -- smart resurrection determination functions -------------------------------
 local raidUpdated
-function SmartRes2:PARTY_MEMBERS_CHANGED()
-	raidUpdated = true
-end
-
-function SmartRes2:RAID_ROSTER_UPDATE()
+function SmartRes2:GROUP_ROSTER_UPDATE()
 	raidUpdated = true
 end
 
 function SmartRes2:MassResurrection(sender)
 	local massResButton = self.massResButton
 	massResButton:SetAttribute("unit", nil)
-
-	if GetNumPartyMembers() == 0 and not UnitInRaid("player") then
+	
+	local groupSize = GetNumGroupMembers()
+	if groupSize == 0 then
 		self:Print(L["You are not in a group."])
 		return
 	else
@@ -624,11 +625,6 @@ function SmartRes2:MassResurrection(sender)
 		return
 	end
 	
-	local groupSize = GetNumRaidMembers()
-	if groupSize == 0 then
-		groupSize = GetNumPartyMembers()
-	end
-	
 	for i = 1, groupSize do
 		if UnitIsDeadOrGhost(i) then
 			if UnitIsUnit(sender, "player") then
@@ -642,20 +638,20 @@ end
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK
 local SortedResList = {}
 local CLASS_PRIORITIES = {
-	-- There might be 10 classes, but SHAMANs and DRUIDs res at equal efficiency, so no preference
-	-- non healers who use Mana should be followed after healers, as they are usually buffers
-	-- or pet summoners (ie: Mana burners)
-	-- res non Mana users last
+	-- MoP changed all resurrection spells to 35% health and mana
+	-- get all ressers up first, then mana burners and pet summoners
+	-- get fighers up next, other dps last
 	PRIEST = 1,
-	PALADIN = 2, 
-	SHAMAN = 3, 
-	DRUID = 3, 
-	MAGE = 4, 
-	WARLOCK = 4,
-	DEATHKNIGHT = 5,
-	WARRIOR = 5,	
-	HUNTER = 5,	
-	ROGUE = 5
+	PALADIN = 1, 
+	SHAMAN = 1, 
+	DRUID = 1,
+	MONK = 1, 
+	MAGE = 2, 
+	WARLOCK = 2,
+	DEATHKNIGHT = 3,
+	WARRIOR = 3,	
+	HUNTER = 4,	
+	ROGUE = 4
 }
 
 -- create resurrection tables
@@ -684,11 +680,10 @@ end
 
 --sort function only called when raid has actually changed (avoided looking up unit names/classes everytime we click the res button)
 local function SortCurrentRaiders()
-	local num = GetNumRaidMembers()
-	local member = "raid"
-	if num == 0 then
-		num = GetNumPartyMembers()
-		member = "party"
+	local num = GetNumGroupMembers()
+	local member = "party"
+	if IsInRaid() then
+		member = "raid"
 	end
 	wipe(SortedResList)
 	for i = 1, num do
@@ -724,7 +719,7 @@ function SmartRes2:Resurrection()
 	local resButton = self.resButton
 	resButton:SetAttribute("unit", nil)
 
-	if GetNumPartyMembers() == 0 and not UnitInRaid("player") then
+	if GetNumGroupMembers() == 0 then
 		self:Print(L["You are not in a group."])
 		return
 	else
@@ -881,9 +876,9 @@ end
 function SmartRes2:GetChatType()
 	local chatType = self.db.profile.notifyCollision:upper()
 	if chatType == "GROUP" then
-		if GetNumRaidMembers() > 0 then
+		if IsInRaid() then
 			chatType = "RAID"
-		elseif GetNumPartyMembers() > 0 then
+		else
 			chatType = "PARTY"
 		end
 	end
