@@ -1,6 +1,6 @@
-## Interface: 40300
+## Interface: 50004
 ## Title: SmartRes2
-## Notes: Co-ordinated targetless Party/Raid wipe recovery. Evolved
+## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
 ## Notes-frFR: Coordonner la résurrection du groupe/raid sans cible.
 ## Notes-deDE: Koordinierte, ziellose Wiederbelebung von Gruppen/Schlachtzügen. In Entwicklung
 ## Notes-koKR: 지정된 타겟없이 파티/공격대를 순식간에 복구시킵니다. .toc 파일 내 Notes 예
@@ -14,9 +14,9 @@
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
 ## X-Donate: http://pledgie.com/campaigns/5989
-## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid
+## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid, Monk
 ## SavedVariables: SmartRes2DB
-## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, koKR, zhTW, ptBR
+## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, koKR, zhTW, ptBR, itIT
 ## X-Website: http://www.curse.com/addons/wow/smartres2
 ## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
 
@@ -42,6 +42,7 @@ Libs\LibAboutPanel\lib.xml
 #@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
+Locales\Localization.itIT.lua
 Locales\Localization.frFR.lua
 Locales\Localization.ruRU.lua
 Locales\Localization.deDE.lua
