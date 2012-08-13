@@ -1,4 +1,4 @@
-## Interface: 50004
+## Interface: 50001
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
 ## Notes-frFR: Coordonner la résurrection du groupe/raid sans cible.
