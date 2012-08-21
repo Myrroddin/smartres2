@@ -505,13 +505,13 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.massResKey end,
 						set = function(info, value) self.db.profile.massResKey = value end
 					},
-					--@debug@
+					--[===[@debug@
 					castCommand = {
 						order = 30,
 						type = "description",
 						name = L["The command \"cast\" will fire the smart Resurrection function. Usage: /sr cast or /smartres cast. Not necessary if you use the auto res key"]
 					}
-					--@end-debug@
+					--@end-debug@]===]
 				}
 			},
 			creditsTab = {

@@ -259,6 +259,8 @@ function SmartRes2:SlashHandler(input)
 	input = input:lower()
 	if input == "cast" then
 		SmartRes2:Resurrection()
+	elseif input == "test" then
+		SmartRes2:StartTestBars()
 	else
 		_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
 	end
@@ -672,7 +674,7 @@ local function verifyUnit(unit)
 	if not UnitIsDead(unit) then return nil end
 	unitDead = true
 	if unit == LastRes then return nil end
-	if ResComm:IsUnitBeingRessed(unit) then unitBeingRessed = true return nil end
+	if _G.UnitHasIncomingResurrection(unit) then unitBeingRessed = true return nil end
 	if waitingForAccept[unit] then unitWaiting = true return nil end
 	if IsSpellInRange(SmartRes2.playerSpell, unit) ~= 1 then unitOutOfRange = true return nil end
 	return true
@@ -681,14 +683,14 @@ end
 --sort function only called when raid has actually changed (avoided looking up unit names/classes everytime we click the res button)
 local function SortCurrentRaiders()
 	local num = GetNumGroupMembers()
-	local member = "party"
+	--[[ local member = "party"
 	if IsInRaid() then
 		member = "raid"
-	end
+	end ]]--
 	wipe(SortedResList)
 	for i = 1, num do
-		local id = member .. i
-		local name = UnitName(id)
+		-- local id = member .. i
+		local name = UnitName(num) -- local name = UnitName(id)
 		local resprio, lvl = getClassOrder(name)
 		tinsert(SortedResList, {name = name, resprio = resprio, level = lvl})
 	end
