@@ -253,23 +253,6 @@ function SmartRes2:OnEnable()
 end
 
 -- process slash commands ---------------------------------------------------
--- developer version. let's see if we can find out why the macro command isn't working
---@debug@
-function SmartRes2:SlashHandler(input)
-	input = input:lower()
-	if input == "cast" then
-		SmartRes2:Resurrection()
-	elseif input == "test" then
-		SmartRes2:StartTestBars()
-	else
-		_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
-	end
-end
---@end-debug@
-
--- public version
---[===[@non-debug@
--- process slash commands ---------------------------------------------------
 function SmartRes2:SlashHandler(input)
 	input = input:lower()
 	if input == "test" then
@@ -278,7 +261,6 @@ function SmartRes2:SlashHandler(input)
 		_G.InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
 	end
 end
---@end-non-debug@]===]
 
 -- disable SmartRes2 completely ----------------------------------------------
 function SmartRes2:OnDisable()
@@ -461,6 +443,7 @@ function SmartRes2:ResComm_ResEnd(event, sender, target, complete)
 	-- add the target to our waiting list, and save who the last person to res him was
 	if complete then
 		waitingForAccept[target] = doingRessing[sender].endTime
+		doingRessing[sender] = nil
 	end
 	doingRessing[sender] = nil
 		
@@ -683,14 +666,13 @@ end
 --sort function only called when raid has actually changed (avoided looking up unit names/classes everytime we click the res button)
 local function SortCurrentRaiders()
 	local num = GetNumGroupMembers()
-	--[[ local member = "party"
+	local member = "party"
 	if IsInRaid() then
 		member = "raid"
-	end ]]--
+	end
 	wipe(SortedResList)
 	for i = 1, num do
-		-- local id = member .. i
-		local name = UnitName(num) -- local name = UnitName(id)
+		local name = UnitName(member .. num)
 		local resprio, lvl = getClassOrder(name)
 		tinsert(SortedResList, {name = name, resprio = resprio, level = lvl})
 	end
