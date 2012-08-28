@@ -19,6 +19,7 @@
 ## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, koKR, zhTW, ptBR, itIT
 ## X-Website: http://www.curse.com/addons/wow/smartres2
 ## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
+## X-License: (c) 2009, 2012, Paul "Myrroddin" Vandersypen. All Rights Reserved
 
 ## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets
 
