@@ -199,7 +199,7 @@ function addon:OptionsTable()
 					resBarsAlpha = {
 						order = 200,
 						type = "range",
-						name = L["Alpha"],
+						name = _G.OPACITY,
 						desc = L["Set the Alpha for the res bars"],
 						get = function() return self.db.profile.resBarsAlpha end,
 						set = function(info, value)
@@ -240,7 +240,7 @@ function addon:OptionsTable()
 						order = 240,
 						type = "select",
 						dialogControl = "LSM30_Border",
-						name = L["Border"],
+						name = _G.DISPLAY_BORDERS,
 						desc = L["Select the border for the res bars"],
 						values = AceGUIWidgetLSMlists.border,
 						get = function() return self.db.profile.resBarsBorder end,
@@ -466,7 +466,7 @@ function addon:OptionsTable()
 						name = L["Font Style"],
 						desc = L["Nothing, outline, thick outline, or monochrome"],						
 						values = {
-							["0-nothing"] = L["Nothing"],
+							["0-nothing"] = _G.NONE,
 							outline = L["Outline"],
 							thickOut = L["THICK_OUTLINE"],
 							monoChrome = L["Monochrome"]
@@ -504,14 +504,7 @@ function addon:OptionsTable()
 						desc = L["Press to start the guild perk Mass Resurrection"],
 						get = function() return self.db.profile.massResKey end,
 						set = function(info, value) self.db.profile.massResKey = value end
-					},
-					--[===[@debug@
-					castCommand = {
-						order = 30,
-						type = "description",
-						name = L["The command \"cast\" will fire the smart Resurrection function. Usage: /sr cast or /smartres cast. Not necessary if you use the auto res key"]
 					}
-					--@end-debug@]===]
 				}
 			},
 			creditsTab = {
