@@ -19,3 +19,4 @@ externals:
 
 tools-used:
     - libdatabroker-1-1
+    - librescomm-1-0

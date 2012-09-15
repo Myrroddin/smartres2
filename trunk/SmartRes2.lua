@@ -15,6 +15,7 @@ local tsort = table.sort
 local wipe = table.wipe
 local pairs = _G.pairs
 local ipairs = _G.ipairs
+local select = _G.select
 
 -- Upvalued Blizzard API ----------------------------------------------------
 local GameTooltip = _G.GameTooltip
@@ -23,11 +24,11 @@ local GetItemIcon = _G.GetItemIcon
 local GetSpellInfo = _G.GetSpellInfo
 local GetTime = _G.GetTime
 local HIGHLIGHT_FONT_COLOR = _G.HIGHLIGHT_FONT_COLOR
+local IsInGroup = _G.IsInGroup
 local IsInRaid = _G.IsInRaid
 local IsSpellInRange = _G.IsSpellInRange
 local IsUsableSpell = _G.IsUsableSpell
 local NORMAL_FONT_COLOR = _G.NORMAL_FONT_COLOR
-local select = _G.select
 local SendChatMessage = _G.SendChatMessage
 local UIParent = _G.UIParent
 local UnitCastingInfo = _G.UnitCastingInfo
@@ -79,6 +80,7 @@ local resBars = {}
 local orientation
 local icon
 local LastRes
+local _ -- stupid blizzard bug in 5.0.4
 
 -- variable to use for multiple PLAYER_REGEN_DISABLED calls (see SmartRes2:PLAYER_REGEN_DISABLED below)
 local in_combat = false
@@ -330,8 +332,6 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 	local flags = self.db.profile.fontFlags:upper()
 	if flags == "0-NOTHING" then
 		flags = nil
-	elseif flags == "thickOut" then
-		flags = "THICKOUTLINE"
 	end
 	if type == "statusbar" then
 		self.rez_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
@@ -417,7 +417,7 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, target)
 		end
 	end
 
-	if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
+	if channel ~= "0-NONE" and IsInGroup() then -- if it is "none" then don't send any chat messages
 		local msg = L["%%p%% is ressing %%t%%"]
 
 		if self.db.profile.randMsgs then
@@ -666,9 +666,10 @@ end
 --sort function only called when raid has actually changed (avoided looking up unit names/classes everytime we click the res button)
 local function SortCurrentRaiders()
 	local num = GetNumGroupMembers()
-	local member = "party"
 	if IsInRaid() then
 		member = "raid"
+	elseif IsInGroup() then
+		member = "party"
 	end
 	wipe(SortedResList)
 	for i = 1, num do
@@ -776,8 +777,6 @@ function SmartRes2:CreateResBar(sender)
 	local flags = self.db.profile.fontFlags:upper()
 	if flags == "0-NOTHING" then
 		flags = nil
-	elseif flags == "thickOut" then
-		flags = "THICKOUTLINE"
 	end
 	
 	if self.db.profile.classColours then
@@ -862,7 +861,7 @@ function SmartRes2:GetChatType()
 	if chatType == "GROUP" then
 		if IsInRaid() then
 			chatType = "RAID"
-		else
+		elseif IsInGroup() then
 			chatType = "PARTY"
 		end
 	end
