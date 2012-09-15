@@ -468,8 +468,8 @@ function addon:OptionsTable()
 						values = {
 							["0-nothing"] = _G.NONE,
 							outline = L["Outline"],
-							thickOut = L["THICK_OUTLINE"],
-							monoChrome = L["Monochrome"]
+							thickOutline = L["THICK_OUTLINE"],
+							-- monoChrome = L["Monochrome"]
 						},
 						get = function() return self.db.profile.fontFlags end,
 						set = function(info, value) self.db.profile.fontFlags = value end
