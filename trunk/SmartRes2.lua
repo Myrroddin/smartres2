@@ -80,7 +80,6 @@ local resBars = {}
 local orientation
 local icon
 local LastRes
-local _ -- stupid blizzard bug in 5.0.4
 
 -- variable to use for multiple PLAYER_REGEN_DISABLED calls (see SmartRes2:PLAYER_REGEN_DISABLED below)
 local in_combat = false
@@ -665,26 +664,34 @@ end
 
 --sort function only called when raid has actually changed (avoided looking up unit names/classes everytime we click the res button)
 local function SortCurrentRaiders()
-	local num = GetNumGroupMembers()
-	if IsInRaid() then
-		member = "raid"
-	elseif IsInGroup() then
-		member = "party"
-	end
-	wipe(SortedResList)
-	for i = 1, num do
-		local name = UnitName(member .. num)
-		local resprio, lvl = getClassOrder(name)
-		tinsert(SortedResList, {name = name, resprio = resprio, level = lvl})
-	end
-	tsort(SortedResList, function(a,b) 
-		if a.resprio == b.resprio then
-			return a.level > b.level
-		else 
-			return a.resprio < b.resprio
-		end
-	end)
-	raidUpdated = nil
+  local num = GetNumGroupMembers()
+  wipe(SortedResList)
+  if num > 0 then 
+    local unit,resprio,lvl
+    if IsInRaid() then
+      for i = 1, num do
+        unit = "raid"..num
+        resprio, lvl = getClassOrder(unit)
+        tinsert(SortedResList, {name = unit, resprio = resprio, level = lvl})
+      end
+    elseif IsInGroup() then
+      resprio, lvl = getClassOrder("player")
+      tinsert(SortedResList, {name = "player", resprio = resprio, level = lvl})
+      for i = 1, num-1 do
+        unit = "party"..num
+        resprio, lvl = getClassOrder(unit)
+        tinsert(SortedResList, {name = unit, resprio = resprio, level = lvl})
+      end
+    end
+    tsort(SortedResList, function(a,b) 
+      if a.resprio == b.resprio then
+        return a.level > b.level
+      else 
+        return a.resprio < b.resprio
+      end
+    end)
+  end
+  raidUpdated = nil
 end
 
 local function getBestCandidate()
