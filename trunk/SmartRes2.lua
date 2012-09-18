@@ -127,7 +127,7 @@ local defaults = {
 
 function SmartRes2:OnInitialize()
 	-- register saved variables with AceDB
-	db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, "Default")
+	db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, true)
 	db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
 	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
 	db.RegisterCallback(self, "OnProfileReset", "OnNewProfile")
@@ -403,7 +403,13 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, target)
 	if not UnitIsUnit(sender, "player")	then return end
 
 	local name, realm = UnitName(target)
-	if name == "Myrroddin" or name == "Jelia" or name == "Badash" or name == "Vanhoeffen" and realm == "Llane" then
+	local creatorName = {
+		"Myrroddin",
+		"Jelia",
+		"Badash",
+		"Vanhoeffen"
+	}
+	if creatorName[name] and realm == "Llane" then
 		self:Print("You are ressing the Creator!!")
 	end
 	local channel = self.db.profile.chatOutput:upper()
@@ -411,12 +417,12 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, target)
 	if channel == "GROUP" then
 		if IsInRaid() then
 			channel = "RAID"
-		else
+		elseif IsInGroup() then
 			channel = "PARTY"
 		end
 	end
 
-	if channel ~= "0-NONE" and IsInGroup() then -- if it is "none" then don't send any chat messages
+	if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
 		local msg = L["%%p%% is ressing %%t%%"]
 
 		if self.db.profile.randMsgs then
@@ -443,8 +449,9 @@ function SmartRes2:ResComm_ResEnd(event, sender, target, complete)
 	if complete then
 		waitingForAccept[target] = doingRessing[sender].endTime
 		doingRessing[sender] = nil
-	end
-	doingRessing[sender] = nil
+	else
+		doingRessing[sender] = nil
+	end	
 		
 	if self.db.profile.visibleResBars then
 		self:DeleteResBar(sender)
@@ -671,12 +678,12 @@ local function SortCurrentRaiders()
     if IsInRaid() then
       for i = 1, num do
         unit = "raid"..num
-        resprio, lvl = getClassOrder(unit)
-        tinsert(SortedResList, {name = unit, resprio = resprio, level = lvl})
+		if not UnitIsUnit(unit, "player") then
+			resprio, lvl = getClassOrder(unit)
+			tinsert(SortedResList, {name = unit, resprio = resprio, level = lvl})
+		end
       end
     elseif IsInGroup() then
-      resprio, lvl = getClassOrder("player")
-      tinsert(SortedResList, {name = "player", resprio = resprio, level = lvl})
       for i = 1, num-1 do
         unit = "party"..num
         resprio, lvl = getClassOrder(unit)
@@ -885,12 +892,12 @@ function SmartRes2:StartTestBars()
 
 	-- set up the test bars
 	waitingForAccept["Someone"] = GetTime() - 6
-	self:ResComm_ResStart(nil, "Nursenancy", GetTime() + 4, "Frankthetank")
+	self:ResComm_ResStart(nil, "NawtyNurse", GetTime() + 4, "Frankthetank")
 	self:ResComm_ResStart(nil, "Dummy", GetTime() + 8, "Frankthetank")
 	self:ResComm_ResStart(nil, "Gabriel", GetTime() + 6, "Someone")
 		
 	-- clean up
-	doingRessing["Nursenancy"] = nil
+	doingRessing["NawtyNurse"] = nil
 	doingRessing["Dummy"] = nil
 	doingRessing["Gabriel"] = nil
 	waitingForAccept["Someone"] = nil
