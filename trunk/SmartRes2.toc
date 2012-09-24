@@ -43,6 +43,7 @@ Libs\LibAboutPanel\lib.xml
 #@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
+Locales\Localization.enUS.lua
 Locales\Localization.itIT.lua
 Locales\Localization.frFR.lua
 Locales\Localization.ruRU.lua
@@ -51,6 +52,6 @@ Locales\Localization.Spanish.lua
 Locales\Localization.zhCN.lua
 Locales\Localization.zhTW.lua
 Locales\Localization.ptBR.lua
-Locales\Localization.enUS.lua
+
 SmartRes2.lua
 SmartRes2Options.lua

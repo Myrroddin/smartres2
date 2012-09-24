@@ -80,7 +80,12 @@ local resBars = {}
 local orientation
 local icon
 local LastRes
-
+local creatorName = {
+	"Myrroddin",
+	"Jelia",
+	"Badash",
+	"Vanhoeffen"
+}
 -- variable to use for multiple PLAYER_REGEN_DISABLED calls (see SmartRes2:PLAYER_REGEN_DISABLED below)
 local in_combat = false
 
@@ -402,16 +407,11 @@ function SmartRes2:ResComm_ResStart(event, sender, endTime, target)
 	-- make sure only the player is sending messages
 	if not UnitIsUnit(sender, "player")	then return end
 
-	local name, realm = UnitName(target)
-	local creatorName = {
-		"Myrroddin",
-		"Jelia",
-		"Badash",
-		"Vanhoeffen"
-	}
+	local name, realm = UnitName(target)	
 	if creatorName[name] and realm == "Llane" then
 		self:Print("You are ressing the Creator!!")
 	end
+	
 	local channel = self.db.profile.chatOutput:upper()
 
 	if channel == "GROUP" then
@@ -616,12 +616,20 @@ function SmartRes2:MassResurrection(sender)
 		return
 	end
 	
+	local unit, member, name
+	if IsInRaid() then
+		member = "raid"
+	elseif IsInGroup() then
+		member = "party"
+		groupSize = groupSize-1
+	end
+	
 	for i = 1, groupSize do
-		if UnitIsDeadOrGhost(i) then
-			if UnitIsUnit(sender, "player") then
-				massResButton:SetAttribute("unit", UnitName(i))
-			end
-			self:ResComm_ResStart(nil, sender, (endTime / 1000), UnitName(i))
+		unit = member..i
+		name = UnitName(unit)
+		if UnitIsDeadOrGhost(unit) then			
+			massResButton:SetAttribute("unit", unit)
+			self:ResComm_ResStart(nil, sender, (endTime / 1000), name)
 		end
 	end
 end
@@ -671,34 +679,34 @@ end
 
 --sort function only called when raid has actually changed (avoided looking up unit names/classes everytime we click the res button)
 local function SortCurrentRaiders()
-  local num = GetNumGroupMembers()
-  wipe(SortedResList)
-  if num > 0 then 
-    local unit,resprio,lvl
-    if IsInRaid() then
-      for i = 1, num do
-        unit = "raid"..num
-		if not UnitIsUnit(unit, "player") then
-			resprio, lvl = getClassOrder(unit)
-			tinsert(SortedResList, {name = unit, resprio = resprio, level = lvl})
+	local num = GetNumGroupMembers()
+	local unit, resprio, lvl, name
+	wipe(SortedResList)
+	if IsInRaid() then
+		for i = 1, num do
+			unit = "raid"..num
+			if not UnitIsUnit(unit, "player") then
+				resprio, lvl = getClassOrder(unit)
+				name = UnitName(unit)
+				tinsert(SortedResList, {name = name, resprio = resprio, level = lvl})
+			end
 		end
-      end
-    elseif IsInGroup() then
-      for i = 1, num-1 do
-        unit = "party"..num
-        resprio, lvl = getClassOrder(unit)
-        tinsert(SortedResList, {name = unit, resprio = resprio, level = lvl})
-      end
-    end
-    tsort(SortedResList, function(a,b) 
-      if a.resprio == b.resprio then
-        return a.level > b.level
-      else 
-        return a.resprio < b.resprio
-      end
-    end)
-  end
-  raidUpdated = nil
+	elseif IsInGroup() then
+		for i = 1, num-1 do
+			unit = "party"..num
+			resprio, lvl = getClassOrder(unit)
+			name = UnitName(unit)
+			tinsert(SortedResList, {name = name, resprio = resprio, level = lvl})
+		end
+	end
+	tsort(SortedResList, function(a,b) 
+		if a.resprio == b.resprio then
+			return a.level > b.level
+		else 
+			return a.resprio < b.resprio
+		end
+	end)
+	raidUpdated = nil
 end
 
 local function getBestCandidate()
@@ -718,7 +726,7 @@ function SmartRes2:Resurrection()
 	local resButton = self.resButton
 	resButton:SetAttribute("unit", nil)
 
-	if GetNumGroupMembers() == 0 then
+	if not IsInGroup() then
 		self:Print(L["You are not in a group."])
 		return
 	else
