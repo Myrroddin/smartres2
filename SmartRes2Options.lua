@@ -487,7 +487,12 @@ function addon:OptionsTable()
 						name = L["Auto Res Key"],
 						desc = L["For ressing targets who have not released their ghosts"],
 						get = function() return self.db.profile.autoResKey end,
-						set = function(info, value)	self.db.profile.autoResKey = value end
+						set = function(info, value)
+							self.db.profile.autoResKey = value
+							if value then
+								self:BindKeys()
+							end
+						end
 					},
 					manualResKey = {
 						order = 20,
@@ -495,7 +500,12 @@ function addon:OptionsTable()
 						name = L["Manual Target Key"],
 						desc = L["Gives you the pointer to click on corpses"],
 						get = function() return self.db.profile.manualResKey end,
-						set  = function(info, value) self.db.profile.manualResKey = value end
+						set  = function(info, value)
+							self.db.profile.manualResKey = value
+							if value then
+								self:BindKeys()
+							end
+						end
 					},
 					massResKey = {
 						order = 25,
@@ -503,7 +513,12 @@ function addon:OptionsTable()
 						name = L["Mass Resurrection Key"],
 						desc = L["Press to start the guild perk Mass Resurrection"],
 						get = function() return self.db.profile.massResKey end,
-						set = function(info, value) self.db.profile.massResKey = value end
+						set = function(info, value)
+							self.db.profile.massResKey = value
+							if value then
+								self:BindKeys()
+							end
+						end
 					}
 				}
 			},

@@ -1,8 +1,8 @@
--- Authors: Silmano
--- Localization file for Spanish version of SmartRes2
+--@file-author@
+--@file-revision@
+--@file-date-iso@
 
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "esMX") or LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "esES")
-if L then
-	--@localization(locale="esES", format="lua_additive_table", table-name="L", same-key-is-true=true, handle-unlocalized="english")@
-	return
-end
+if not L then return end
+
+--@localization(locale="esES", format="lua_additive_table", same-key-is-true=true, handle-unlocalized="english")@
