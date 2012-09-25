@@ -1,6 +1,8 @@
---@file-author@
---@file-revision@
---@file-date-iso@
+--[[
+File author: --@file-author@
+File revision: --@file-revision@
+Date updated: --@file-date-iso@
+]]--
       
 local debug = false
 --@debug@
