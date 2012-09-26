@@ -245,6 +245,8 @@ function SmartRes2:OnEnable()
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("GROUP_ROSTER_UPDATE")
+	self:RegisterEvent("GUILD_PERK_UPDATE", "VerifyPerk")
+	self:RegisterEvent("PLAYER_GUILD_UPDATE", "VerifyPerk")
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	ResComm.RegisterCallback(self, "ResComm_ResStart")
 	ResComm.RegisterCallback(self, "ResComm_ResEnd")
@@ -252,6 +254,7 @@ function SmartRes2:OnEnable()
 	ResComm.RegisterCallback(self, "ResComm_ResExpired")
 	self.rez_bars.RegisterCallback(self, "FadeFinished")
 	self.rez_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
+	self:BindMassRes()
 	self:BindKeys()
 	if self.db.profile.guessResses then
 		self:StartGuessing()
@@ -522,6 +525,11 @@ end
 
 -- Blizzard callback functions ----------------------------------------------
 
+function SmartRes2:VerifyPerk(unit)
+	if unit ~= "player" then return end
+	self:BindMassRes()
+end
+
 -- Important Note: Since the release of patch 3.2, certain fights in the game fire the 
 -- "PLAYER_REGEN_DISABLED" event continuously during combat causing any subsequent events
 -- we might trigger as a result to also fire continuously. It is recommended therefore to
@@ -566,16 +574,35 @@ end
 
 -- key binding functions ----------------------------------------------------
 function SmartRes2:BindMassRes()
-	-- guild level may be cached, therefore redundant check
-	if _G.GetGuildLevel() <= 24 or not _G.GetGuildInfo("player") then return end
-	_G.SetOverrideBindingClick(self.massResButton, false, self.db.profile.massResKey, "SR2MassResButton")
+	if _G.IsSpellKnown(83968) then
+		self.knowsMassRes = true
+	else
+		self.knowsMassRes = nil
+		return
+	end
+	
+	if self.db.profile.massResKey ~= "" then
+		_G.SetOverrideBindingClick(self.massResButton, false, self.db.profile.massResKey, "SR2MassResButton")
+	elseif self.db.profile.massResKey == "" or not self.knowsMassRes then
+		_G.SetOverrideBindingClick(self.massResButton, false, self.db.profile.massResKey, nil)
+	end
 end
 
 function SmartRes2:BindKeys()
 	-- only binds keys if the player can cast an out of combat res spell
 	if not self.playerSpell then return end
-	_G.SetOverrideBindingClick(self.resButton, false, self.db.profile.autoResKey, "SmartRes2Button")
-	_G.SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualResKey, self.playerSpell)
+	
+	if self.db.profile.autoResKey ~= "" then
+		_G.SetOverrideBindingClick(self.resButton, false, self.db.profile.autoResKey, "SmartRes2Button")
+	else
+		_G.SetOverrideBindingClick(self.resButton, false, self.db.profile.autoReskey, nil)
+	end
+	
+	if self.db.profile.manualResKey ~= "" then
+		_G.SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualResKey, self.playerSpell)
+	else
+		_G.SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualReskey, nil)
+	end
 end
 
 function SmartRes2:UnBindKeys()

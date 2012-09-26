@@ -489,9 +489,7 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.autoResKey end,
 						set = function(info, value)
 							self.db.profile.autoResKey = value
-							if value then
-								self:BindKeys()
-							end
+							self:BindKeys()
 						end
 					},
 					manualResKey = {
@@ -502,9 +500,7 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.manualResKey end,
 						set  = function(info, value)
 							self.db.profile.manualResKey = value
-							if value then
-								self:BindKeys()
-							end
+							self:BindKeys()
 						end
 					},
 					massResKey = {
@@ -515,10 +511,9 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.massResKey end,
 						set = function(info, value)
 							self.db.profile.massResKey = value
-							if value then
-								self:BindKeys()
-							end
-						end
+							self:BindMassRes()
+						end,
+						disabled = function() return not self.knowsMassRes end
 					}
 				}
 			},
