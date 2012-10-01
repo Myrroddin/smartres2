@@ -578,13 +578,12 @@ function SmartRes2:BindMassRes()
 		self.knowsMassRes = true
 	else
 		self.knowsMassRes = nil
-		return
 	end
 	
-	if self.db.profile.massResKey ~= "" then
+	if self.db.profile.massResKey ~= "" and self.knowsMassRes then
 		_G.SetOverrideBindingClick(self.massResButton, false, self.db.profile.massResKey, "SR2MassResButton")
 	elseif self.db.profile.massResKey == "" or not self.knowsMassRes then
-		_G.SetOverrideBindingClick(self.massResButton, false, self.db.profile.massResKey, nil)
+		_G.SetOverrideBinding(self.massResButton, false, self.db.profile.massResKey, nil)
 	end
 end
 
@@ -595,13 +594,13 @@ function SmartRes2:BindKeys()
 	if self.db.profile.autoResKey ~= "" then
 		_G.SetOverrideBindingClick(self.resButton, false, self.db.profile.autoResKey, "SmartRes2Button")
 	else
-		_G.SetOverrideBindingClick(self.resButton, false, self.db.profile.autoReskey, nil)
+		_G.SetOverrideBinding(self.resButton, false, self.db.profile.autoResKey, nil)
 	end
 	
 	if self.db.profile.manualResKey ~= "" then
 		_G.SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualResKey, self.playerSpell)
 	else
-		_G.SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualReskey, nil)
+		_G.SetOverrideBinding(self.resButton, false, self.db.profile.manualResKey, nil)
 	end
 end
 
