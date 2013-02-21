@@ -1,8 +1,4 @@
-﻿local _G = getfenv(0)
-local LibStub = _G.LibStub
-local tinsert = _G.table.insert
-local tremove = _G.table.remove
-local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
+﻿local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 local L = addon.L
 
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
@@ -37,9 +33,24 @@ function addon:OptionsTable()
 						type = "description",
 						name = "",
 						order = 30
-					},			
-					hideAnchor = {
+					},
+					enableAddon = {
 						order = 40,
+						type = "toggle",
+						name = L["Enable SmartRes2"],
+						desc = L["Uncheck to disable Smartres2"],
+						get = function() return self.db.profile.enableAddon end,
+						set = function(info, value)
+							self.db.profile.enableAddon = value
+							if value then
+								self:Enable()
+							else
+								self:Disable()
+							end
+						end
+					},
+					hideAnchor = {
+						order = 50,
 						type = "toggle",
 						name = L["Hide Anchor"],
 						desc = L["Toggles the anchor for the res bars so you can move them"],
@@ -55,22 +66,7 @@ function addon:OptionsTable()
 								self.rez_bars:SetClampedToScreen(true)
 							end
 						end
-					},
-					enableAddon = {
-						order = 50,
-						type = "toggle",
-						name = L["Enable SmartRes2"],
-						desc = L["Uncheck to disable Smartres2"],
-						get = function() return self.db.profile.enableAddon end,
-						set = function(info, value)
-							self.db.profile.enableAddon = value
-							if value then
-								self:Enable()
-							else
-								self:Disable()
-							end
-						end
-					},					
+					},				
 					visibleResBars = { 
 						order = 60,
 						type = "toggle",
@@ -78,20 +74,6 @@ function addon:OptionsTable()
 						desc = L["Show or hide the res bars. Everything else will still work"],
 						get = function() return self.db.profile.visibleResBars end,
 						set = function(info, value) self.db.profile.visibleResBars = value end
-					},
-					guessResses = {
-						order = 70,
-						type = "toggle",
-						name = L["Non-CTRA compatible res monitoring"],
-						desc = L["Picks up res casts that are not broadcast via LibResComm or CTRA. This could have erroneous results, especially with mouseover or click casting"],
-						get = function() return self.db.profile.guessResses end,
-						set = function(info, value) self.db.profile.guessResses = value
-							if self.db.profile.guessResses then
-								self:StartGuessing()
-							else
-								self:StopGuessing()
-							end
-						end
 					},
 					reverseGrowth = {
 						order = 80,
@@ -123,14 +105,13 @@ function addon:OptionsTable()
 						order = 100,
 						type = "toggle",
 						name = L["Show Battle Resses"],
-						desc = L["Show bars for Rebirth"],
 						get = function() return self.db.profile.showBattleRes end,
 						set = function(info, value)	self.db.profile.showBattleRes = value end
 					},					
 					classColours = {
 						order = 110,
 						type = "toggle",
-						name = _G.CLASS_COLORS,
+						name = CLASS_COLORS,
 						desc = L["Use class colours for the target on the res bars"],
 						get = function() return self.db.profile.classColours end,
 						set = function(info, value)	self.db.profile.classColours = value end
@@ -144,7 +125,7 @@ function addon:OptionsTable()
 						order = 160,
 						type = "range",
 						name = L["Maximum Bars"],
-						desc = L["Set the maximum of displayed bars"],
+						desc = L["Set the maximum of displayed bars"].."\n"..L["SmartRes2 must be disabled and re-enabled for changes to take effect"],
 						get = function() return self.db.profile.maxBars end,
 						set = function(info, value)
 							self.db.profile.maxBars = value
@@ -199,7 +180,7 @@ function addon:OptionsTable()
 					resBarsAlpha = {
 						order = 200,
 						type = "range",
-						name = _G.OPACITY,
+						name = OPACITY,
 						desc = L["Set the Alpha for the res bars"],
 						get = function() return self.db.profile.resBarsAlpha end,
 						set = function(info, value)
@@ -230,7 +211,7 @@ function addon:OptionsTable()
 						order = 230,
 						type = "select",
 						dialogControl = "LSM30_Statusbar",
-						name = _G.TEXTURES_SUBHEADER,
+						name = TEXTURES_SUBHEADER,
 						desc = L["Select the texture for the res bars"],
 						values = AceGUIWidgetLSMlists.statusbar,
 						get = function() return self.db.profile.resBarsTexture end,
@@ -240,7 +221,7 @@ function addon:OptionsTable()
 						order = 240,
 						type = "select",
 						dialogControl = "LSM30_Border",
-						name = _G.DISPLAY_BORDERS,
+						name = DISPLAY_BORDERS,
 						desc = L["Select the border for the res bars"],
 						values = AceGUIWidgetLSMlists.border,
 						get = function() return self.db.profile.resBarsBorder end,
@@ -307,11 +288,26 @@ function addon:OptionsTable()
 							local t = self.db.profile.waitingBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end
-					}	
+					},
+					massResBarColour = {
+						order = 300,
+						type = "color",
+						name = L["Mass Resurrection Bar Colour"],
+						desc = L["Pick the colour for the Mass Resurrection bar"],
+						hasAlpha = true,
+						get = function()
+							local t = self.db.profile.massResBarColour
+							return t.r, t.g, t.b, t.a
+						end,
+						set = function(info, r, g, b, a)
+							local t = self.db.profile.massResBarColour
+							t.r, t.g, t.b, t.a = r, g, b, a
+						end
+					}
 				}
 			},
 			resChatTextTab = {
-				name = _G.CHAT_OPTIONS_LABEL,
+				name = CHAT_OPTIONS_LABEL,
 				desc = L["Chat output options"],
 				type = "group",
 				order = 20,
@@ -319,7 +315,7 @@ function addon:OptionsTable()
 					resChatHeader = {
 						order = 10,
 						type = "header",
-						name = _G.CHAT_OPTIONS_LABEL
+						name = CHAT_OPTIONS_LABEL
 					},
 					randMsgs = {
 						order = 20,
@@ -337,43 +333,53 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.notifySelf end,
 						set = function(info, value)	self.db.profile.notifySelf = value end
 					},
+					resExpired = {
+						order = 40,
+						type = "toggle",
+						name = L["Unit Resurrection Expiration"],
+						desc = L["Notify yourself when a unit's resurrection timer has ended without them accepting"],
+						get = function() return self.db.profile.resExpired end,
+						set = function(info, value) self.db.profile.resExpired = value end
+					},
 					spacer5 = {
 						type = "description",
 						name = "",
-						order = 40
+						order = 50
 					},
 					chatOutput = {
-						order = 50,
+						order = 60,
 						type = "select",
 						name = L["Chat Output Type"],
 						desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, smart Group, or None"],
 						values = {
-							["0-none"] = _G.NONE,
-							group = _G.GROUP,
-							guild = _G.CHAT_MSG_GUILD,
-							party = _G.CHAT_MSG_PARTY,
-							raid = _G.CHAT_MSG_RAID,
-							say = _G.CHAT_MSG_SAY,
-							whisper = _G.CHAT_MSG_WHISPER_INFORM,
-							yell = _G.CHAT_MSG_YELL							
+							["0-none"] = NONE,
+							group = GROUP,
+							guild = CHAT_MSG_GUILD,
+							instance = INSTANCE_CHAT,
+							party = CHAT_MSG_PARTY,
+							raid = CHAT_MSG_RAID,
+							say = CHAT_MSG_SAY,
+							whisper = CHAT_MSG_WHISPER_INFORM,
+							yell = CHAT_MSG_YELL
 						},
 						get = function() return self.db.profile.chatOutput end,
 						set = function(info, value)	self.db.profile.chatOutput = value end
 					},					
 					notifyCollision = {
-						order = 60,
+						order = 70,
 						type = "select",
 						name = L["Duplicate Res Targets"],
 						desc = L["Notify a resser they created a collision. Could get very spammy"],
 						values = {
-							["0-off"] = _G.OFF,
-							group = _G.GROUP,
-							guild = _G.CHAT_MSG_GUILD,
-							party = _G.CHAT_MSG_PARTY,
-							raid = _G.CHAT_MSG_RAID,
-							say = _G.CHAT_MSG_SAY,
-							whisper = _G.CHAT_MSG_WHISPER_INFORM,
-							yell = _G.CHAT_MSG_YELL
+							["0-off"] = OFF,
+							group = GROUP,
+							guild = CHAT_MSG_GUILD,
+							instance = INSTANCE_CHAT,
+							party = CHAT_MSG_PARTY,
+							raid = CHAT_MSG_RAID,
+							say = CHAT_MSG_SAY,
+							whisper = CHAT_MSG_WHISPER_INFORM,
+							yell = CHAT_MSG_YELL
 						},
 						get = function() return self.db.profile.notifyCollision end,
 						set = function(info, value)	self.db.profile.notifyCollision = value	end
@@ -381,19 +387,19 @@ function addon:OptionsTable()
 					spacer6 = {
 						type = "description",
 						name = "",
-						order = 70
+						order = 80
 					},
-					customMessage = {
-						order = 80,
+					massResMessage = {
+						order = 90,
 						type = "input",
-						name = L["Custom Message"],
-						desc = L["Your message.  Use 'me' for yourself and 'you' for target"],
-						get = function() return self.db.profile.customchatmsg end,
-						set = function(info, value) self:AddCustomMsg(value) end,
+						name = L["Mass Resurrection Message"],
+						desc = L["What you want to say when casting Mass Resurection"],
+						get = function() return self.db.profile.massResMessage end,
+						set = function(info, value) self.db.profile.massResMessage = value end,
 						width = "full"
 					},
 					addRndMessage = {
-						order = 90,
+						order = 100,
 						type = "input",
 						name = L["Add to Random Table"],
 						desc = L["ADD_OUTPUT_KEY"],
@@ -409,10 +415,10 @@ function addon:OptionsTable()
 					spacer7 = {
 						type = "description",
 						name = "",
-						order = 100
+						order = 110
 					},
 					removeRndMessge = {
-						order = 110,
+						order = 120,
 						type = "multiselect",
 						dialogControl = "Dropdown",
 						name = L["Remove Random Messages"],
@@ -452,7 +458,7 @@ function addon:OptionsTable()
 					fontSize = {
 						order = 20,
 						type = "range",
-						name = _G.FONT_SIZE,
+						name = FONT_SIZE,
 						desc = L["Resize the res bars font"],
 						get = function() return self.db.profile.fontScale end,
 						set = function(info, value) self.db.profile.fontScale = value end,
@@ -466,10 +472,12 @@ function addon:OptionsTable()
 						name = L["Font Style"],
 						desc = L["Nothing, outline, thick outline, or monochrome"],						
 						values = {
-							["0-nothing"] = _G.NONE,
+							["nil"] = NONE,
 							outline = L["Outline"],
 							thickOutline = L["THICK_OUTLINE"],
-							-- monoChrome = L["Monochrome"]
+							monoChrome = L["Monochrome"],
+							["outline, monoChrome"] = L["Outline and monochrome"],
+							["thickOutline, monoChrome"] = L["Thick outline and monochrome"]
 						},
 						get = function() return self.db.profile.fontFlags end,
 						set = function(info, value) self.db.profile.fontFlags = value end
@@ -477,7 +485,7 @@ function addon:OptionsTable()
 				}			
 			},
 			keyBindingsTab = {
-				name = _G.KEY_BINDINGS,
+				name = KEY_BINDINGS,
 				type = "group",
 				order = 40,
 				args = {
