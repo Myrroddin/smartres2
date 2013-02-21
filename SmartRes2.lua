@@ -38,10 +38,10 @@ local LastRes
 local icon
 local in_combat = false
 local creatorName = {
-	"Myrroddin",
-	"Jelia",
-	"Badash",
-	"Vanhoeffen"
+	["Myrroddin"] = true,
+	["Jelia"] = true,
+	["Badash"] = true,
+	["Vanhoeffen"] = true,
 }
 
 -- addon defaults -----------------------------------------------------------
@@ -256,8 +256,6 @@ function SmartRes2:SlashHandler(input)
 	input = input:lower()
 	if input == "test" then
 		self:StartTestBars()
-	elseif input == "cast" then
-		self:Resurrection()
 	else
 		InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
 	end
@@ -277,40 +275,47 @@ end
 -- General callback functions -----------------------------------------------
 
 function SmartRes2:FillRandChatDefaults()
-	if self.db.profile.randChatTbl then return end
+	local t = self.db.profile.randChatTbl
 
-	self.db.profile.randChatTbl = {}
-	local randomMessages = {
-		[1] = L["%%p%% is bringing %%t%% back to life!"],
-		[2] = L["Filthy peon! %%p%% has to resurrect %%t%%!"],
-		[3] = L["%%p%% has to wake %%t%% from eternal slumber."],
-		[4] = L["%%p%% is ending %%t%%'s dirt nap."],
-		[5] = L["No fallen heroes! %%p%% needs %%t%% to march forward to victory!"],
-		[6] = L["%%p%% doesn't think %%t%% is immortal, but after this res cast, it is close enough."],
-		[7] = L["Sleeping on the job? %%p%% is disappointed in %%t%%."],
-		[8] = L["%%p%% knew %%t%% couldn't stay out of the fire. *Sigh*"],
-		[9] = L["Once again, %%p%% pulls %%t%% and their bacon out of the fire."],
-		[10] = L["%%p%% thinks %%t%% should work on their Dodge skill."],
-		[11] = L["%%p%% refuses to accept blame for %%t%%'s death, but kindly undoes the damage."],
-		[12] = L["%%p%% grabs a stick. A-ha! %%t%% was only temporarily dead."],
-		[13] = L["%%p%% is ressing %%t%%"],
-		[14] = L["%%p%% knows %%t%% is faking. It was only a flesh wound!"],
-		[15] = L["Oh. My. God. %%p%% has to breathe life back into %%t%% AGAIN?!?"],
-		[16] = L["%%p%% knows that %%t%% dying was just an excuse to see another silly random res message."],
-		[17] = L["Think that was bad? %%p%% proudly shows %%t%% the scar tissue caused by Hogger."],
-		[18] = L["Just to be silly, %%p%% tickles %%t%% until they get back up."],
-		[19] = L["FOR THE HORDE! FOR THE ALLIANCE! %%p%% thinks %%t%% should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
-		[20] = L["And you thought the Scourge looked bad. In about 10 seconds, %%p%% knows %%t%% will want a comb, some soap, and a mirror."],
-		[21] = L["Somewhere, the Lich King is laughing at %%p%%, because he knows %%t%% will just die again eventually. More meat for the grinder!!"],
-		[22] = L["%%p%% doesn't want the Lich King to get another soldier, so is bringing %%t%% back to life."],
-		[23] = L["%%p%% wonders about these stupid res messages. %%t%% should just be happy to be alive."],
-		[24] = L["%%p%% prays over the corpse of %%t%%, and a miracle happens!"],
-		[25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %%p%% is making sure %%t%%'s death isn't permanent."],
-		[26] = L["%%p%% performs a series of lewd acts on %%t%%'s still warm corpse. Ew."]
-	}
-	for idx, message in ipairs(randomMessages) do
-		tinsert(self.db.profile.randChatTbl, message)
+	if t then
+		-- Fix old messages
+		for i = 1, #t do
+			local msg = t[i]
+			msg = gsub(msg, "%%%%p%%%%", "%%p")
+			msg = gsub(msg, "%%%%t%%%%", "%%t")
+			t[i] = msg
+		end
+		return
 	end
+
+	self.db.profile.randChatTbl = {
+		[1] = L["%p is bringing %t back to life!"],
+		[2] = L["Filthy peon! %p has to resurrect %t!"],
+		[3] = L["%p has to wake %t from eternal slumber."],
+		[4] = L["%p is ending %t's dirt nap."],
+		[5] = L["No fallen heroes! %p needs %t to march forward to victory!"],
+		[6] = L["%p doesn't think %t is immortal, but after this res cast, it is close enough."],
+		[7] = L["Sleeping on the job? %p is disappointed in %t."],
+		[8] = L["%p knew %t couldn't stay out of the fire. *Sigh*"],
+		[9] = L["Once again, %p pulls %t and their bacon out of the fire."],
+		[10] = L["%p thinks %t should work on their Dodge skill."],
+		[11] = L["%p refuses to accept blame for %t's death, but kindly undoes the damage."],
+		[12] = L["%p grabs a stick. A-ha! %t was only temporarily dead."],
+		[13] = L["%p is ressing %t"],
+		[14] = L["%p knows %t is faking. It was only a flesh wound!"],
+		[15] = L["Oh. My. God. %p has to breathe life back into %t AGAIN?!?"],
+		[16] = L["%p knows that %t dying was just an excuse to see another silly random res message."],
+		[17] = L["Think that was bad? %p proudly shows %t the scar tissue caused by Hogger."],
+		[18] = L["Just to be silly, %p tickles %t until they get back up."],
+		[19] = L["FOR THE HORDE! FOR THE ALLIANCE! %p thinks %t should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
+		[20] = L["And you thought the Scourge looked bad. In about 10 seconds, %p knows %t will want a comb, some soap, and a mirror."],
+		[21] = L["Somewhere, the Lich King is laughing at %p, because he knows %t will just die again eventually. More meat for the grinder!!"],
+		[22] = L["%p doesn't want the Lich King to get another soldier, so is bringing %t back to life."],
+		[23] = L["%p wonders about these stupid res messages. %t should just be happy to be alive."],
+		[24] = L["%p prays over the corpse of %t, and a miracle happens!"],
+		[25] = L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %p is making sure %t's death isn't permanent."],
+		[26] = L["%p performs a series of lewd acts on %t's still warm corpse. Ew."]
+	}
 end
 
 -- called when new profile is created
@@ -370,7 +375,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 
 	-- notify collider caster
 	if (self.db.profile.notifyCollision ~= "0-off") and (not isFirst) then
-		channel = self.db.profile.notifyCollision:upper()
+		local channel, chat_type, msg = strupper(self.db.profile.notifyCollision)
 		if channel == "GROUP" or "RAID" or "PARTY" or "INSTANCE" then
 			chat_type = ChatType()
 		else
@@ -393,31 +398,32 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	end
 
 	-- self print whom you are resurrecting
+	self:Debug(targetRealm, targetName, creatorName[targetName])
 	if targetRealm == "Llane" and creatorName[targetName] then
 		self:Print("You are resurrecting the Creator!!")
-
 	elseif self.db.profile.notifySelf then
 		self:Print(L["You are ressing %s"], targetName)
 	end
 
 	-- send normal, random, or custom chat message
-	local channel = self.db.profile.chatOutput:upper()
-	local chat_type
-	local msg
+	local channel, chat_type, msg = strupper(self.db.profile.chatOutput)
 	if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
-		if channel == "GROUP" or "RAID" or "PARTY" or "INSTANCE" then
+		if channel == "GROUP" or channel == "RAID" or channel == "PARTY" or channel == "INSTANCE" then
 			chat_type = ChatType()
 		else
 			chat_type = channel
 		end
-		msg = L["%%p%% is ressing %%t%%"]
 
-		if self.db.profile.randMsgs and targetID then
-			msg = self.db.profile.randChatTbl[math.random(#self.db.profile.randChatTbl)]
-			msg = gsub(msg, "%%%%p%%%%", casterName)
-			msg = gsub(msg, "%%%%t%%%%", targetName)
-		elseif (self.db.profile.massResMessage ~= "") and (not targetID) then
+		if not hasTarget and self.db.profile.massResMessage ~= "" then
 			msg = self.db.profile.massResMessage
+		else
+			if self.db.profile.randMsgs then
+				msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
+			else
+				msg = L["%p is ressing %t"]
+			end
+			msg = gsub(msg, "%%p", casterName)
+			msg = gsub(msg, "%%t", targetName)
 		end
 
 		SendChatMessage(msg, chat_type, nil, (chat_type == "WHISPER") and targetName or nil)
@@ -558,43 +564,53 @@ local CLASS_PRIORITIES = {
 }
 
 -- create resurrection tables
-local function getClassOrder(unit)
+local function GetClassOrder(unit)
 	local _, c = UnitClass(unit)
 	local lvl = UnitLevel(unit)
 	return CLASS_PRIORITIES[c] or 9, lvl
 end
 
-local function verifyUnit(unit)
+local function VerifyUnit(unit)
+	local self = SmartRes2
+	self:Debug("VerifyUnit", unit)
 	-- unit is the next candidate. there is NO way to check LoS, so don't ask!
 	if UnitIsAFK(unit) then
+		self:Debug("UnitIsAFK")
 		unitAFK = true
 		return
 	end
 	if UnitIsGhost(unit) then
+		self:Debug("UnitIsGhost")
 		unitGhost = true
 		unitDead = true
 		return
 	end
 	if not UnitIsDead(unit) then
+		self:Debug("UnitIsDead")
 		return
 	end
 	unitDead = true
 	if unit == LastRes then
+		self:Debug("LastRes")
 		return
 	end
 	local state = ResInfo:UnitHasIncomingRes(unit)
 	if state == "CASTING" then
+		self:Debug("UnitHasIncomingRes", state)
 		unitBeingRessed = true
 		return
 	end
 	if state == "PENDING" then
+		self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
 	end
 	if IsSpellInRange(SmartRes2.playerSpell, unit) ~= 1 then
+		self:Debug("IsSpellInRange NO!")
 		unitOutOfRange = true
 		return
 	end
+	self:Debug("OK")
 	return true
 end
 
@@ -607,14 +623,14 @@ local function SortCurrentRaiders()
 		for i = 1, num do
 			unit = "raid"..i
 			if not UnitIsUnit(unit, "player") then
-				resPrio, lvl = getClassOrder(unit)
+				resPrio, lvl = GetClassOrder(unit)
 				tinsert(SortedResList, {unit = unit, resPrio = resPrio, level = lvl})
 			end
 		end
 	elseif IsInGroup() then
 		for i = 1, num-1 do
 			unit = "party"..i
-			resPrio, lvl = getClassOrder(unit)
+			resPrio, lvl = GetClassOrder(unit)
 			tinsert(SortedResList, {unit = unit, resPrio = resPrio, level = lvl})
 		end
 	end
@@ -628,15 +644,18 @@ local function SortCurrentRaiders()
 	raidUpdated = nil
 end
 
-local function getBestCandidate()
+local function GetBestCandidate()
+	local self = SmartRes2
+	self:Debug("GetBestCandidate")
 	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
 	if raidUpdated then
 		SortCurrentRaiders() -- only resort if group changed
 	end
 	for _, data in ipairs(SortedResList) do
 		local unit = data.unit
-		local validUnit = verifyUnit(unit)
+		local validUnit = VerifyUnit(unit)
 		if validUnit then
+			self:Debug(unit, "is the best!")
 			return unit
 		end
 	end
@@ -659,7 +678,7 @@ function SmartRes2:Resurrection()
 	   return
 	end
 
-	local unit = getBestCandidate()
+	local unit = GetBestCandidate()
 	if unit then
 		-- resButton:SetAttribute("unit", nil)
 		self:Debug("spell:", self.playerSpell)
@@ -686,10 +705,15 @@ local function ClassColouredName(name)
 	local _, class = UnitClass(name)
 	if not class then return "|cffcccccc"..name.."|r" end
 	local c = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[class]
-	return format("|cff%02X%02X%02X%s|r", c.r * 255, c.g * 255, c.b * 255, name)
+	return format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, name)
 end
 
 function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)
+	if resBars[casterID] then
+		-- duplicate Mass Res bar
+		return
+	end
+
 	local spellName, _, icon
 	local casterName
 	local targetName
