@@ -269,7 +269,7 @@ function SmartRes2:OnDisable()
 	ResInfo.UnregisterAllCallbacks(self)
 	self.rez_bars.UnregisterAllCallbacks(self)
 	wipe(resBars)
-	LastRes = nil
+	-- LastRes = nil
 end
 
 -- General callback functions -----------------------------------------------
@@ -438,8 +438,10 @@ end
 -- a res cast has finished or cancelled
 function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUID, endTime)
 	self:Debug("DeleteBar", callback, targetID, casterID)
-	resBars[casterID]:Fade(0.1)
-	resBars[casterID] = nil
+	if resBars[casterID] then
+		resBars[casterID]:Fade(0.1)
+		resBars[casterID] = nil
+	end
 end
 
 -- Blizzard callback functions ----------------------------------------------
@@ -465,7 +467,7 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 			self.rez_bars.UnregisterAllCallbacks(self)
 		end
 		-- clear the ressing tables
-		LastRes = nil
+		-- LastRes = nil
 	end
 	in_combat = true
 end
@@ -528,20 +530,37 @@ function SmartRes2:GROUP_ROSTER_UPDATE()
 	raidUpdated = true
 end
 
-function SmartRes2:MassResurrection(caster)
-	local massResButton = self.massResButton
-
-	if not IsUsableSpell(83968) and UnitIsUnit(caster, "player") then
-		self:Print(L["You cannot cast Mass Resurrection right now."])
-		return
-	end
+local RECENTLY_MASS_RESURRECTED = GetSpellInfo(95223)
+function SmartRes2:MassResurrection()
+	local button = self.massResButton
+	button:SetAttribute("spell", nil)
 
 	if not IsInGroup() then
-		self:Print(L["You are not in a group."])
-		return
-	else
-		massResButton:SetAttribute("spell", GetSpellInfo(83968))
+		return self:Print(L["You are not in a group."])
 	end
+
+	if not IsUsableSpell(83968) then
+		return self:Print(L["You cannot cast Mass Resurrection right now."])
+	end
+
+	local found, u, n
+	if IsInRaid() then
+		u, n = "raid", GetNumGroupMembers()
+	else
+		u, n = "party", GetNumGroupMembers() - 1
+	end
+	for i = 1, n do
+		local unit = u..i
+		if UnitIsDeadOrGhost(unit) and UnitIsConnected(unit) and not UnitDebuff(unit, RECENTLY_MASS_RESURRECTED) then
+			found = true
+			break
+		end
+	end
+	if not found then
+		return self:Print(L["There are no valid targets for Mass Resurrection."])
+	end
+
+	button:SetAttribute("spell", GetSpellInfo(83968))
 end
 
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK
@@ -570,7 +589,7 @@ local function GetClassOrder(unit)
 	return CLASS_PRIORITIES[c] or 9, lvl
 end
 
-local function VerifyUnit(unit)
+local function VerifyUnit(unit, recast)
 	local self = SmartRes2
 	self:Debug("VerifyUnit", unit)
 	-- unit is the next candidate. there is NO way to check LoS, so don't ask!
@@ -590,8 +609,15 @@ local function VerifyUnit(unit)
 		return
 	end
 	unitDead = true
+	--[[
 	if unit == LastRes then
 		self:Debug("LastRes")
+		return
+	end
+	]]
+	if IsSpellInRange(self.playerSpell, unit) ~= 1 then
+		self:Debug("IsSpellInRange NO!")
+		unitOutOfRange = true
 		return
 	end
 	local state = ResInfo:UnitHasIncomingRes(unit)
@@ -600,14 +626,9 @@ local function VerifyUnit(unit)
 		unitBeingRessed = true
 		return
 	end
-	if state == "PENDING" then
+	if state == "PENDING" and not recast then
 		self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
-		return
-	end
-	if IsSpellInRange(SmartRes2.playerSpell, unit) ~= 1 then
-		self:Debug("IsSpellInRange NO!")
-		unitOutOfRange = true
 		return
 	end
 	self:Debug("OK")
@@ -659,12 +680,21 @@ local function GetBestCandidate()
 			return unit
 		end
 	end
-	return
+	for _, data in ipairs(SortedResList) do
+		local unit = data.unit
+		local validUnit = VerifyUnit(unit, true)
+		if validUnit then
+			self:Debug(unit, "is almost the best!")
+			return unit
+		end
+	end
 end
 
 function SmartRes2:Resurrection()
 	self:Debug("Resurrection")
 	local resButton = self.resButton
+	resButton:SetAttribute("spell", nil)
+	resButton:SetAttribute("unit", nil)
 
 	if not IsInGroup() then
 		self:Debug(L["You are not in a group."])
@@ -685,7 +715,7 @@ function SmartRes2:Resurrection()
 		self:Debug("unit:", unit)
 		resButton:SetAttribute("spell", self.playerSpell)
 		resButton:SetAttribute("unit", unit)
-		LastRes = unit
+		-- LastRes = unit
 	elseif unitOutOfRange then
 		self:Print(SPELL_FAILED_CUSTOM_ERROR_64_NONE)
 	elseif unitBeingRessed or unitWaiting then
@@ -709,6 +739,7 @@ local function ClassColouredName(name)
 end
 
 function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)
+	self:Debug("CreateResBar", casterID, isFirst, hasIncomingRes, isMassRes)
 	if resBars[casterID] then
 		-- duplicate Mass Res bar
 		return
@@ -745,14 +776,12 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		end
 	end
 
-	if isFirst then -- check for first cast
+	if hasIncomingRes == "PENDING" then
+		t = self.db.profile.waitingBarsColour
+	elseif isFirst then -- check for first cast
 		t = isMassRes and self.db.profile.massResBarColour or self.db.profile.resBarsColour
 	else -- collision, could be class spell or Mass Res
 		t = self.db.profile.collisionBarsColour
-	end
-
-	if hasIncomingRes == "PENDING" then
-		t = self.db.profile.waitingBarsColour
 	end
 
 	local flags = self.db.profile.fontFlags:upper()
