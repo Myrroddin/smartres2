@@ -70,7 +70,7 @@ local defaults = {
 		maxBars = 10,
 		randMsgs = false,
 		resBarsColour = { r = 0, g = 1, b = 0, a = 1 },
-		resBarsIcon = true,		
+		resBarsIcon = true,
 		resBarsAlpha = 1,
 		resBarsBorder = "None",
 		resBarsTexture = "Blizzard",
@@ -78,11 +78,39 @@ local defaults = {
 		resBarsY = 600,
 		reverseGrowth = false,
 		scale = 1,
-		showBattleRes = false,		
+		showBattleRes = false,
 		visibleResBars = true,
 		waitingBarsColour = { r = 0, g = 0, b = 1, a = 1 }
 	}
 }
+
+-- utility methods ---------------------------------------------------------
+
+function SmartRes2:Debug(str, ...)
+	--@debug@
+	if not str or strlen(str) == 0 then return end
+	if (...) then
+		if strfind(str, "%%%.%d") or strfind(str, "%%[dfqsx%d]") then
+			str = format(str, ...)
+		else
+			str = strjoin(" ", str, tostringall(...))
+		end
+	end
+	DEFAULT_CHAT_FRAME:AddMessage(format("|cffff9933%s:|r %s", self.name, str))
+	--@end-debug@
+end
+
+function SmartRes2:Print(str, ...)
+	if not str or strlen(str) == 0 then return end
+	if (...) then
+		if strfind(str, "%%%.%d") or strfind(str, "%%[dfqsx%d]") then
+			str = format(str, ...)
+		else
+			str = strjoin(" ", str, tostringall(...))
+		end
+	end
+	DEFAULT_CHAT_FRAME:AddMessage(format("|cff33ff99%s:|r %s", self.name, str))
+end
 
 -- standard methods ---------------------------------------------------------
 
@@ -94,10 +122,10 @@ function SmartRes2:OnInitialize()
 	db.RegisterCallback(self, "OnProfileReset", "OnNewProfile")
 	db.RegisterCallback(self, "OnNewProfile", "OnNewProfile")
 	self.db = db
-	self:FillRandChatDefaults()	
+	self:FillRandChatDefaults()
 	self:SetEnabledState(self.db.profile.enableAddon)
 
-	-- addon options table	
+	-- addon options table
 	self.options = self:OptionsTable() -- see SmartRes2Options.lua
 	-- add the 'Profiles' section
 	self.options.args.profilesTab = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
@@ -107,7 +135,7 @@ function SmartRes2:OnInitialize()
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", self.options)
 
 	-- Add your options to the Blizz options window using AceConfigDialog
-	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")	
+	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")
 
 	-- support for LibAboutPanel
 	if LibStub:GetLibrary("LibAboutPanel", true) then
@@ -117,7 +145,7 @@ function SmartRes2:OnInitialize()
 	-- add console commands
 	self:RegisterChatCommand("sr", "SlashHandler")
 	self:RegisterChatCommand("smartres", "SlashHandler")
-	
+
 	-- get player's spell for button
 	local resSpells = { -- getting the spell names
 		PRIEST = GetSpellInfo(2006), -- Resurrection
@@ -128,7 +156,7 @@ function SmartRes2:OnInitialize()
 	}
 	local _, player_class = UnitClass("player")
 	self.playerSpell = resSpells[player_class]
-	
+
 	-- create DataBroker Launcher
 	if DataBroker then
 		local launcher = DataBroker:NewDataObject("SmartRes2", {
@@ -159,14 +187,14 @@ function SmartRes2:OnInitialize()
 			GameTooltip:Show()
 		end})
 		self.launcher = launcher
-	end	
+	end
 
 	-- create a secure button for ressing
 	local resButton = CreateFrame("button", "SmartRes2Button", UIParent, "SecureActionButtonTemplate")
 	resButton:SetAttribute("type", "spell")
 	resButton:SetScript("PreClick", function() self:Resurrection() end)
 	self.resButton = resButton
-	
+
 	-- create seperate button for Mass Resurrection
 	local massResButton = CreateFrame("button", "SR2MassResButton", UIPARENT, "SecureActionButtonTemplate")
 	massResButton:SetAttribute("type", "spell")
@@ -176,14 +204,14 @@ end
 
 function SmartRes2:OnEnable()
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
-	self:RegisterEvent("PLAYER_REGEN_ENABLED")	
+	self:RegisterEvent("PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("GROUP_ROSTER_UPDATE")
-	self:RegisterEvent("GUILD_PERK_UPDATE", "VerifyPerk")				
+	self:RegisterEvent("GUILD_PERK_UPDATE", "VerifyPerk")
 	self:RegisterEvent("PLAYER_GUILD_UPDATE", "VerifyPerk")
-	
+
 	self.rez_bars = self.rez_bars or self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
 	self.rez_bars:SetClampedToScreen(true)
-	self.rez_bars:SetUserPlaced(false)
+	self.rez_bars:ClearAllPoints()
 	self.rez_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
 	if self.db.profile.hideAnchor then
 		self.rez_bars:HideAnchor()
@@ -193,7 +221,7 @@ function SmartRes2:OnEnable()
 		self.rez_bars:Unlock()
 	end
 	self.rez_bars:SetMaxBars(self.db.profile.maxBars)
-	
+
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResExpired")
@@ -201,7 +229,7 @@ function SmartRes2:OnEnable()
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
 	self.rez_bars.RegisterCallback(self, "FadeFinished")
 	self.rez_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
-	
+
 	self:BindMassRes()
 	self:BindKeys()
 end
@@ -233,7 +261,7 @@ end
 
 function SmartRes2:FillRandChatDefaults()
 	if self.db.profile.randChatTbl then return end
-		
+
 	self.db.profile.randChatTbl = {}
 	local randomMessages = {
 		[1] = L["%%p%% is bringing %%t%% back to life!"],
@@ -311,31 +339,26 @@ end
 
 -- ResInfo library callback functions ---------------------------------------
 -- Fires when a group member starts casting a resurrection spell on another group member.
-function SmartRes2:LibResInfo_ResCastStarted(targetID, targetGUID, casterID, casterGUID, endTime)
+function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
+	self:Debug(callback, targetID, casterID)
+
 	local _, _, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID)
 	local casterName = UnitName(casterID)
 	local hasIncomingRes = ResInfo:UnitHasIncomingRes(targetID)
-	
-	--@debug@
-	self:Print("Caster: ", casterName)
-	self:Print("Target: ", targetName or NONE)
-	self:Print("Time: ", endTime)
-	self:Print("hasIncomingRes: ", hasIncomingRes or NONE)
-	self:Print("isFirst: ", isFirst)
-	--@end-debug@
-	
+
 	if self.db.profile.visibleResBars then
 		self:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes)
 	end
 
+	self:Debug("casterID", casterID, "UnitIsUnit", UnitIsUnit(casterID, "player"))
 	-- make sure only the player is sending messages
 	if UnitIsUnit(casterID, "player") then return end
-	
-	if creatorName[targetName] and targetRealm == "Llane" then
+
+	if targetRealm == "Llane" and creatorName[targetName] then
 		self:Print("You are resurrecting the Creator!!")
 	end
-	
+
 	-- send normal, random, or custom chat message
 	local channel = self.db.profile.chatOutput:upper()
 	local chat_type
@@ -350,20 +373,20 @@ function SmartRes2:LibResInfo_ResCastStarted(targetID, targetGUID, casterID, cas
 
 		if self.db.profile.randMsgs and targetID then
 			msg = self.db.profile.randChatTbl[math.random(#self.db.profile.randChatTbl)]
-			msg = string.gsub(msg, "%%%%p%%%%", casterName)
-			msg = string.gsub(msg, "%%%%t%%%%", targetName)
+			msg = gsub(msg, "%%%%p%%%%", casterName)
+			msg = gsub(msg, "%%%%t%%%%", targetName)
 		elseif (self.db.profile.massResMessage ~= "") and (not targetID) then
 			msg = self.db.profile.massResMessage
 		end
 
 		SendChatMessage(msg, chat_type, nil, (chat_type == "WHISPER") and targetName or nil)
 	end
-	
+
 	-- self print whom you are resurrecting
 	if self.db.profile.notifySelf then
-		self:Print((L["You are ressing %s"]):format(targetName))
+		self:Print(L["You are ressing %s"], targetName)
 	end
-	
+
 	-- notify collider caster
 	if (self.db.profile.notifyCollision ~= "0-off") and (not isFirst) then
 		channel = self.db.profile.notifyCollision:upper()
@@ -372,25 +395,25 @@ function SmartRes2:LibResInfo_ResCastStarted(targetID, targetGUID, casterID, cas
 		else
 			chat_type = channel
 		end
-		
+
 		-- handle class spells
 		if targetID then
-			msg = (L["SmartRes2 would like you to know that %s is already being ressed by %s."]):format(targetName, casterName)
+			msg = format(L["SmartRes2 would like you to know that %s is already being ressed by %s."], targetName, casterName)
 		-- handle Mass Resurrection
 		elseif not targetID then
-			msg = (L["SmartRes2 would like you to know that %s is already resurrecting everybody."]):format(casterName)
+			msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
 		end
 		SendChatMessage(msg, chat_type, nil, (chat_type == "WHISPER") and casterName or nil)
 	end
 end
 
-function SmartRes2:LibResInfo_ResExpired(targetID, targetGUID)
+function SmartRes2:LibResInfo_ResExpired(callback, targetID, targetGUID)
 	if not self.db.profile.resExpired then return end
-	self:Print(L["%s's resurrection timer expired, and can be resurrected again"]):format(UnitName(targetID))
+	self:Print(L["%s's resurrection timer expired, and can be resurrected again"], UnitName(targetID))
 end
 
 -- a res cast has finished or cancelled
-function SmartRes2:DeleteBar(targetID, targetGUID, casterID, casterGUID, endTime)
+function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUID, endTime)
 	resBars[casterID]:Fade(0.1)
 	resBars[casterID] = nil
 end
@@ -401,7 +424,7 @@ function SmartRes2:VerifyPerk(unit)
 	self:BindMassRes()
 end
 
--- Important Note: Since the release of patch 3.2, certain fights in the game fire the 
+-- Important Note: Since the release of patch 3.2, certain fights in the game fire the
 -- "PLAYER_REGEN_DISABLED" event continuously during combat causing any subsequent events
 -- we might trigger as a result to also fire continuously. It is recommended therefore to
 -- use a checking variable that is set to 'on/1/etc' when entering combat and back to
@@ -445,7 +468,7 @@ function SmartRes2:BindMassRes()
 	else
 		self.knowsMassRes = nil
 	end
-	
+
 	if self.db.profile.massResKey ~= "" and self.knowsMassRes then
 		SetOverrideBindingClick(self.massResButton, false, self.db.profile.massResKey, "SR2MassResButton")
 	elseif self.db.profile.massResKey == "" or not self.knowsMassRes then
@@ -456,13 +479,13 @@ end
 function SmartRes2:BindKeys()
 	-- only binds keys if the player can cast an out of combat res spell
 	if not self.playerSpell then return end
-	
+
 	if self.db.profile.autoResKey ~= "" then
 		SetOverrideBindingClick(self.resButton, false, self.db.profile.autoResKey, "SmartRes2Button")
 	else
 		SetOverrideBinding(self.resButton, false, self.db.profile.autoResKey, nil)
 	end
-	
+
 	if self.db.profile.manualResKey ~= "" then
 		SetOverrideBindingSpell(self.resButton, false, self.db.profile.manualResKey, self.playerSpell)
 	else
@@ -488,12 +511,12 @@ end
 
 function SmartRes2:MassResurrection(caster)
 	local massResButton = self.massResButton
-	
+
 	if not IsUsableSpell(83968) and UnitIsUnit(caster, "player") then
 		self:Print(L["You cannot cast Mass Resurrection right now."])
 		return
 	end
-	
+
 	if not IsInGroup() then
 		self:Print(L["You are not in a group."])
 		return
@@ -509,15 +532,15 @@ local CLASS_PRIORITIES = {
 	-- get all ressers up first, then mana burners and pet summoners
 	-- get fighers up next, other dps last
 	PRIEST = 1,
-	PALADIN = 1, 
-	SHAMAN = 1, 
+	PALADIN = 1,
+	SHAMAN = 1,
 	DRUID = 1,
-	MONK = 1, 
-	MAGE = 2, 
+	MONK = 1,
+	MAGE = 2,
 	WARLOCK = 2,
 	DEATHKNIGHT = 3,
-	WARRIOR = 3,	
-	HUNTER = 4,	
+	WARRIOR = 3,
+	HUNTER = 4,
 	ROGUE = 4
 }
 
@@ -530,18 +553,35 @@ end
 
 local function verifyUnit(unit)
 	-- unit is the next candidate. there is NO way to check LoS, so don't ask!
-	if UnitIsAFK(unit) then unitAFK = true return nil end
+	if UnitIsAFK(unit) then
+		unitAFK = true
+		return
+	end
 	if UnitIsGhost(unit) then
 		unitGhost = true
 		unitDead = true
-		return nil
+		return
 	end
-	if not UnitIsDead(unit) then return nil end
+	if not UnitIsDead(unit) then
+		return
+	end
 	unitDead = true
-	if unit == LastRes then return nil end
-	if UnitHasIncomingResurrection(unit) then unitBeingRessed = true return nil end
-	if ResInfo:UnitHasIncomingRes(unit) == "PENDING" then unitWaiting = true return nil end
-	if IsSpellInRange(SmartRes2.playerSpell, unit) ~= 1 then unitOutOfRange = true return nil end
+	if unit == LastRes then
+		return
+	end
+	local state = ResInfo:UnitHasIncomingRes(unit)
+	if state == "CASTING" then
+		unitBeingRessed = true
+		return
+	end
+	if state == "PENDING" then
+		unitWaiting = true
+		return
+	end
+	if IsSpellInRange(SmartRes2.playerSpell, unit) ~= 1 then
+		unitOutOfRange = true
+		return
+	end
 	return true
 end
 
@@ -552,7 +592,7 @@ local function SortCurrentRaiders()
 	wipe(SortedResList)
 	if IsInRaid() then
 		for i = 1, num do
-			unit = "raid"..num
+			unit = "raid"..i
 			if not UnitIsUnit(unit, "player") then
 				resPrio, lvl = getClassOrder(unit)
 				tinsert(SortedResList, {unit = unit, resPrio = resPrio, level = lvl})
@@ -560,15 +600,15 @@ local function SortCurrentRaiders()
 		end
 	elseif IsInGroup() then
 		for i = 1, num-1 do
-			unit = "party"..num
+			unit = "party"..i
 			resPrio, lvl = getClassOrder(unit)
 			tinsert(SortedResList, {unit = unit, resPrio = resPrio, level = lvl})
 		end
 	end
-	table.sort(SortedResList, function(a,b) 
+	sort(SortedResList, function(a,b)
 		if a.resPrio == b.resPrio then
 			return a.level > b.level
-		else 
+		else
 			return a.resPrio < b.resPrio
 		end
 	end)
@@ -577,7 +617,9 @@ end
 
 local function getBestCandidate()
 	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
-	if raidUpdated then SortCurrentRaiders() end	--only resort if group changed	
+	if raidUpdated then
+		SortCurrentRaiders() -- only resort if group changed
+	end
 	for _, data in ipairs(SortedResList) do
 		local unit = data.unit
 		local validUnit = verifyUnit(unit)
@@ -585,42 +627,43 @@ local function getBestCandidate()
 			return unit
 		end
 	end
-	return nil
+	return
 end
 
 function SmartRes2:Resurrection()
+	self:Debug("Resurrection")
 	local resButton = self.resButton
 
 	if not IsInGroup() then
-		self:Print(L["You are not in a group."])
+		self:Debug(L["You are not in a group."])
 		return
 	end
 
-	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a caster 
-	local _, outOfMana = IsUsableSpell(self.playerSpell) 
-	if outOfMana == 1 then 
-	   self:Print(ERR_OUT_OF_MANA) 
+	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a caster
+	local _, outOfMana = IsUsableSpell(self.playerSpell)
+	if outOfMana == 1 then
+	   self:Print(ERR_OUT_OF_MANA)
 	   return
 	end
 
 	local unit = getBestCandidate()
 	if unit then
 		-- resButton:SetAttribute("unit", nil)
+		self:Debug("spell:", self.playerSpell)
+		self:Debug("unit:", unit)
 		resButton:SetAttribute("spell", self.playerSpell)
-		resButton:SetAttribute("unit", unit)		
+		resButton:SetAttribute("unit", unit)
 		LastRes = unit
-	else
-		if unitOutOfRange then
-			self:Print(SPELL_FAILED_CUSTOM_ERROR_64_NONE)
-		elseif unitBeingRessed or unitWaiting then
-			self:Print(L["All dead units are being ressed."])
-		elseif not unitDead then
-			self:Print(L["Everybody is alive. Congratulations!"])
-		elseif unitGhost then
-			self:Print(L["All dead units have released."])
-		elseif unitAFK then
-			self:Print(L["Remaining units are away from keyboard."])
-		end
+	elseif unitOutOfRange then
+		self:Print(SPELL_FAILED_CUSTOM_ERROR_64_NONE)
+	elseif unitBeingRessed or unitWaiting then
+		self:Print(L["All dead units are being ressed."])
+	elseif not unitDead then
+		self:Print(L["Everybody is alive. Congratulations!"])
+	elseif unitGhost then
+		self:Print(L["All dead units have released."])
+	elseif unitAFK then
+		self:Print(L["Remaining units are away from keyboard."])
 	end
 end
 
@@ -640,7 +683,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	local end_time = endTime - GetTime()
 	local text
 	local t -- bar colours
-	
+
 	if spellID then -- exists only for test bars
 		spellName, _, icon = GetSpellInfo(spellID)
 		casterName = casterID
@@ -648,9 +691,9 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	else -- LibResInfo_ResCastStarted
 		spellName, _, _, icon = UnitCastingInfo(casterID)
 		casterName = UnitName(casterID)
-		targetName = UnitName(targetName) or NONE
+		targetName = UnitName(targetID) or NONE
 	end
-	
+
 	if self.db.profile.classColours then
 		if targetID then -- class spell
 			text = string.format(L["%s is ressing %s"], ClassColouredName(casterName), ClassColouredName(targetName))
@@ -664,7 +707,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 			text = string.format("%s: %s", casterName, spellName)
 		end
 	end
-	
+
 	if isFirst then -- check for first cast
 		if targetID then -- class spell
 			t = self.db.profile.resBarsColour
@@ -674,30 +717,30 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	else -- collision, could be class spell or Mass Res
 		t = self.db.profile.collisionBarsColour
 	end
-	
+
 	if hasIncomingRes == "PENDING" then
 		t = self.db.profile.waitingBarsColour
 	end
-	
+
 	local flags = self.db.profile.fontFlags:upper()
-	
+
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
 	local bar = self.rez_bars:NewTimerBar(casterName, text, end_time, nil, icon, 0)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
-	
+
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
-	
+
 	if self.db.profile.resBarsIcon then
 		bar:ShowIcon()
 	else
 		bar:HideIcon()
 	end
-	
+
 	bar:SetHeight(self.db.profile.barHeight)
 	bar:SetWidth(self.db.profile.barWidth)
-	
+
 	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, flags)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
@@ -726,3 +769,5 @@ function SmartRes2:StartTestBars()
 	end
 	self:LibResInfo_ResExpired("LazyPlayer")
 end
+
+_G.SmartRes2 = SmartRes2
