@@ -1,4 +1,4 @@
-## Interface: 50001
+## Interface: 50100
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
 ## Notes-frFR: Coordonner la résurrection du groupe/raid sans cible.
@@ -10,6 +10,7 @@
 ## Notes-esES: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
 ## Notes-esMX: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
 ## Version: @project-version@
+## X-Project-Revision: @project-revision@
 ## Author: Myrroddin
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
@@ -19,9 +20,9 @@
 ## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, koKR, zhTW, ptBR, itIT
 ## X-Website: http://www.curse.com/addons/wow/smartres2
 ## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
-## X-License: (c) 2009, 2012, Paul "Myrroddin" Vandersypen. All Rights Reserved
+## X-License: (c) 2009, 2012, 2013, Paul "Myrroddin" Vandersypen. All Rights Reserved
 
-## OptionalDeps: Ace3, LibResComm-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets
+## OptionalDeps: Ace3, LibResInfo-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets
 
 #@no-lib-strip@
 Libs\LibStub\LibStub.lua
@@ -38,7 +39,7 @@ Libs\AceLocale-3.0\AceLocale-3.0.xml
 Libs\LibSharedMedia-3.0\lib.xml
 Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 Libs\LibBars-1.0\lib.xml
-Libs\LibResComm-1.0\LibResComm-1.0\lib.xml
+Libs\LibResInfo-1.0\LibResInfo-1.0\LibResInfo-1.0.lua
 Libs\LibAboutPanel\lib.xml
 #@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
