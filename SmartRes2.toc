@@ -39,7 +39,7 @@ Libs\AceLocale-3.0\AceLocale-3.0.xml
 Libs\LibSharedMedia-3.0\lib.xml
 Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 Libs\LibBars-1.0\lib.xml
-Libs\LibResInfo-1.0\LibResInfo-1.0\LibResInfo-1.0.lua
+Libs\LibResInfo-1.0\LibResInfo-1.0.lua
 Libs\LibAboutPanel\lib.xml
 #@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
