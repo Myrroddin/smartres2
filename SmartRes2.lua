@@ -219,7 +219,6 @@ function SmartRes2:OnEnable()
 		self.rez_bars:Unlock()
 	end
 	self.rez_bars:SetMaxBars(self.db.profile.maxBars)
-
 	self:RestorePosition()
 
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
@@ -427,7 +426,7 @@ end
 
 function SmartRes2:LibResInfo_ResExpired(callback, targetID, targetGUID)
 	if not self.db.profile.resExpired then return end
-	self:Print(L["%s's resurrection timer expired, and can be resurrected again"], UnitName(targetID))
+	self:Print(L["%s's resurrection timer expired, and can be resurrected again"], UnitName(targetID) or targetID)
 end
 
 -- a res cast has finished or cancelled
@@ -709,15 +708,15 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 
 	if self.db.profile.classColours then
 		if targetID then -- class spell
-			text = string.format(L["%s is ressing %s"], ClassColouredName(casterName), ClassColouredName(targetName))
+			text = format(L["%s is ressing %s"], ClassColouredName(casterName), ClassColouredName(targetName))
 		else -- Mass Res
-			text = string.format("%s: %s", ClassColouredName(casterName), spellName)
+			text = format("%s: %s", ClassColouredName(casterName), spellName)
 		end
 	else
 		if targetID then -- class spell
-			text = string.format(L["%s is ressing %s"], casterName, targetName)
+			text = format(L["%s is ressing %s"], casterName, targetName)
 		else -- Mass Res
-			text = string.format("%s: %s", casterName, spellName)
+			text = format("%s: %s", casterName, spellName)
 		end
 	end
 
@@ -780,7 +779,9 @@ function SmartRes2:StartTestBars()
 		self:CreateResBar("MassCollider", GetTime() + 7, nil, nil, nil, 83968)
 		self:CreateResBar("Sonayahh", GetTime() + 8, "AlreadyRessed", nil, "PENDING", 7328)
 	end
-	self:LibResInfo_ResExpired("LazyPlayer")
+	self:LibResInfo_ResExpired(nil, "LazyPlayer")
 end
 
+--@debug@
 _G.SmartRes2 = SmartRes2
+--@end-debug@
