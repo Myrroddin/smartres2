@@ -211,8 +211,6 @@ function SmartRes2:OnEnable()
 
 	self.rez_bars = self.rez_bars or self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
 	self.rez_bars:SetClampedToScreen(true)
-	self.rez_bars:ClearAllPoints()
-	self.rez_bars:SetPoint("CENTER", UIParent, "CENTER", self.db.profile.resBarsX, self.db.profile.resBarsY)
 	if self.db.profile.hideAnchor then
 		self.rez_bars:HideAnchor()
 		self.rez_bars:Lock()
@@ -222,16 +220,36 @@ function SmartRes2:OnEnable()
 	end
 	self.rez_bars:SetMaxBars(self.db.profile.maxBars)
 
+	self:RestorePosition()
+
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResExpired")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
 	self.rez_bars.RegisterCallback(self, "FadeFinished")
-	self.rez_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
+	self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 
 	self:BindMassRes()
 	self:BindKeys()
+end
+
+function SmartRes2:SavePosition()
+	local f = self.rez_bars
+	local s = f:GetEffectiveScale()
+	self.db.profile.resBarsX = f:GetLeft() * s
+	self.db.profile.resBarsY = f:GetTop() * s
+end
+
+function SmartRes2:RestorePosition()
+	local x = self.db.profile.resBarsX
+	local y = self.db.profile.resBarsY
+	if not x or not y then return end
+
+	local f = self.rez_bars
+	local s = f:GetEffectiveScale()
+	f:ClearAllPoints()
+	f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / s, y / s)
 end
 
 -- process slash commands ---------------------------------------------------
@@ -496,11 +514,6 @@ end
 function SmartRes2:UnBindKeys()
 	ClearOverrideBindings(self.resButton)
 	ClearOverrideBindings(self.massResButton)
-end
-
--- anchor management functions ----------------------------------------------
-function SmartRes2:ResAnchorMoved(_, _, x, y)
-	self.db.profile.resBarsX, self.db.profile.resBarsY = x, y
 end
 
 -- smart resurrection determination functions -------------------------------
