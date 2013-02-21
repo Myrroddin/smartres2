@@ -369,12 +369,14 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	local casterName = UnitName(casterID)
 	local hasIncomingRes = ResInfo:UnitHasIncomingRes(targetID)
 
+	self:Debug("single?", not not hasTarget, "first?", isFirst)
+
 	if self.db.profile.visibleResBars then
 		self:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, not hasTarget)
 	end
 
 	-- notify collider caster
-	if (self.db.profile.notifyCollision ~= "0-off") and (not isFirst) then
+	if not isFirst and self.db.profile.notifyCollision ~= "0-off" then
 		local channel, chat_type, msg = strupper(self.db.profile.notifyCollision)
 		if channel == "GROUP" or "RAID" or "PARTY" or "INSTANCE" then
 			chat_type = ChatType()
@@ -543,11 +545,11 @@ function SmartRes2:MassResurrection()
 		return self:Print(L["You cannot cast Mass Resurrection right now."])
 	end
 
-	local found, u, n
+	local n, u, found = GetNumGroupMembers()
 	if IsInRaid() then
-		u, n = "raid", GetNumGroupMembers()
+		u = "raid"
 	else
-		u, n = "party", GetNumGroupMembers() - 1
+		u, n = "party", n - 1
 	end
 	for i = 1, n do
 		local unit = u..i
@@ -697,15 +699,13 @@ function SmartRes2:Resurrection()
 	resButton:SetAttribute("unit", nil)
 
 	if not IsInGroup() then
-		self:Debug(L["You are not in a group."])
-		return
+		return self:Debug(L["You are not in a group."])
 	end
 
 	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a caster
 	local _, outOfMana = IsUsableSpell(self.playerSpell)
 	if outOfMana == 1 then
-	   self:Print(ERR_OUT_OF_MANA)
-	   return
+	   return self:Print(ERR_OUT_OF_MANA)
 	end
 
 	local unit = GetBestCandidate()
@@ -778,9 +778,11 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 
 	if hasIncomingRes == "PENDING" then
 		t = self.db.profile.waitingBarsColour
-	elseif isFirst then -- check for first cast
+	elseif isFirst then
+		-- check for first cast
 		t = isMassRes and self.db.profile.massResBarColour or self.db.profile.resBarsColour
-	else -- collision, could be class spell or Mass Res
+	else
+		-- collision, could be class spell or Mass Res
 		t = self.db.profile.collisionBarsColour
 	end
 
