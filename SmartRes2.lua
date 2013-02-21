@@ -359,21 +359,45 @@ end
 function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
 	self:Debug(callback, targetID, casterID)
 
-	local _, _, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
+	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID)
 	local casterName = UnitName(casterID)
 	local hasIncomingRes = ResInfo:UnitHasIncomingRes(targetID)
 
 	if self.db.profile.visibleResBars then
-		self:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes)
+		self:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, not hasTarget)
+	end
+
+	-- notify collider caster
+	if (self.db.profile.notifyCollision ~= "0-off") and (not isFirst) then
+		channel = self.db.profile.notifyCollision:upper()
+		if channel == "GROUP" or "RAID" or "PARTY" or "INSTANCE" then
+			chat_type = ChatType()
+		else
+			chat_type = channel
+		end
+
+		if hasTarget then
+			-- handle class spells
+			msg = format(L["SmartRes2 would like you to know that %s is already being ressed by %s."], targetName, casterName)
+		else
+			-- handle Mass Resurrection
+			msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
+		end
+		SendChatMessage(msg, chat_type, nil, (chat_type == "WHISPER") and casterName or nil)
 	end
 
 	self:Debug("casterID", casterID, "UnitIsUnit", UnitIsUnit(casterID, "player"))
-	-- make sure only the player is sending messages
-	if UnitIsUnit(casterID, "player") then return end
+	if not UnitIsUnit(casterID, "player") then
+		return
+	end
 
+	-- self print whom you are resurrecting
 	if targetRealm == "Llane" and creatorName[targetName] then
 		self:Print("You are resurrecting the Creator!!")
+
+	elseif self.db.profile.notifySelf then
+		self:Print(L["You are ressing %s"], targetName)
 	end
 
 	-- send normal, random, or custom chat message
@@ -398,30 +422,6 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 
 		SendChatMessage(msg, chat_type, nil, (chat_type == "WHISPER") and targetName or nil)
 	end
-
-	-- self print whom you are resurrecting
-	if self.db.profile.notifySelf then
-		self:Print(L["You are ressing %s"], targetName)
-	end
-
-	-- notify collider caster
-	if (self.db.profile.notifyCollision ~= "0-off") and (not isFirst) then
-		channel = self.db.profile.notifyCollision:upper()
-		if channel == "GROUP" or "RAID" or "PARTY" or "INSTANCE" then
-			chat_type = ChatType()
-		else
-			chat_type = channel
-		end
-
-		-- handle class spells
-		if targetID then
-			msg = format(L["SmartRes2 would like you to know that %s is already being ressed by %s."], targetName, casterName)
-		-- handle Mass Resurrection
-		elseif not targetID then
-			msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
-		end
-		SendChatMessage(msg, chat_type, nil, (chat_type == "WHISPER") and casterName or nil)
-	end
 end
 
 function SmartRes2:LibResInfo_ResExpired(callback, targetID, targetGUID)
@@ -431,6 +431,7 @@ end
 
 -- a res cast has finished or cancelled
 function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUID, endTime)
+	self:Debug("DeleteBar", callback, targetID, casterID)
 	resBars[casterID]:Fade(0.1)
 	resBars[casterID] = nil
 end
@@ -684,11 +685,11 @@ local function ClassColouredName(name)
 	if not name then return "|cffcccccc".. UNKNOWN.. "|r" end
 	local _, class = UnitClass(name)
 	if not class then return "|cffcccccc"..name.."|r" end
-	local c = RAID_CLASS_COLORS[class]
-	return ("|cff%02X%02X%02X%s|r"):format(c.r * 255, c.g * 255, c.b * 255, name)
+	local c = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[class]
+	return format("|cff%02X%02X%02X%s|r", c.r * 255, c.g * 255, c.b * 255, name)
 end
 
-function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, spellID)
+function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)
 	local spellName, _, icon
 	local casterName
 	local targetName
@@ -707,25 +708,21 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	end
 
 	if self.db.profile.classColours then
-		if targetID then -- class spell
-			text = format(L["%s is ressing %s"], ClassColouredName(casterName), ClassColouredName(targetName))
-		else -- Mass Res
+		if isMassRes then
 			text = format("%s: %s", ClassColouredName(casterName), spellName)
+		else
+			text = format(L["%s is ressing %s"], ClassColouredName(casterName), ClassColouredName(targetName))
 		end
 	else
-		if targetID then -- class spell
-			text = format(L["%s is ressing %s"], casterName, targetName)
-		else -- Mass Res
+		if isMassRes then
 			text = format("%s: %s", casterName, spellName)
+		else
+			text = format(L["%s is ressing %s"], casterName, targetName)
 		end
 	end
 
 	if isFirst then -- check for first cast
-		if targetID then -- class spell
-			t = self.db.profile.resBarsColour
-		else -- Mass Res
-			t = self.db.profile.massResBarColour
-		end
+		t = isMassRes and self.db.profile.massResBarColour or self.db.profile.resBarsColour
 	else -- collision, could be class spell or Mass Res
 		t = self.db.profile.collisionBarsColour
 	end
@@ -773,11 +770,11 @@ end
 function SmartRes2:StartTestBars()
 	if not self.db.profile.enableAddon then return end
 	if self.db.profile.visibleResBars then
-		self:CreateResBar("NawtyNurse", GetTime() + 4, "FrankTheTank", true, nil, 2008)
-		self:CreateResBar("BadCaster", GetTime() + 5, "FrankTheTank", nil, nil, 115178)
-		self:CreateResBar("MassResser", GetTime() + 6, nil, true, nil, 83968)
-		self:CreateResBar("MassCollider", GetTime() + 7, nil, nil, nil, 83968)
-		self:CreateResBar("Sonayahh", GetTime() + 8, "AlreadyRessed", nil, "PENDING", 7328)
+		self:CreateResBar("NawtyNurse", GetTime() + 4, "FrankTheTank", true, nil, nil, 2008)
+		self:CreateResBar("BadCaster", GetTime() + 5, "FrankTheTank", nil, nil, nil, 115178)
+		self:CreateResBar("MassResser", GetTime() + 6, nil, true, nil, true, 83968)
+		self:CreateResBar("MassCollider", GetTime() + 7, nil, nil, nil, true, 83968)
+		self:CreateResBar("Sonayahh", GetTime() + 8, "AlreadyRessed", nil, "PENDING", nil, 7328)
 	end
 	self:LibResInfo_ResExpired(nil, "LazyPlayer")
 end
