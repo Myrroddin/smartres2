@@ -829,6 +829,7 @@ function SmartRes2:StartTestBars()
 		self:CreateResBar("Sonayahh", GetTime() + 8, "AlreadyRessed", nil, "PENDING", nil, 7328)
 	end
 	self:LibResInfo_ResExpired(nil, "LazyPlayer")
+	wipe(resBars)
 end
 
 --@debug@
