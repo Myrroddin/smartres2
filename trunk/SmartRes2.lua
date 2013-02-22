@@ -34,7 +34,6 @@ Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]
 -- local variables ----------------------------------------------------------
 local resBars = {}
 local orientation
-local LastRes
 local icon
 local in_combat = false
 local creatorName = {
@@ -269,7 +268,6 @@ function SmartRes2:OnDisable()
 	ResInfo.UnregisterAllCallbacks(self)
 	self.rez_bars.UnregisterAllCallbacks(self)
 	wipe(resBars)
-	-- LastRes = nil
 end
 
 -- General callback functions -----------------------------------------------
@@ -347,6 +345,12 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 	end
 end
 
+function SmartRes2:AddCustomMsg(msg)
+	msg = string.gsub(msg, "me", "%%%%p%%%%")
+	msg = string.gsub(msg, "you", "%%%%t%%%%")
+	self.db.profile.customchatmsg = msg
+end
+
 local function ChatType()
 	local chatType
 	if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
@@ -421,6 +425,8 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 		else
 			if self.db.profile.randMsgs then
 				msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
+			elseif self.db.profile.customchatmsg ~= "" then
+				msg = self.db.profile.customchatmsg
 			else
 				msg = L["%p is ressing %t"]
 			end
@@ -468,8 +474,6 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 			ResInfo.UnregisterAllCallbacks(self)
 			self.rez_bars.UnregisterAllCallbacks(self)
 		end
-		-- clear the ressing tables
-		-- LastRes = nil
 	end
 	in_combat = true
 end
@@ -611,12 +615,6 @@ local function VerifyUnit(unit, recast)
 		return
 	end
 	unitDead = true
-	--[[
-	if unit == LastRes then
-		self:Debug("LastRes")
-		return
-	end
-	]]
 	if IsSpellInRange(self.playerSpell, unit) ~= 1 then
 		self:Debug("IsSpellInRange NO!")
 		unitOutOfRange = true
@@ -715,7 +713,6 @@ function SmartRes2:Resurrection()
 		self:Debug("unit:", unit)
 		resButton:SetAttribute("spell", self.playerSpell)
 		resButton:SetAttribute("unit", unit)
-		-- LastRes = unit
 	elseif unitOutOfRange then
 		self:Print(SPELL_FAILED_CUSTOM_ERROR_64_NONE)
 	elseif unitBeingRessed or unitWaiting then

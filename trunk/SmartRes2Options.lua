@@ -389,6 +389,15 @@ function addon:OptionsTable()
 						name = "",
 						order = 80
 					},
+					customMessage = {
+						order = 85,
+						type = "input",
+						name = L["Custom Message"],
+						desc = L["Your message.  Use 'me' for yourself and 'you' for target"],
+						get = function() return self.db.profile.customchatmsg end,
+						set = function(info, value) self:AddCustomMsg(value) end,
+						width = "full"
+					},
 					massResMessage = {
 						order = 90,
 						type = "input",
