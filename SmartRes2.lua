@@ -50,11 +50,11 @@ local defaults = {
 		barHeight = 16,
 		barWidth = 128,
 		borderThickness = 10,
-		chatOutput = "0-none",
+		chatOutput = "0-NONE",
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		enableAddon = true,
-		fontFlags = "nil",
+		fontFlags = "NONE",
 		fontScale = 12,
 		fontType = "Friz Quadrata TT",
 		hideAnchor = true,
@@ -64,7 +64,7 @@ local defaults = {
 		massResKey = "",
 		massResMessage = "",
 		maxBars = 10,
-		notifyCollision = "0-off",
+		notifyCollision = "0-OFF",
 		notifySelf = true,
 		maxBars = 10,
 		randMsgs = false,
@@ -273,8 +273,12 @@ end
 -- General callback functions -----------------------------------------------
 
 function SmartRes2:FillRandChatDefaults()
-	local t = self.db.profile.randChatTbl
+	-- Fix old lowercase/camelcase values
+	self.db.profile.chatOutput = strupper(self.db.profile.chatOutput)
+	self.db.profile.fontFlags = strupper(self.db.profile.fontFlags)
+	self.db.profile.notifyCollision = strupper(self.db.profile.notifyCollision)
 
+	local t = self.db.profile.randChatTbl
 	if t then
 		-- Fix old messages
 		for i = 1, #t do
@@ -285,7 +289,6 @@ function SmartRes2:FillRandChatDefaults()
 		end
 		return
 	end
-
 	self.db.profile.randChatTbl = {
 		[1] = L["%p is bringing %t back to life!"],
 		[2] = L["Filthy peon! %p has to resurrect %t!"],
@@ -329,7 +332,6 @@ end
 
 -- called when user changes the texture of the bars
 function SmartRes2:UpdateMedia(callback, type, handle)
-	local flags = self.db.profile.fontFlags:upper()
 	if type == "statusbar" then
 		self.rez_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	elseif type == "border" then
@@ -341,24 +343,27 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
 	elseif type == "font" then
-		self.rez_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, flags)
+		self.rez_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
 	end
 end
 
 function SmartRes2:AddCustomMsg(msg)
-	msg = string.gsub(msg, "me", "%%%%p%%%%")
-	msg = string.gsub(msg, "you", "%%%%t%%%%")
+	msg = gsub(msg, "me", "%%%%p%%%%")
+	msg = gsub(msg, "you", "%%%%t%%%%")
 	self.db.profile.customchatmsg = msg
 end
 
-local function ChatType()
-	local chatType
-	if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
-		chatType = "INSTANCE_CHAT"
-	elseif IsInRaid() then
-		chatType = "RAID"
-	elseif IsInGroup() then
-		chatType = "PARTY"
+local function ChatType(chatType)
+	if chatType == "GROUP" or chatType == "INSTANCE" or chatType == "PARTY" or chatType == "RAID" then
+		if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+			chatType = "INSTANCE_CHAT"
+		elseif IsInRaid() then
+			if chatType ~= "PARTY" then
+				chatType = "RAID"
+			end
+		elseif IsInGroup() then
+			chatType = "PARTY"
+		end
 	end
 	return chatType
 end
@@ -380,14 +385,10 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	end
 
 	-- notify collider caster
-	if not isFirst and self.db.profile.notifyCollision ~= "0-off" then
-		local channel, chat_type, msg = strupper(self.db.profile.notifyCollision)
-		if channel == "GROUP" or "RAID" or "PARTY" or "INSTANCE" then
-			chat_type = ChatType()
-		else
-			chat_type = channel
-		end
-
+	local chat_type = ChatType(self.db.profile.notifyCollision)
+	if not isFirst then self:Debug("notifyCollision", self.db.profile.notifyCollision, "=>", chat_type) end
+	if not isFirst and chat_type ~= "0-OFF" then
+		local msg
 		if hasTarget then
 			-- handle class spells
 			msg = format(L["SmartRes2 would like you to know that %s is already being ressed by %s."], targetName, casterName)
@@ -412,14 +413,10 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	end
 
 	-- send normal, random, or custom chat message
-	local channel, chat_type, msg = strupper(self.db.profile.chatOutput)
+	local chat_type = ChatType(self.db.profile.chatOutput)
+	self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
 	if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
-		if channel == "GROUP" or channel == "RAID" or channel == "PARTY" or channel == "INSTANCE" then
-			chat_type = ChatType()
-		else
-			chat_type = channel
-		end
-
+		local msg
 		if not hasTarget and self.db.profile.massResMessage ~= "" then
 			msg = self.db.profile.massResMessage
 		else
@@ -433,7 +430,6 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 			msg = gsub(msg, "%%p", casterName)
 			msg = gsub(msg, "%%t", targetName)
 		end
-
 		SendChatMessage(msg, chat_type, nil, (chat_type == "WHISPER") and targetName or nil)
 	end
 end
@@ -783,8 +779,6 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		t = self.db.profile.collisionBarsColour
 	end
 
-	local flags = self.db.profile.fontFlags:upper()
-
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
 	local bar = self.rez_bars:NewTimerBar(casterName, text, end_time, nil, icon, 0)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
@@ -802,7 +796,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	bar:SetHeight(self.db.profile.barHeight)
 	bar:SetWidth(self.db.profile.barWidth)
 
-	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, flags)
+	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
 		edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
