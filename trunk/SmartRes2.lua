@@ -89,8 +89,8 @@ local defaults = {
 function SmartRes2:Debug(str, ...)
 	--@debug@
 	if not str or strlen(str) == 0 then return end
-	if type(...) ~= "nil" then
-		if strfind(str, "%%%.%d") or strfind(str, "%%[dfqsx%d]") then
+	if select("#", ...) > 0 then
+		if strfind(str, "%%[dfqsx%d]") or strfind(str, "%%%.%d") then
 			str = format(str, ...)
 		else
 			str = strjoin(" ", str, tostringall(...))
@@ -102,8 +102,8 @@ end
 
 function SmartRes2:Print(str, ...)
 	if not str or strlen(str) == 0 then return end
-	if type(...) ~= "nil" then
-		if strfind(str, "%%%.%d") or strfind(str, "%%[dfqsx%d]") then
+	if select("#", ...) > 0 then
+		if strfind(str, "%%[dfqsx%d]") or strfind(str, "%%%.%d") then
 			str = format(str, ...)
 		else
 			str = strjoin(" ", str, tostringall(...))
@@ -385,69 +385,69 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 		self:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, not hasTarget)
 	end
 
-	-- notify collider caster
-	local chat_type = ChatType(self.db.profile.notifyCollision)
-	if not isFirst then self:Debug("notifyCollision", self.db.profile.notifyCollision, "=>", chat_type) end
-	if not isFirst and chat_type ~= "0-OFF" then
-		local msg
-		if hasTarget then
-			-- handle class spells
-			msg = format(L["SmartRes2 would like you to know that %s is already being ressed by %s."], targetName, casterName)
-		else
-			-- handle Mass Resurrection
-			msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
-		end
-		if chat_type == "WHISPER" then
-			local whisperTarget = casterName
-			if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
-				whisperTarget = format("%s-%s", casterName, casterRealm)
-			end
-			SendChatMessage(msg, chat_type, nil, whisperTarget)
-		else
-			SendChatMessage(msg, chat_type)
-		end
-	end
-
 	self:Debug("casterID", casterID, "UnitIsUnit", UnitIsUnit(casterID, "player"))
-	if not UnitIsUnit(casterID, "player") then
-		return
-	end
+	if UnitIsUnit(casterID, "player") then
+		-- self print whom you are resurrecting
+		self:Debug(targetRealm, targetName, creatorName[targetName])
+		if targetRealm == "Llane" and creatorName[targetName] then
+			self:Print("You are resurrecting the Creator!!")
+		elseif self.db.profile.notifySelf then
+			self:Print(L["You are ressing %s"], targetName)
+		end
 
-	-- self print whom you are resurrecting
-	self:Debug(targetRealm, targetName, creatorName[targetName])
-	if targetRealm == "Llane" and creatorName[targetName] then
-		self:Print("You are resurrecting the Creator!!")
-	elseif self.db.profile.notifySelf then
-		self:Print(L["You are ressing %s"], targetName)
-	end
-
-	-- send normal, random, or custom chat message
-	local chat_type = ChatType(self.db.profile.chatOutput)
-	self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
-	if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
-		local msg
-		if not hasTarget and self.db.profile.massResMessage ~= "" then
-			msg = self.db.profile.massResMessage
-		else
-			if self.db.profile.randMsgs then
-				msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
-			elseif self.db.profile.customchatmsg ~= "" then
-				msg = self.db.profile.customchatmsg
+		-- send normal, random, or custom chat message
+		local chat_type = ChatType(self.db.profile.chatOutput)
+		self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
+		if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
+			local msg
+			if not hasTarget and self.db.profile.massResMessage ~= "" then
+				msg = self.db.profile.massResMessage
 			else
-				msg = L["%p is ressing %t"]
+				if self.db.profile.randMsgs then
+					msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
+				elseif self.db.profile.customchatmsg ~= "" then
+					msg = self.db.profile.customchatmsg
+				else
+					msg = L["%p is ressing %t"]
+				end
+				msg = gsub(msg, "%%p", casterName)
+				msg = gsub(msg, "%%t", targetName)
 			end
-			msg = gsub(msg, "%%p", casterName)
-			msg = gsub(msg, "%%t", targetName)
-		end
-		if chat_type == "WHISPER" then
-			local whisperTarget = casterName
-			if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
-				whisperTarget = format("%s-%s", casterName, casterRealm)
+			if chat_type == "WHISPER" then
+				local whisperTarget = casterName
+				if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
+					whisperTarget = format("%s-%s", casterName, casterRealm)
+				end
+				SendChatMessage(msg, chat_type, nil, whisperTarget)
+			else
+				SendChatMessage(msg, chat_type)
 			end
-			SendChatMessage(msg, chat_type, nil, whisperTarget)
-		else
-			SendChatMessage(msg, chat_type)
 		end
+
+	elseif not isFirst then
+		-- notify collider caster
+		local chat_type = ChatType(self.db.profile.notifyCollision)
+		self:Debug("notifyCollision", self.db.profile.notifyCollision, "=>", chat_type)
+		if chat_type ~= "0-OFF" then
+			local msg
+			if hasTarget then
+				-- handle class spells
+				msg = format(L["SmartRes2 would like you to know that %s is already being ressed by %s."], targetName, casterName)
+			else
+				-- handle Mass Resurrection
+				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
+			end
+			if chat_type == "WHISPER" then
+				local whisperTarget = casterName
+				if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
+					whisperTarget = format("%s-%s", casterName, casterRealm)
+				end
+				SendChatMessage(msg, chat_type, nil, whisperTarget)
+			else
+				SendChatMessage(msg, chat_type)
+			end
+		end
+
 	end
 end
 
