@@ -350,8 +350,6 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 end
 
 function SmartRes2:AddCustomMsg(msg)
-	msg = gsub(msg, "me", "%%p")
-	msg = gsub(msg, "you", "%%t")
 	self.db.profile.customchatmsg = msg
 end
 
