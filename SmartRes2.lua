@@ -161,7 +161,7 @@ function SmartRes2:OnInitialize()
 	if DataBroker then
 		local launcher = DataBroker:NewDataObject("SmartRes2", {
 			type = "launcher",
-			icon = select(3, GetSpellInfo(self.playerSpell)) or select(3, GetSpellInfo(2006)),
+			icon = self.playerSpell and select(3, GetSpellInfo(self.playerSpell)) or select(3, GetSpellInfo(2006)),
 			OnClick = function(clickedframe, button)
 				if button == "LeftButton" then
 					-- keep our options table in sync with the ldb object state
@@ -182,10 +182,11 @@ function SmartRes2:OnInitialize()
 				end
 			end,
 			OnTooltipShow = function(self)
-			GameTooltip:AddLine("SmartRes2".." "..version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
-			GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."].."\n"..L["Middle click for Test Bars."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-			GameTooltip:Show()
-		end})
+				GameTooltip:AddLine("SmartRes2".." "..version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+				GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."].."\n"..L["Middle click for Test Bars."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+				GameTooltip:Show()
+			end
+		})
 		self.launcher = launcher
 	end
 
@@ -402,21 +403,21 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 			local msg
 			if not hasTarget and self.db.profile.massResMessage ~= "" then
 				msg = self.db.profile.massResMessage
+			elseif self.db.profile.randMsgs then
+				msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
+			elseif self.db.profile.customchatmsg ~= "" then
+				msg = self.db.profile.customchatmsg
 			else
-				if self.db.profile.randMsgs then
-					msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
-				elseif self.db.profile.customchatmsg ~= "" then
-					msg = self.db.profile.customchatmsg
-				else
-					msg = L["%p is ressing %t"]
-				end
-				msg = gsub(msg, "%%p", casterName)
-				msg = gsub(msg, "%%t", targetName)
+				msg = L["%p is ressing %t"]
 			end
+
+			msg = gsub(msg, "%%p", casterName)
+			msg = gsub(msg, "%%t", targetName)
+
 			if chat_type == "WHISPER" then
-				local whisperTarget = casterName
-				if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
-					whisperTarget = format("%s-%s", casterName, casterRealm)
+				local whisperTarget = targetName
+				if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
+					whisperTarget = format("%s-%s", targetName, targetRealm)
 				end
 				SendChatMessage(msg, chat_type, nil, whisperTarget)
 			else
@@ -438,9 +439,9 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
 			end
 			if chat_type == "WHISPER" then
-				local whisperTarget = casterName
-				if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
-					whisperTarget = format("%s-%s", casterName, casterRealm)
+				local whisperTarget = targetName
+				if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
+					whisperTarget = format("%s-%s", targetName, targetRealm)
 				end
 				SendChatMessage(msg, chat_type, nil, whisperTarget)
 			else
