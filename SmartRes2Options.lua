@@ -66,8 +66,8 @@ function addon:OptionsTable()
 								self.rez_bars:SetClampedToScreen(true)
 							end
 						end
-					},				
-					visibleResBars = { 
+					},
+					visibleResBars = {
 						order = 60,
 						type = "toggle",
 						name = L["Show Bars"],
@@ -85,7 +85,7 @@ function addon:OptionsTable()
 							self.db.profile.reverseGrowth = value
 							self.rez_bars:ReverseGrowth(value)
 						end
-					},					
+					},
 					resBarsIcon = {
 						order = 90,
 						type = "toggle",
@@ -100,14 +100,14 @@ function addon:OptionsTable()
 								self.rez_bars:HideIcon()
 							end
 						end
-					},					
+					},
 					showBattleRes = {
 						order = 100,
 						type = "toggle",
 						name = L["Show Battle Resses"],
 						get = function() return self.db.profile.showBattleRes end,
 						set = function(info, value)	self.db.profile.showBattleRes = value end
-					},					
+					},
 					classColours = {
 						order = 110,
 						type = "toggle",
@@ -120,7 +120,7 @@ function addon:OptionsTable()
 						type = "description",
 						name = "",
 						order = 130
-					},					
+					},
 					numMaxBars = {
 						order = 160,
 						type = "range",
@@ -226,7 +226,7 @@ function addon:OptionsTable()
 						values = AceGUIWidgetLSMlists.border,
 						get = function() return self.db.profile.resBarsBorder end,
 						set = function(info, value) self.db.profile.resBarsBorder = value end
-					},					
+					},
 					horizontalOrientation = {
 						order = 250,
 						type = "select",
@@ -352,34 +352,34 @@ function addon:OptionsTable()
 						name = L["Chat Output Type"],
 						desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, smart Group, or None"],
 						values = {
-							["0-none"] = NONE,
-							group = GROUP,
-							guild = CHAT_MSG_GUILD,
-							instance = INSTANCE_CHAT,
-							party = CHAT_MSG_PARTY,
-							raid = CHAT_MSG_RAID,
-							say = CHAT_MSG_SAY,
-							whisper = CHAT_MSG_WHISPER_INFORM,
-							yell = CHAT_MSG_YELL
+							["0-NONE"] = NONE,
+							GROUP = GROUP,
+							GUILD = CHAT_MSG_GUILD,
+							INSTANCE = INSTANCE_CHAT,
+							PARTY = CHAT_MSG_PARTY,
+							RAID = CHAT_MSG_RAID,
+							SAY = CHAT_MSG_SAY,
+							WHISPER = CHAT_MSG_WHISPER_INFORM,
+							YELL = CHAT_MSG_YELL
 						},
 						get = function() return self.db.profile.chatOutput end,
 						set = function(info, value)	self.db.profile.chatOutput = value end
-					},					
+					},
 					notifyCollision = {
 						order = 70,
 						type = "select",
 						name = L["Duplicate Res Targets"],
 						desc = L["Notify a resser they created a collision. Could get very spammy"],
 						values = {
-							["0-off"] = OFF,
-							group = GROUP,
-							guild = CHAT_MSG_GUILD,
-							instance = INSTANCE_CHAT,
-							party = CHAT_MSG_PARTY,
-							raid = CHAT_MSG_RAID,
-							say = CHAT_MSG_SAY,
-							whisper = CHAT_MSG_WHISPER_INFORM,
-							yell = CHAT_MSG_YELL
+							["0-OFF"] = OFF,
+							GROUP = GROUP,
+							GUILD = CHAT_MSG_GUILD,
+							INSTANCE = INSTANCE_CHAT,
+							PARTY = CHAT_MSG_PARTY,
+							RAID = CHAT_MSG_RAID,
+							SAY = CHAT_MSG_SAY,
+							WHISPER = CHAT_MSG_WHISPER_INFORM,
+							YELL = CHAT_MSG_YELL
 						},
 						get = function() return self.db.profile.notifyCollision end,
 						set = function(info, value)	self.db.profile.notifyCollision = value	end
@@ -416,7 +416,7 @@ function addon:OptionsTable()
 						set = function(info, value)
 							-- Insert non-empty values into the table
 							if value and value:trim() ~= "" then
-								tinsert(self.db.profile.randChatTbl, value) 
+								tinsert(self.db.profile.randChatTbl, value)
 							end
 						end,
 						width = "full"
@@ -462,8 +462,8 @@ function addon:OptionsTable()
 						desc = L["Select a font for the text on the res bars"],
 						values = AceGUIWidgetLSMlists.font,
 						get = function() return self.db.profile.fontType end,
-						set = function(info, value) self.db.profile.fontType = value end					
-					},								
+						set = function(info, value) self.db.profile.fontType = value end
+					},
 					fontSize = {
 						order = 20,
 						type = "range",
@@ -479,18 +479,18 @@ function addon:OptionsTable()
 						order = 30,
 						type = "select",
 						name = L["Font Style"],
-						desc = L["Nothing, outline, thick outline, or monochrome"],						
+						desc = L["Nothing, outline, thick outline, or monochrome"],
 						values = {
-							["nil"] = NONE,
-							outline = L["Outline"],
-							thickOutline = L["THICK_OUTLINE"],
-							["outline, monoChrome"] = L["Outline and monochrome"],
-							["thickOutline, monoChrome"] = L["Thick outline and monochrome"]
+							["NONE"] = NONE,
+							["OUTLINE"] = L["Outline"],
+							["THICKOUTLINE"] = L["THICK_OUTLINE"],
+							["MONOCHROME,OUTLINE"] = L["Outline and monochrome"],
+							["MONOCHROME,THICKOUTLINE"] = L["Thick outline and monochrome"]
 						},
 						get = function() return self.db.profile.fontFlags end,
 						set = function(info, value) self.db.profile.fontFlags = value end
 					}
-				}			
+				}
 			},
 			keyBindingsTab = {
 				name = KEY_BINDINGS,
