@@ -393,7 +393,7 @@ function addon:OptionsTable()
 						order = 85,
 						type = "input",
 						name = L["Custom Message"],
-						desc = L["Your message.  Use 'me' for yourself and 'you' for target"],
+						desc = L["Enter a custom message for normal resurrections. This overrides both the default and random messages. Does not impact Mass Resurrection messages. Use %p (optional) for yourself, %t (mandatory) for your target."],
 						get = function() return self.db.profile.customchatmsg end,
 						set = function(info, value) self:AddCustomMsg(value) end,
 						width = "full"
