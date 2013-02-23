@@ -36,6 +36,7 @@ local resBars = {}
 local orientation
 local icon
 local in_combat = false
+local currentRealm = GetRealmName()
 local creatorName = {
 	["Myrroddin"] = true,
 	["Jelia"] = true,
@@ -88,7 +89,7 @@ local defaults = {
 function SmartRes2:Debug(str, ...)
 	--@debug@
 	if not str or strlen(str) == 0 then return end
-	if (...) then
+	if type(...) ~= "nil" then
 		if strfind(str, "%%%.%d") or strfind(str, "%%[dfqsx%d]") then
 			str = format(str, ...)
 		else
@@ -101,7 +102,7 @@ end
 
 function SmartRes2:Print(str, ...)
 	if not str or strlen(str) == 0 then return end
-	if (...) then
+	if type(...) ~= "nil" then
 		if strfind(str, "%%%.%d") or strfind(str, "%%[dfqsx%d]") then
 			str = format(str, ...)
 		else
@@ -375,7 +376,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID)
-	local casterName = UnitName(casterID)
+	local casterName, casterRealm = UnitName(casterID)
 	local hasIncomingRes = ResInfo:UnitHasIncomingRes(targetID)
 
 	self:Debug("single?", not not hasTarget, "first?", isFirst)
@@ -396,7 +397,15 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 			-- handle Mass Resurrection
 			msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
 		end
-		SendChatMessage(msg, chat_type, nil, (chat_type == "WHISPER") and casterName or nil)
+		if chat_type == "WHISPER" then
+			local whisperTarget = casterName
+			if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
+				whisperTarget = format("%s-%s", casterName, casterRealm)
+			end
+			SendChatMessage(msg, chat_type, nil, whisperTarget)
+		else
+			SendChatMessage(msg, chat_type)
+		end
 	end
 
 	self:Debug("casterID", casterID, "UnitIsUnit", UnitIsUnit(casterID, "player"))
@@ -430,7 +439,15 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 			msg = gsub(msg, "%%p", casterName)
 			msg = gsub(msg, "%%t", targetName)
 		end
-		SendChatMessage(msg, chat_type, nil, (chat_type == "WHISPER") and targetName or nil)
+		if chat_type == "WHISPER" then
+			local whisperTarget = casterName
+			if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
+				whisperTarget = format("%s-%s", casterName, casterRealm)
+			end
+			SendChatMessage(msg, chat_type, nil, whisperTarget)
+		else
+			SendChatMessage(msg, chat_type)
+		end
 	end
 end
 
