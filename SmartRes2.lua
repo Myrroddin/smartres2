@@ -401,14 +401,20 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 		self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
 		if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
 			local msg
-			if not hasTarget and self.db.profile.massResMessage ~= "" then
-				msg = self.db.profile.massResMessage
-			elseif self.db.profile.randMsgs then
-				msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
-			elseif self.db.profile.customchatmsg ~= "" then
-				msg = self.db.profile.customchatmsg
+			if hasTarget then
+				if self.db.profile.customchatmsg ~= "" then
+					msg = self.db.profile.customchatmsg
+				elseif self.db.profile.randMsgs then
+					msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
+				else
+					msg = L["%p is ressing %t"]
+				end
 			else
-				msg = L["%p is ressing %t"]
+				if self.db.profile.massResMessage ~= "" then
+					msg = self.db.profile.massResMessage
+				else
+					msg = L["I am casting Mass Resurrection."]
+				end
 			end
 
 			msg = gsub(msg, "%%p", casterName)
