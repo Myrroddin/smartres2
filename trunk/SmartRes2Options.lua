@@ -484,7 +484,6 @@ function addon:OptionsTable()
 							["nil"] = NONE,
 							outline = L["Outline"],
 							thickOutline = L["THICK_OUTLINE"],
-							monoChrome = L["Monochrome"],
 							["outline, monoChrome"] = L["Outline and monochrome"],
 							["thickOutline, monoChrome"] = L["Thick outline and monochrome"]
 						},
