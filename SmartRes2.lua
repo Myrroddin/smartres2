@@ -697,7 +697,7 @@ function SmartRes2:Resurrection()
 	resButton:SetAttribute("unit", nil)
 
 	if not IsInGroup() then
-		return self:Debug(L["You are not in a group."])
+		return self:Print(L["You are not in a group."])
 	end
 
 	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a caster
