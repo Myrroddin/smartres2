@@ -33,6 +33,7 @@ Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]
 
 -- local variables ----------------------------------------------------------
 local resBars = {}
+local timeOutBars = {}
 local orientation
 local icon
 local in_combat = false
@@ -48,13 +49,14 @@ local creatorName = {
 local defaults = {
 	profile = {
 		autoResKey = "",
-		barHeight = 16,
-		barWidth = 128,
+		barHeight = 20,
+		barWidth = 300,
 		borderThickness = 10,
 		chatOutput = "0-NONE",
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
 		enableAddon = true,
+		enableTimeOutBars = true,
 		fontFlags = "NONE",
 		fontScale = 12,
 		fontType = "Friz Quadrata TT",
@@ -79,6 +81,10 @@ local defaults = {
 		reverseGrowth = false,
 		scale = 1,
 		showBattleRes = false,
+		timeOutBarsAnchor = true,
+		timeOutBarsColour = { r = 1, g = 1, b = 1, a = 1 },
+		timeOutBarsX = 50,
+		timeOutBarsY = 500,
 		visibleResBars = true,
 		waitingBarsColour = { r = 0, g = 0, b = 1, a = 1 }
 	}
@@ -210,7 +216,7 @@ function SmartRes2:OnEnable()
 	self:RegisterEvent("GUILD_PERK_UPDATE", "VerifyPerk")
 	self:RegisterEvent("PLAYER_GUILD_UPDATE", "VerifyPerk")
 
-	self.rez_bars = self.rez_bars or self:NewBarGroup("SmartRes2", self.db.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
+	self.rez_bars = self.rez_bars or self:NewBarGroup("SmartRes2", self.db.profile.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
 	self.rez_bars:SetClampedToScreen(true)
 	if self.db.profile.hideAnchor then
 		self.rez_bars:HideAnchor()
@@ -220,15 +226,36 @@ function SmartRes2:OnEnable()
 		self.rez_bars:Unlock()
 	end
 	self.rez_bars:SetMaxBars(self.db.profile.maxBars)
+	self.rez_bars:SetHeight(self.db.profile.barHeight)
+	self.rez_bars:SetWidth(self.db.profile.barWidth)
+	self.rez_bars:SetScale(self.db.profile.scale)
+	
+	self.timeOut_bars = self.timeOut_bars or self:NewBarGroup("SmartRes2_TimeOutBars", self.db.profile.horizontalOrientation, 300, 15, "SmartRes2_TimeOutBars")
+	self.timeOut_bars:SetClampedToScreen(true)
+	if self.db.profile.timeOutBarsAnchor then
+		self.timeOut_bars:ShowAnchor()
+		self.timeOut_bars:Unlock()
+	else
+		self.timeOut_bars:HideAnchor()
+		self.timeOut_bars:Lock()
+	end
+	self.timeOut_bars:SetMaxBars(self.db.profile.maxBars)
+	self.timeOut_bars:SetHeight(self.db.profile.barHeight)
+	self.timeOut_bars:SetWidth(self.db.profile.barWidth)
+	self.timeOut_bars:SetScale(self.db.profile.scale)
 	self:RestorePosition()
-
+	
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
-	ResInfo.RegisterCallback(self, "LibResInfo_ResExpired")
+	ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
+	ResInfo.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
+	ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
 	self.rez_bars.RegisterCallback(self, "FadeFinished")
 	self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
+	self.timeOut_bars.RegisterCallback(self, "FadeFinished")
+	self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 
 	self:BindMassRes()
 	self:BindKeys()
@@ -236,20 +263,30 @@ end
 
 function SmartRes2:SavePosition()
 	local f = self.rez_bars
+	local t = self.timeOut_bars
 	local s = f:GetEffectiveScale()
+	local ts = t:GetEffectiveScale()
 	self.db.profile.resBarsX = f:GetLeft() * s
 	self.db.profile.resBarsY = f:GetTop() * s
+	self.db.profile.timeOutBarsX = t:GetLeft() * ts
+	self.db.profile.timeOutBarsY = t:GetTop() * ts
 end
 
 function SmartRes2:RestorePosition()
 	local x = self.db.profile.resBarsX
 	local y = self.db.profile.resBarsY
-	if not x or not y then return end
+	local tx = self.db.profile.timeOutBarsX
+	local ty = self.db.profile.timeOutBarsY
+	if not x or not y or not tx or not ty then return end
 
 	local f = self.rez_bars
+	local t = self.timeOut_bars
 	local s = f:GetEffectiveScale()
+	local ts = t:GetEffectiveScale()
 	f:ClearAllPoints()
+	t:ClearAllPoints()
 	f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / s, y / s)
+	t:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", tx / ts, ty / ts)
 end
 
 -- process slash commands ---------------------------------------------------
@@ -269,7 +306,9 @@ function SmartRes2:OnDisable()
 	Media.UnregisterAllCallbacks(self)
 	ResInfo.UnregisterAllCallbacks(self)
 	self.rez_bars.UnregisterAllCallbacks(self)
+	self.timeOut_bars.UnregisterAllCallbacks(self)
 	wipe(resBars)
+	wipe(timeOutBars)
 end
 
 -- General callback functions -----------------------------------------------
@@ -336,6 +375,7 @@ end
 function SmartRes2:UpdateMedia(callback, type, handle)
 	if type == "statusbar" then
 		self.rez_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+		self.timeOut_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	elseif type == "border" then
 		self.rez_bars:SetBackdrop({
 			edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
@@ -344,13 +384,17 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 			edgeSize = self.db.profile.borderThickness,
 			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
+		self.timeOut_bars:SetBackdrop({
+			edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
+			tile = false,
+			tileSize = self.db.profile.scale + 1,
+			edgeSize = self.db.profile.borderThickness,
+			insets = { left = 0, right = 0, top = 0, bottom = 0 }
+		})
 	elseif type == "font" then
 		self.rez_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+		self.timeOut_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
 	end
-end
-
-function SmartRes2:AddCustomMsg(msg)
-	self.db.profile.customchatmsg = msg
 end
 
 local function ChatType(chatType)
@@ -456,9 +500,28 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	end
 end
 
-function SmartRes2:LibResInfo_ResExpired(callback, targetID, targetGUID)
-	if not self.db.profile.resExpired then return end
-	self:Print(L["%s's resurrection timer expired, and can be resurrected again"], UnitName(targetID) or targetID)
+-- unit has been ressed, not accepted res yet
+function SmartRes2:ResTimeOutStarted(callback, targetID, targetGUID)
+	self:Debug("ResTimeOutStarted", callback, targetID, targetGUID)
+	if self.db.profile.enableTimeOutBars then
+		local status, endTime = ResInfo:UnitHasIncomingRes(targetID)
+		if status == "PENDING" then
+			self:Debug("Status", status, "endTime", endTime)
+			self:CreateTimeOutBars(endTime, targetID)
+		end
+	end
+end
+
+-- unit's res has expired or unit has accepted res
+function SmartRes2:ResTimeOutEnded(callback, targetID, targetGUID)
+	self:Debug("ResTimeOutEnded", callback, targetID, targetGUID)
+	if self.db.profile.resExpired and UnitIsDeadOrGhost(targetID) then
+		self:Print(L["%s's resurrection timer expired, and can be resurrected again"], UnitName(targetID) or targetID)
+	end
+	if timeOutBars[targetID] then
+		timeOutBars[targetID]:Fade(0.1)
+		timeOutBars[targetID] = nil
+	end
 end
 
 -- a res cast has finished or cancelled
@@ -491,6 +554,7 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 		if not self.db.profile.showBattleRes then
 			ResInfo.UnregisterAllCallbacks(self)
 			self.rez_bars.UnregisterAllCallbacks(self)
+			self.timeOut_bars.UnregisterAllCallbacks(self)
 		end
 	end
 	in_combat = true
@@ -502,11 +566,15 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 	-- reenable callbacks during battle if we don't want to see battle resses
 	if not self.db.profile.showBattleRes then
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
-		ResInfo.RegisterCallback(self, "LibResInfo_ResExpired")
+		ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
+		ResInfo.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
+		ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
 		self.rez_bars.RegisterCallback(self, "FadeFinished")
-		self.rez_bars.RegisterCallback(self, "AnchorMoved", "ResAnchorMoved")
+		self.timeOut_bars.RegisterCalllback(self, "FadeFinished")
+		self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
+		self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 	end
 	in_combat = false
 end
@@ -753,6 +821,38 @@ local function ClassColouredName(name)
 	return format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, name)
 end
 
+function SmartRes2:CreateTimeOutBars(endTime, targetID)
+	local targetName = UnitName(targetID)
+	local end_time = endTime - GetTime()
+	local text
+	local t = self.db.profile.timeOutBarsColour
+	
+	if self.db.profile.classColours then
+		text = ClassColouredName(targetName)
+	else
+		text = targetName
+	end
+	
+	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
+	local bar = self.timeOut_bars:NewTimerBar(targetName, text, end_time, nil, nil, 0)
+	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
+	bar:SetColorAt(0, 0, 0, 1)
+	
+	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
+	bar:SetOrientation(orientation)
+	
+	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	bar:SetBackdrop({
+		edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
+		tile = false,
+		tileSize = self.db.profile.scale + 1,
+		edgeSize = self.db.profile.borderThickness,
+		insets = { left = 0, right = 0, top = 0, bottom = 0 }
+	})
+	timeOutBars[targetID] = bar
+end
+
 function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)
 	self:Debug("CreateResBar", casterID, isFirst, hasIncomingRes, isMassRes)
 	if resBars[casterID] then
@@ -833,6 +933,7 @@ end
 -- LibBars event - called when bar finished fading
 function SmartRes2:FadeFinished(event, bar, name)
 	self.rez_bars:ReleaseBar(bar)
+	self.timeOut_bars:ReleaseBar(bar)
 end
 
 function SmartRes2:StartTestBars()
@@ -844,7 +945,6 @@ function SmartRes2:StartTestBars()
 		self:CreateResBar("MassCollider", GetTime() + 7, nil, nil, nil, true, 83968)
 		self:CreateResBar("Sonayahh", GetTime() + 8, "AlreadyRessed", nil, "PENDING", nil, 7328)
 	end
-	self:LibResInfo_ResExpired(nil, "LazyPlayer")
 	wipe(resBars)
 end
 
