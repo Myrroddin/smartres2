@@ -306,6 +306,54 @@ function addon:OptionsTable()
 					}
 				}
 			},
+			timeOutBarsTab = {
+				order = 10,
+				type = "group",
+				name = L["Resurrection Time Out Bars"],
+				desc = L["Displays bars of players who have been resurrected, but not yet accepted"],
+				args = {
+					enableTimeOutBars = {
+						order = 10,
+						type = "toggle",
+						name = L["Enable Waiting for Accept Bars"],
+						get = function() return self.db.profile.enableTimeOutBars end,
+						set = function(info, value) self.db.profile.enableTimeOutBars = value end
+					},
+					showTimeOutBarsAnchor = {
+						order = 20,
+						type = "toggle",
+						name = L["Time Out Bars Anchor"],
+						desc = L["Toggle the anchor for the time out bars"],
+						get = function() return self.db.profile.timeOutBarsAnchor end,
+						set = function(info, value)
+							self.db.profile.timeOutBarsAnchor = value
+							if value then
+								self.timeOut_bars:ShowAnchor()
+								self.timeOut_bars:Unlock()
+								self.timeOut_bars:SetClampedToScreen(true)
+							else
+								self.timeOut_bars:HideAnchor()
+								self.timeOut_bars:Lock()
+							end
+						end
+					},
+					timeOutBarsColour = {
+						order = 30,
+						type = "color",
+						name = L["Waiting for Accept Bar Colour"],
+						desc = L["The colour of bars for people already resurrected but not accepted"],
+						hasAlpha = true,
+						get = function()
+							local t = self.db.profile.timeOutBarsColour
+							return t.r, t.g, t.b, t.a
+						end,
+						set = function(info, r, g, b, a)
+							local t = self.db.profile.timeOutBarsColour
+							t.r, t.g, t.b, t.a = r, g, b, a
+						end
+					}
+				}
+			},
 			resChatTextTab = {
 				name = CHAT_OPTIONS_LABEL,
 				desc = L["Chat output options"],
@@ -395,7 +443,7 @@ function addon:OptionsTable()
 						name = L["Custom Message"],
 						desc = L["Enter a custom message for normal resurrections. This overrides both the default and random messages. Does not impact Mass Resurrection messages. Use %p (optional) for yourself, %t (mandatory) for your target."],
 						get = function() return self.db.profile.customchatmsg end,
-						set = function(info, value) self:AddCustomMsg(value) end,
+						set = function(info, value) self.db.profile.customchatmsg = value end,
 						width = "full"
 					},
 					massResMessage = {
