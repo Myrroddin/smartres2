@@ -9,8 +9,8 @@
 local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0", "LibBars-1.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 
---@alpha@
 local version = GetAddOnMetadata("SmartRes2", "Version")
+--@alpha@
 if version:match("@") then
 	version = "Development"
 else
