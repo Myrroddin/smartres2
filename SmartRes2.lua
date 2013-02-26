@@ -441,7 +441,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 		-- send normal, random, or custom chat message
 		local chat_type = ChatType(self.db.profile.chatOutput)
 		self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
-		if channel ~= "0-NONE" then -- if it is "none" then don't send any chat messages
+		if chat_type ~= "0-NONE" then -- if it is "none" then don't send any chat messages
 			local msg
 			if hasTarget then
 				if self.db.profile.customchatmsg ~= "" then
@@ -837,6 +837,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 	local bar = self.timeOut_bars:NewTimerBar(targetName, text, end_time, nil, nil, 0)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 1)
+	bar:HideIcon()
 	
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
