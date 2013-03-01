@@ -252,9 +252,9 @@ function SmartRes2:OnEnable()
 	ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
-	self.rez_bars.RegisterCallback(self, "FadeFinished")
+	self.rez_bars.RegisterCallback(self, "ResBarsFadeFinished")
 	self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
-	self.timeOut_bars.RegisterCallback(self, "FadeFinished")
+	self.timeOut_bars.RegisterCallback(self, "TimeOutBarsFadeFinished")
 	self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 
 	self:BindMassRes()
@@ -571,8 +571,8 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 		ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
-		self.rez_bars.RegisterCallback(self, "FadeFinished")
-		self.timeOut_bars.RegisterCalllback(self, "FadeFinished")
+		self.rez_bars.RegisterCallback(self, "ResBarsFadeFinished")
+		self.timeOut_bars.RegisterCalllback(self, "TimeOutBarsFadeFinished")
 		self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 		self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 	end
@@ -901,7 +901,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		-- collision, could be class spell or Mass Res
 		t = self.db.profile.collisionBarsColour
 	end
-
+	
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
 	local bar = self.rez_bars:NewTimerBar(casterName, text, end_time, nil, icon, 0)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
@@ -932,8 +932,10 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 end
 
 -- LibBars event - called when bar finished fading
-function SmartRes2:FadeFinished(event, bar, name)
+function SmartRes2:ResBarsFadeFinished(event, bar, name)
 	self.rez_bars:ReleaseBar(bar)
+end
+function SmartRes2:TimeOutBarsFadeFinished(event, bar, name)
 	self.timeOut_bars:ReleaseBar(bar)
 end
 
