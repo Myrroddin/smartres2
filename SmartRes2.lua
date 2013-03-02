@@ -572,7 +572,7 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
 		self.rez_bars.RegisterCallback(self, "ResBarsFadeFinished")
-		self.timeOut_bars.RegisterCalllback(self, "TimeOutBarsFadeFinished")
+		self.timeOut_bars.RegisterCallback(self, "TimeOutBarsFadeFinished")
 		self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 		self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 	end
