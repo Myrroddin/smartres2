@@ -229,7 +229,7 @@ function SmartRes2:OnEnable()
 	self.rez_bars:SetHeight(self.db.profile.barHeight)
 	self.rez_bars:SetWidth(self.db.profile.barWidth)
 	self.rez_bars:SetScale(self.db.profile.scale)
-	
+
 	self.timeOut_bars = self.timeOut_bars or self:NewBarGroup("SmartRes2_TimeOutBars", self.db.profile.horizontalOrientation, 300, 15, "SmartRes2_TimeOutBars")
 	self.timeOut_bars:SetClampedToScreen(true)
 	if self.db.profile.timeOutBarsAnchor then
@@ -244,7 +244,7 @@ function SmartRes2:OnEnable()
 	self.timeOut_bars:SetWidth(self.db.profile.barWidth)
 	self.timeOut_bars:SetScale(self.db.profile.scale)
 	self:RestorePosition()
-	
+
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
@@ -446,17 +446,20 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 			if hasTarget then
 				if self.db.profile.customchatmsg ~= "" then
 					msg = self.db.profile.customchatmsg
+					self:Debug("custom", msg)
 				elseif self.db.profile.randMsgs then
 					msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
+					self:Debug("random", msg)
 				else
 					msg = L["%p is ressing %t"]
+					self:Debug("default", msg)
 				end
+			elseif self.db.profile.massResMessage ~= "" then
+				msg = self.db.profile.massResMessage
+				self:Debug("MR custom", msg)
 			else
-				if self.db.profile.massResMessage ~= "" then
-					msg = self.db.profile.massResMessage
-				else
-					msg = L["I am casting Mass Resurrection."]
-				end
+				msg = L["I am casting Mass Resurrection."]
+				self:Debug("MR default", msg)
 			end
 
 			msg = gsub(msg, "%%p", casterName)
@@ -826,22 +829,22 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 	local end_time = endTime - GetTime()
 	local text
 	local t = self.db.profile.timeOutBarsColour
-	
+
 	if self.db.profile.classColours then
 		text = ClassColouredName(targetName)
 	else
 		text = targetName
 	end
-	
+
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
-	local bar = self.timeOut_bars:NewTimerBar(targetName, text, end_time, nil, nil, 0)
+	local bar = self.timeOut_bars:NewTimerBar(targetName, text, end_time, nil, [[Interface\Icons\Spell_Nature_TimeStop]], 0)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
-	bar:SetColorAt(0, 0, 0, 1)
-	bar:HideIcon()
-	
+	bar:SetColorAt(0, 0, 0, 0, 1)
+	--bar:HideIcon()
+
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
-	
+
 	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
 	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
@@ -901,7 +904,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		-- collision, could be class spell or Mass Res
 		t = self.db.profile.collisionBarsColour
 	end
-	
+
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
 	local bar = self.rez_bars:NewTimerBar(casterName, text, end_time, nil, icon, 0)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
