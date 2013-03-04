@@ -444,7 +444,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 		if chat_type ~= "0-NONE" then -- if it is "none" then don't send any chat messages
 			local msg
 			if hasTarget then
-				if self.db.profile.customchatmsg ~= "" then
+				if self.db.profile.customchatmsg then
 					msg = self.db.profile.customchatmsg
 					self:Debug("custom", msg)
 				elseif self.db.profile.randMsgs then
@@ -454,7 +454,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 					msg = L["%p is ressing %t"]
 					self:Debug("default", msg)
 				end
-			elseif self.db.profile.massResMessage ~= "" then
+			elseif self.db.profile.massResMessage then
 				msg = self.db.profile.massResMessage
 				self:Debug("MR custom", msg)
 			else
