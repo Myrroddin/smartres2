@@ -148,6 +148,49 @@ function SmartRes2:OnInitialize()
 		self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
 	end
 
+	-- @phanx: auto expand the sub-panels
+	do
+		self.optionsFrame:HookScript("OnShow", function(self)
+			if InCombatLockdown() then return end
+			local target = self.parent or self.name
+			local i = 1
+			local button = _G["InterfaceOptionsFrameAddOnsButton"..i]
+			while button do
+				local element = button.element
+				if element.name == target then
+					if element.hasChildren and element.collapsed then
+						_G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"]:Click()
+					end
+					return
+				end
+				i = i + 1
+				button = _G["InterfaceOptionsFrameAddOnsButton"..i]
+			end
+		end)
+		local function OnClose(self)
+			if InCombatLockdown() then return end
+			local target = self.parent or self.name
+			local i = 1
+			local button = _G["InterfaceOptionsFrameAddOnsButton"..i]
+			while button do
+				local element = button.element
+				if element.name == target then
+					if element.hasChildren and not element.collapsed then
+						local selection = InterfaceOptionsFrameAddOns.selection
+						if not selection or selection.parent ~= target then
+							_G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"]:Click()
+						end
+					end
+					return
+				end
+				i = i + 1
+				button = _G["InterfaceOptionsFrameAddOnsButton"..i]
+			end
+		end
+		hooksecurefunc(self.optionsFrame, "okay", OnClose)
+		hooksecurefunc(self.optionsFrame, "cancel", OnClose)
+	end
+
 	-- add console commands
 	self:RegisterChatCommand("sr", "SlashHandler")
 	self:RegisterChatCommand("smartres", "SlashHandler")
@@ -688,6 +731,11 @@ local function VerifyUnit(unit, recast)
 	local self = SmartRes2
 	self:Debug("VerifyUnit", unit)
 	-- unit is the next candidate. there is NO way to check LoS, so don't ask!
+	if not UnitIsDead(unit) then
+		self:Debug("UnitIsDead")
+		return
+	end
+	unitDead = true
 	if UnitIsAFK(unit) then
 		self:Debug("UnitIsAFK")
 		unitAFK = true
@@ -696,14 +744,8 @@ local function VerifyUnit(unit, recast)
 	if UnitIsGhost(unit) then
 		self:Debug("UnitIsGhost")
 		unitGhost = true
-		unitDead = true
 		return
 	end
-	if not UnitIsDead(unit) then
-		self:Debug("UnitIsDead")
-		return
-	end
-	unitDead = true
 	if IsSpellInRange(self.playerSpell, unit) ~= 1 then
 		self:Debug("IsSpellInRange NO!")
 		unitOutOfRange = true
@@ -797,21 +839,20 @@ function SmartRes2:Resurrection()
 
 	local unit = GetBestCandidate()
 	if unit then
-		-- resButton:SetAttribute("unit", nil)
 		self:Debug("spell:", self.playerSpell)
 		self:Debug("unit:", unit)
 		resButton:SetAttribute("spell", self.playerSpell)
 		resButton:SetAttribute("unit", unit)
+	elseif not unitDead then
+		self:Print(L["Everybody is alive. Congratulations!"])
+	elseif unitAFK then
+		self:Print(L["Remaining units are away from keyboard."])
+	elseif unitGhost then
+		self:Print(L["All dead units have released."])
 	elseif unitOutOfRange then
 		self:Print(SPELL_FAILED_CUSTOM_ERROR_64_NONE)
 	elseif unitBeingRessed or unitWaiting then
 		self:Print(L["All dead units are being ressed."])
-	elseif not unitDead then
-		self:Print(L["Everybody is alive. Congratulations!"])
-	elseif unitGhost then
-		self:Print(L["All dead units have released."])
-	elseif unitAFK then
-		self:Print(L["Remaining units are away from keyboard."])
 	end
 end
 
