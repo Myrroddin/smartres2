@@ -1,6 +1,12 @@
 ﻿local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 local L = addon.L
 
+local locale = GetLocale()
+local optWidth = nil
+if locale ~= "enUS" then
+	optWidth = "double"
+end
+
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 
 function addon:OptionsTable()
@@ -22,13 +28,25 @@ function addon:OptionsTable()
 						type = "header",
 						name = L["Res Bars"]
 					},
+					--@debug@
+					debugMode = {
+						order = 15,
+						type = "toggle",
+						name = "Debug Mode",
+						get = function() return self.db.profile.debugMode end,
+						set = function(info, value)
+							self.db.profile.debugMode = value
+						end,
+						width = optWidth
+					},
+					--@end-debug@
 					resBarsTestBars = {
 						order = 20,
 						type = "execute",
 						name = L["Test Bars"],
 						desc = L["Show the test bars"],
 						func = function() self:StartTestBars() end,
-						width = "double"
+						width = optWidth
 					},
 					spacer1 = {
 						type = "description",
@@ -49,7 +67,7 @@ function addon:OptionsTable()
 								self:Disable()
 							end
 						end,
-						width = "double"
+						width = optWidth
 					},
 					hideAnchor = {
 						order = 50,
@@ -68,7 +86,7 @@ function addon:OptionsTable()
 								self.rez_bars:SetClampedToScreen(true)
 							end
 						end,
-						width = "double"
+						width = optWidth
 					},
 					visibleResBars = {
 						order = 60,
@@ -77,7 +95,7 @@ function addon:OptionsTable()
 						desc = L["Show or hide the res bars. Everything else will still work"],
 						get = function() return self.db.profile.visibleResBars end,
 						set = function(info, value) self.db.profile.visibleResBars = value end,
-						width = "double"
+						width = optWidth
 					},
 					reverseGrowth = {
 						order = 80,
@@ -89,7 +107,7 @@ function addon:OptionsTable()
 							self.db.profile.reverseGrowth = value
 							self.rez_bars:ReverseGrowth(value)
 						end,
-						width = "double"
+						width = optWidth
 					},
 					resBarsIcon = {
 						order = 90,
@@ -105,7 +123,7 @@ function addon:OptionsTable()
 								self.rez_bars:HideIcon()
 							end
 						end,
-						width = "double"
+						width = optWidth
 					},
 					showBattleRes = {
 						order = 100,
@@ -113,7 +131,7 @@ function addon:OptionsTable()
 						name = L["Show Battle Resses"],
 						get = function() return self.db.profile.showBattleRes end,
 						set = function(info, value)	self.db.profile.showBattleRes = value end,
-						width = "double"
+						width = optWidth
 					},
 					classColours = {
 						order = 110,
@@ -122,7 +140,7 @@ function addon:OptionsTable()
 						desc = L["Use class colours for the target on the res bars"],
 						get = function() return self.db.profile.classColours end,
 						set = function(info, value)	self.db.profile.classColours = value end,
-						width = "double"
+						width = optWidth
 					},
 					spacer2 = {
 						type = "description",
@@ -142,7 +160,7 @@ function addon:OptionsTable()
 						min = 1,
 						max = 39,
 						step = 1,
-						width = "double"
+						width = optWidth
 					},
 					barHeight = {
 						order = 170,
@@ -157,7 +175,7 @@ function addon:OptionsTable()
 						min = 6,
 						max = 64,
 						step = 1,
-						width = "double"
+						width = optWidth
 					},
 					barWidth = {
 						order = 180,
@@ -172,7 +190,7 @@ function addon:OptionsTable()
 						min = 24,
 						max = 512,
 						step = 1,
-						width = "double"
+						width = optWidth
 					},
 					scale = {
 						order = 190,
@@ -187,7 +205,7 @@ function addon:OptionsTable()
 						min = 0.5,
 						max = 2,
 						step = 0.05,
-						width = "double"
+						width = optWidth
 					},
 					resBarsAlpha = {
 						order = 200,
@@ -202,7 +220,7 @@ function addon:OptionsTable()
 						min = 0.1,
 						max = 1,
 						step = 0.1,
-						width = "double"
+						width = optWidth
 					},
 					borderThickness = {
 						order = 210,
@@ -214,7 +232,7 @@ function addon:OptionsTable()
 						min = 1,
 						max = 10,
 						step = 1,
-						width = "double"
+						width = optWidth
 					},
 					spacer3 = {
 						type = "description",
@@ -230,7 +248,7 @@ function addon:OptionsTable()
 						values = AceGUIWidgetLSMlists.statusbar,
 						get = function() return self.db.profile.resBarsTexture end,
 						set = function(info, value)	self.db.profile.resBarsTexture = value end,
-						width = "double"
+						width = optWidth
 					},
 					resBarsBorder = {
 						order = 240,
@@ -241,7 +259,7 @@ function addon:OptionsTable()
 						values = AceGUIWidgetLSMlists.border,
 						get = function() return self.db.profile.resBarsBorder end,
 						set = function(info, value) self.db.profile.resBarsBorder = value end,
-						width = "double"
+						width = optWidth
 					},
 					horizontalOrientation = {
 						order = 250,
@@ -254,7 +272,7 @@ function addon:OptionsTable()
 						},
 						get = function() return self.db.profile.horizontalOrientation end,
 						set = function(info, value) self.db.profile.horizontalOrientation = value end,
-						width = "double"
+						width = optWidth
 					},
 					spacer4 = {
 						type = "description",
@@ -275,7 +293,7 @@ function addon:OptionsTable()
 							local t = self.db.profile.resBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end,
-						width = "double"
+						width = optWidth
 					},
 					collisionBarsColour = {
 						order = 280,
@@ -291,7 +309,7 @@ function addon:OptionsTable()
 							local t = self.db.profile.collisionBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end,
-						width = "double"
+						width = optWidth
 					},
 					waitingBarsColour = {
 						order = 290,
@@ -307,7 +325,7 @@ function addon:OptionsTable()
 							local t = self.db.profile.waitingBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end,
-						width = "double"
+						width = optWidth
 					},
 					massResBarColour = {
 						order = 300,
@@ -323,7 +341,7 @@ function addon:OptionsTable()
 							local t = self.db.profile.massResBarColour
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end,
-						width = "double"
+						width = optWidth
 					}
 				}
 			},
@@ -339,7 +357,7 @@ function addon:OptionsTable()
 						name = L["Enable Waiting for Accept Bars"],
 						get = function() return self.db.profile.enableTimeOutBars end,
 						set = function(info, value) self.db.profile.enableTimeOutBars = value end,
-						width = "double"
+						width = optWidth
 					},
 					showTimeOutBarsAnchor = {
 						order = 20,
@@ -358,7 +376,7 @@ function addon:OptionsTable()
 								self.timeOut_bars:Lock()
 							end
 						end,
-						width = "double"
+						width = optWidth
 					},
 					timeOutBarsColour = {
 						order = 30,
@@ -374,7 +392,7 @@ function addon:OptionsTable()
 							local t = self.db.profile.timeOutBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
 						end,
-						width = "double"
+						width = optWidth
 					}
 				}
 			},
@@ -396,7 +414,7 @@ function addon:OptionsTable()
 						desc = L["Turn random res messages on or keep the same message. Default is off"],
 						get = function() return self.db.profile.randMsgs end,
 						set = function(info, value)	self.db.profile.randMsgs = value end,
-						width = "double"
+						width = optWidth
 					},
 					notifySelf = {
 						order = 30,
@@ -405,7 +423,7 @@ function addon:OptionsTable()
 						desc = L["Prints a message to yourself whom you are ressing"],
 						get = function() return self.db.profile.notifySelf end,
 						set = function(info, value)	self.db.profile.notifySelf = value end,
-						width = "double"
+						width = optWidth
 					},
 					resExpired = {
 						order = 40,
@@ -414,7 +432,7 @@ function addon:OptionsTable()
 						desc = L["Notify yourself when a unit's resurrection timer has ended without them accepting"],
 						get = function() return self.db.profile.resExpired end,
 						set = function(info, value) self.db.profile.resExpired = value end,
-						width = "double"
+						width = optWidth
 					},
 					spacer5 = {
 						type = "description",
@@ -439,7 +457,7 @@ function addon:OptionsTable()
 						},
 						get = function() return self.db.profile.chatOutput end,
 						set = function(info, value)	self.db.profile.chatOutput = value end,
-						width = "double"
+						width = optWidth
 					},
 					notifyCollision = {
 						order = 70,
@@ -459,7 +477,7 @@ function addon:OptionsTable()
 						},
 						get = function() return self.db.profile.notifyCollision end,
 						set = function(info, value)	self.db.profile.notifyCollision = value	end,
-						width = "double"
+						width = optWidth
 					},
 					spacer6 = {
 						type = "description",
@@ -549,7 +567,7 @@ function addon:OptionsTable()
 						values = AceGUIWidgetLSMlists.font,
 						get = function() return self.db.profile.fontType end,
 						set = function(info, value) self.db.profile.fontType = value end,
-						width = "double"
+						width = optWidth
 					},
 					fontSize = {
 						order = 20,
@@ -561,7 +579,7 @@ function addon:OptionsTable()
 						min = 3,
 						max = 20,
 						step = 1,
-						width = "double"
+						width = optWidth
 					},
 					fontFlags = {
 						order = 30,
@@ -577,7 +595,7 @@ function addon:OptionsTable()
 						},
 						get = function() return self.db.profile.fontFlags end,
 						set = function(info, value) self.db.profile.fontFlags = value end,
-						width = "double"
+						width = optWidth
 					}
 				}
 			},
@@ -596,7 +614,7 @@ function addon:OptionsTable()
 							self.db.profile.autoResKey = value
 							self:BindKeys()
 						end,
-						width = "double"
+						width = optWidth
 					},
 					manualResKey = {
 						order = 20,
@@ -608,7 +626,7 @@ function addon:OptionsTable()
 							self.db.profile.manualResKey = value
 							self:BindKeys()
 						end,
-						width = "double"
+						width = optWidth
 					},
 					massResKey = {
 						order = 25,
@@ -621,7 +639,7 @@ function addon:OptionsTable()
 							self:BindMassRes()
 						end,
 						disabled = function() return not self.knowsMassRes end,
-						width = "double"
+						width = optWidth
 					}
 				}
 			},
@@ -640,25 +658,25 @@ function addon:OptionsTable()
 						order = 2,
 						type = "description",
 						name = "* "..L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes. SmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."],
-						width = "double"
+						width = optWidth
 					},
 					creditsDesc2 = {
 						order = 3,
 						type = "description",
 						name = "* "..L["I would personally like to thank Jerry on the wowace forums for coding the new, smarter, resurrection function."],
-						width = "double"
+						width = optWidth
 					},
 					creditsDesc3 = {
 						order = 4,
 						type = "description",
 						name = "* "..L["Many bugfixes and development help from Onaforeignshore"],
-						width = "double"
+						width = optWidth
 					},
 					creditsDesc5 = {
 						order = 5,
 						type = "description",
 						name = "* "..L["Thank you translators!"],
-						width = "double"
+						width = optWidth
 					}
 				}
 			}
