@@ -55,12 +55,15 @@ local defaults = {
 		chatOutput = "0-NONE",
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
+		--@debug@
+		debugMode = true,
+		--@end-debug@
 		enableAddon = true,
 		enableTimeOutBars = true,
 		fontFlags = "NONE",
 		fontScale = 12,
 		fontType = "Friz Quadrata TT",
-		hideAnchor = true,
+		hideAnchor = false,
 		horizontalOrientation = "RIGHT",
 		manualResKey = "",
 		massResBarColour = { r = 0.9 , g = 0.8, b = 0.5, a = 1 },
@@ -94,6 +97,7 @@ local defaults = {
 
 function SmartRes2:Debug(str, ...)
 	--@debug@
+	if not self.db.profile.debugMode then return end
 	if not str or strlen(str) == 0 then return end
 	if select("#", ...) > 0 then
 		if strfind(str, "%%[dfqsx%d]") or strfind(str, "%%%.%d") then
@@ -441,6 +445,7 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 end
 
 local function ChatType(chatType)
+	chatType = strupper(chatType)
 	if chatType == "GROUP" or chatType == "INSTANCE" or chatType == "PARTY" or chatType == "RAID" then
 		if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
 			chatType = "INSTANCE_CHAT"
@@ -457,6 +462,7 @@ end
 
 -- ResInfo library callback functions ---------------------------------------
 -- Fires when a group member starts casting a resurrection spell on another group member.
+local casterNotified = nil -- used to reduce whisper spam for Mass Res
 function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
 	self:Debug(callback, targetID, casterID)
 
@@ -496,13 +502,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				else
 					msg = L["%p is ressing %t"]
 					self:Debug("default", msg)
-				end
-			elseif self.db.profile.massResMessage then
-				msg = self.db.profile.massResMessage
-				self:Debug("MR custom", msg)
-			else
-				msg = L["I am casting Mass Resurrection."]
-				self:Debug("MR default", msg)
+				end			
 			end
 
 			msg = gsub(msg, "%%p", casterName)
@@ -530,12 +530,14 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				msg = format(L["SmartRes2 would like you to know that %s is already being ressed by %s."], targetName, casterName)
 			else
 				-- handle Mass Resurrection
+				if casterNotified then return end
+				casterNotified = casterID
 				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
 			end
 			if chat_type == "WHISPER" then
-				local whisperTarget = targetName
-				if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
-					whisperTarget = format("%s-%s", targetName, targetRealm)
+				local whisperTarget = casterName
+				if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
+					whisperTarget = format("%s-%s", casterName, casterRealm)
 				end
 				SendChatMessage(msg, chat_type, nil, whisperTarget)
 			else
@@ -576,6 +578,9 @@ function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUI
 	if resBars[casterID] then
 		resBars[casterID]:Fade(0.1)
 		resBars[casterID] = nil
+	end
+	if casterNotified == casterID then
+		casterNotified = nil
 	end
 end
 
@@ -903,6 +908,16 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	if resBars[casterID] then
 		-- duplicate Mass Res bar
 		return
+	end
+	
+	-- eliminate Mass Res spam by putting the message here rather than in callback handler
+	local msg
+	if self.db.profile.massResMessage then
+		msg = self.db.profile.massResMessage
+		self:Debug("MR custom", msg)
+	else
+		msg = L["I am casting Mass Resurrection."]
+		self:Debug("MR default", msg)
 	end
 
 	local spellName, _, icon
