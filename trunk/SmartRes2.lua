@@ -34,6 +34,7 @@ Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]
 -- local variables ----------------------------------------------------------
 local resBars = {}
 local timeOutBars = {}
+local notified = {}
 local orientation
 local icon
 local in_combat = false
@@ -356,6 +357,7 @@ function SmartRes2:OnDisable()
 	self.timeOut_bars.UnregisterAllCallbacks(self)
 	wipe(resBars)
 	wipe(timeOutBars)
+	wipe(notified)
 end
 
 -- General callback functions -----------------------------------------------
@@ -462,7 +464,6 @@ end
 
 -- ResInfo library callback functions ---------------------------------------
 -- Fires when a group member starts casting a resurrection spell on another group member.
-local casterNotified = nil -- used to reduce whisper spam for Mass Res
 function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
 	self:Debug(callback, targetID, casterID)
 
@@ -530,8 +531,8 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				msg = format(L["SmartRes2 would like you to know that %s is already being ressed by %s."], targetName, casterName)
 			else
 				-- handle Mass Resurrection
-				if casterNotified then return end
-				casterNotified = casterID
+				if notified[casterID] then return end
+				tinsert(notified, casterID)
 				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
 			end
 			if chat_type == "WHISPER" then
@@ -579,8 +580,8 @@ function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUI
 		resBars[casterID]:Fade(0.1)
 		resBars[casterID] = nil
 	end
-	if casterNotified == casterID then
-		casterNotified = nil
+	if notified[casterID] then
+		tremove(notified, casterID)
 	end
 end
 
