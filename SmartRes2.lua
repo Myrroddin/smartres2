@@ -531,8 +531,8 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				msg = format(L["SmartRes2 would like you to know that %s is already being ressed by %s."], targetName, casterName)
 			else
 				-- handle Mass Resurrection
-				if notified[casterID] then return end
-				tinsert(notified, casterID)
+				if notified[casterID] then return end -- don't spam!
+				notified[casterID] = casterID
 				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
 			end
 			if chat_type == "WHISPER" then
@@ -581,7 +581,7 @@ function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUI
 		resBars[casterID] = nil
 	end
 	if notified[casterID] then
-		tremove(notified, casterID)
+		notified[casterID] = nil
 	end
 end
 
