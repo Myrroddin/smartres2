@@ -37,7 +37,10 @@ local timeOutBars = {}
 local notified = {}
 local orientation
 local icon
-local in_combat = false
+local raidUpdated
+local in_combat
+local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK
+local SortedResList = {}
 local currentRealm = GetRealmName()
 local creatorName = {
 	["Myrroddin"] = true,
@@ -358,6 +361,10 @@ function SmartRes2:OnDisable()
 	wipe(resBars)
 	wipe(timeOutBars)
 	wipe(notified)
+	wipe(SortedResList)
+	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
+	raidUpdated = nil
+	in_combat = nil
 end
 
 -- General callback functions -----------------------------------------------
@@ -610,6 +617,7 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 		end
 	end
 	in_combat = true
+	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
 end
 
 function SmartRes2:PLAYER_REGEN_ENABLED()
@@ -628,7 +636,7 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 		self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 		self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 	end
-	in_combat = false
+	in_combat = nil
 end
 
 -- key binding functions ----------------------------------------------------
@@ -669,9 +677,15 @@ function SmartRes2:UnBindKeys()
 end
 
 -- smart resurrection determination functions -------------------------------
-local raidUpdated
 function SmartRes2:GROUP_ROSTER_UPDATE()
-	raidUpdated = true
+	if IsInGroup() then
+		raidUpdated = true
+	else
+		raidUpdated = nil
+		wipe(timeOutBars)
+		wipe(SortedResList)
+		unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
+	end
 end
 
 local RECENTLY_MASS_RESURRECTED = GetSpellInfo(95223)
@@ -707,8 +721,6 @@ function SmartRes2:MassResurrection()
 	button:SetAttribute("spell", GetSpellInfo(83968))
 end
 
-local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK
-local SortedResList = {}
 local CLASS_PRIORITIES = {
 	-- MoP changed all resurrection spells to 35% health and mana
 	-- get all ressers up first, then mana burners and pet summoners
