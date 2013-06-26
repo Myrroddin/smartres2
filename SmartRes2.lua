@@ -513,8 +513,8 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				end			
 			end
 
-			msg = gsub(msg, "%%p", casterName)
-			msg = gsub(msg, "%%t", targetName)
+			msg = gsub(msg, "%%p", casterName or UNKNOWN)
+			msg = gsub(msg, "%%t", targetName or UNKNOWN)
 
 			if chat_type == "WHISPER" then
 				local whisperTarget = targetName
@@ -682,6 +682,9 @@ function SmartRes2:GROUP_ROSTER_UPDATE()
 		raidUpdated = true
 	else
 		raidUpdated = nil
+		for i = 1, #timeOutBars do
+			timeOutBars[i]:Fade(0.1)
+		end
 		wipe(timeOutBars)
 		wipe(SortedResList)
 		unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
