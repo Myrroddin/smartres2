@@ -492,7 +492,6 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.customchatmsg end,
 						set = function(info, value)
 							value = strtrim(value)
-							if strlen(value) == 0 then return end
 							self.db.profile.customchatmsg = value
 						end,
 						width = "full"
@@ -501,11 +500,10 @@ function addon:OptionsTable()
 						order = 90,
 						type = "input",
 						name = L["Mass Resurrection Message"],
-						desc = L["What you want to say when casting Mass Resurection"],
+						desc = L["What you want to say when casting Mass Resurrection"],
 						get = function() return self.db.profile.massResMessage end,
 						set = function(info, value)
 							value = strtrim(value)
-							if strlen(value) == 0 then return end
 							self.db.profile.massResMessage = value
 						end,
 						width = "full"

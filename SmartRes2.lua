@@ -513,8 +513,8 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				end			
 			end
 
-			msg = gsub(msg, "%%p", casterName or UNKNOWN)
-			msg = gsub(msg, "%%t", targetName or UNKNOWN)
+			msg = gsub(msg, "%p", casterName)
+			msg = gsub(msg, "%t", targetName)
 
 			if chat_type == "WHISPER" then
 				local whisperTarget = targetName
@@ -727,7 +727,7 @@ end
 local CLASS_PRIORITIES = {
 	-- MoP changed all resurrection spells to 35% health and mana
 	-- get all ressers up first, then mana burners and pet summoners
-	-- get fighers up next, other dps last
+	-- get fighters up next, other dps last
 	PRIEST = 1,
 	PALADIN = 1,
 	SHAMAN = 1,
