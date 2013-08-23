@@ -477,7 +477,8 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID)
 	local casterName, casterRealm = UnitName(casterID)
-	local hasIncomingRes = ResInfo:UnitHasIncomingRes(targetID)
+	local hasIncomingRes, _, origResser, _ = ResInfo:UnitHasIncomingRes(targetID)
+    if origResser then origResser = UnitName(origResser) end
 
 	self:Debug("single?", not not hasTarget, "first?", isFirst)
 
@@ -499,8 +500,8 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 		local chat_type = ChatType(self.db.profile.chatOutput)
 		self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
 		if chat_type ~= "0-NONE" then -- if it is "none" then don't send any chat messages
-			local msg
 			if hasTarget then
+                local msg
 				if self.db.profile.customchatmsg then
 					msg = self.db.profile.customchatmsg
 					self:Debug("custom", msg)
@@ -510,21 +511,21 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				else
 					msg = L["%p is ressing %t"]
 					self:Debug("default", msg)
-				end			
-			end
+				end
 
-			msg = gsub(msg, "%p", casterName)
-			msg = gsub(msg, "%t", targetName)
+    			msg = gsub(msg, "%%p", casterName)
+    			msg = gsub(msg, "%%t", targetName)
 
-			if chat_type == "WHISPER" then
-				local whisperTarget = targetName
+    			if chat_type == "WHISPER" then
+    				local whisperTarget = targetName
 				if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
 					whisperTarget = format("%s-%s", targetName, targetRealm)
 				end
 				SendChatMessage(msg, chat_type, nil, whisperTarget)
 			else
-				SendChatMessage(msg, chat_type)
-			end
+    				SendChatMessage(msg, chat_type)
+    			end
+            end
 		end
 
 	elseif not isFirst then
@@ -535,12 +536,16 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 			local msg
 			if hasTarget then
 				-- handle class spells
-				msg = format(L["SmartRes2 would like you to know that %s is already being ressed by %s."], targetName, casterName)
+                if(hasIncomingRes == "PENDING") then
+                    msg = format(L["%s already has a res pending; they have not accepted yet"], targetName)
+                else
+    				msg = format(L["%s is already being ressed by %s."], targetName, origResser)
+                end
 			else
 				-- handle Mass Resurrection
 				if notified[casterID] then return end -- don't spam!
 				notified[casterID] = casterID
-				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], casterName)
+				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], origResser)
 			end
 			if chat_type == "WHISPER" then
 				local whisperTarget = casterName
