@@ -253,7 +253,7 @@ function SmartRes2:OnInitialize()
 	resButton:SetScript("PreClick", function() self:Resurrection() end)
 	self.resButton = resButton
 
-	-- create seperate button for Mass Resurrection
+	-- create separate button for Mass Resurrection
 	local massResButton = CreateFrame("button", "SR2MassResButton", UIPARENT, "SecureActionButtonTemplate")
 	massResButton:SetAttribute("type", "spell")
 	massResButton:SetScript("PreClick", function() self:MassResurrection() end)
@@ -370,7 +370,7 @@ end
 -- General callback functions -----------------------------------------------
 
 function SmartRes2:FillRandChatDefaults()
-	-- Fix old lowercase/camelcase values
+	-- Fix old lower case/camel case values
 	self.db.profile.chatOutput = strupper(self.db.profile.chatOutput)
 	self.db.profile.fontFlags = strupper(self.db.profile.fontFlags)
 	self.db.profile.notifyCollision = strupper(self.db.profile.notifyCollision)
@@ -477,7 +477,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID)
 	local casterName, casterRealm = UnitName(casterID)
-	local hasIncomingRes, _, origResser, _ = ResInfo:UnitHasIncomingRes(targetID)
+	local hasIncomingRes, _, origResser = ResInfo:UnitHasIncomingRes(targetID)
     if origResser then origResser = UnitName(origResser) end
 
 	self:Debug("single?", not not hasTarget, "first?", isFirst)
@@ -489,13 +489,16 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	self:Debug("casterID", casterID, "UnitIsUnit", UnitIsUnit(casterID, "player"))
 	if UnitIsUnit(casterID, "player") then
 		-- self print whom you are resurrecting
-		self:Debug(targetRealm, targetName, creatorName[targetName])
-		if targetRealm == "Llane" and creatorName[targetName] then
-			self:Print("You are resurrecting the Creator!!")
-		elseif self.db.profile.notifySelf then
-			self:Print(L["You are ressing %s"], targetName)
+		-- but only if hasTarget is true
+		if hasTarget then
+			self:Debug(targetRealm, targetName, creatorName[targetName])
+			if targetRealm == "Llane" and creatorName[targetName] then
+				self:Print("You are resurrecting the Creator!!")
+			elseif self.db.profile.notifySelf then
+				self:Print(L["You are ressing %s"], targetName)
+			end
 		end
-
+		
 		-- send normal, random, or custom chat message
 		local chat_type = ChatType(self.db.profile.chatOutput)
 		self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
@@ -529,7 +532,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 		end
 
 	elseif not isFirst then
-		-- notify collider caster
+		-- notify collision caster
 		local chat_type = ChatType(self.db.profile.notifyCollision)
 		self:Debug("notifyCollision", self.db.profile.notifyCollision, "=>", chat_type)
 		if chat_type ~= "0-OFF" then
@@ -628,7 +631,7 @@ end
 function SmartRes2:PLAYER_REGEN_ENABLED()
 	self:BindKeys()
 	self:BindMassRes()
-	-- reenable callbacks during battle if we don't want to see battle resses
+	-- re-enable callbacks during battle if we don't want to see battle resses
 	if not self.db.profile.showBattleRes then
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
 		ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
@@ -907,7 +910,6 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 	local bar = self.timeOut_bars:NewTimerBar(targetName, text, end_time, nil, [[Interface\Icons\Spell_Nature_TimeStop]], 0)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1)
-	--bar:HideIcon()
 
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
@@ -931,7 +933,6 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		return
 	end
 	
-	-- eliminate Mass Res spam by putting the message here rather than in callback handler
 	local msg
 	if self.db.profile.massResMessage then
 		msg = self.db.profile.massResMessage
@@ -940,7 +941,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		msg = L["I am casting Mass Resurrection."]
 		self:Debug("MR default", msg)
 	end
-
+	
 	local spellName, _, icon
 	local casterName
 	local targetName
