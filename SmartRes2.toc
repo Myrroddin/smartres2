@@ -41,7 +41,7 @@ Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 Libs\LibBars-1.0\lib.xml
 Libs\LibAboutPanel\lib.xml
 #@end-no-lib-strip@
-Libs\LibResInfo-1.0\LibResInfo-1.0.lua
+Libs\LibResInfo-1.0\LibResInfo-1.0\LibResInfo-1.0\LibResInfo-1.0.lua
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
 Locales\Localization.enUS.lua
