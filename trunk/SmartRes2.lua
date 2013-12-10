@@ -827,11 +827,13 @@ local function VerifyUnit(unit, recast)
 		unitWaiting = true
 		return
 	end
+	--[[ comment this out and test new LRI build
 	if (state == "PENDING" or state == "SELFRES") and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibResInfo bug that allows recasting during LFR
 		self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
 	end
+	]]--
 	self:Debug("OK")
 	return true
 end
@@ -1007,7 +1009,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		end
 	end
 
-	if hasIncomingRes == "PENDING" or hasIncomginRes == "SELFRES" then
+	if hasIncomingRes == "PENDING" or hasIncomingRes == "SELFRES" then
 		t = self.db.profile.waitingBarsColour
 	elseif isFirst then
 		-- check for first cast
