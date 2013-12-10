@@ -297,15 +297,18 @@ function SmartRes2:OnEnable()
 	self:RestorePosition()
 
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
+
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
-	self.rez_bars.RegisterCallback(self, "FadeFinished", "ResBarsFadeFinished")
+
+	-- self.rez_bars.RegisterCallback(self, "FadeFinished", "ResBarsFadeFinished") -- this is not a thing
 	self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
-	self.timeOut_bars.RegisterCallback(self, "FadeFinished", "TimeOutBarsFadeFinished")
+
+	-- self.timeOut_bars.RegisterCallback(self, "FadeFinished", "TimeOutBarsFadeFinished") -- this is not a thing
 	self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 
 	self:BindMassRes()
@@ -480,13 +483,13 @@ end
 -- ResInfo library callback functions ---------------------------------------
 -- Fires when a group member starts casting a resurrection spell on another group member.
 function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
-	-- self:Debug(callback, targetID, casterID)
+	--self:Debug(callback, targetID, casterID)
 
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID)
 	local casterName, casterRealm = UnitName(casterID)
 	local hasIncomingRes, _, origResser = ResInfo:UnitHasIncomingRes(targetID)
-    if origResser then origResser = UnitName(origResser) end
+	 if origResser then origResser = UnitName(origResser) end
 
 	-- self:Debug("single?", not not hasTarget, "first?", isFirst)
 
@@ -503,17 +506,17 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 			if targetRealm == "Llane" and creatorName[targetName] then
 				self:Print("You are resurrecting the Creator!!")
 			elseif self.db.profile.notifySelf then
-				self:Debug("Notifying self")
+				--self:Debug("Notifying self")
 				self:Print(L["You are ressing %s"], targetName)
 			end
 		end
-		
+
 		-- send normal, random, or custom chat message
 		local chat_type = ChatType(self.db.profile.chatOutput)
 		self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
 		if chat_type ~= "0-NONE" then -- if it is "none" then don't send any chat messages
 			if hasTarget then
-                local msg
+				local msg
 				if self.db.profile.customchatmsg then
 					msg = self.db.profile.customchatmsg
 					self:Debug("custom", msg)
@@ -525,11 +528,11 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 					self:Debug("default", msg)
 				end
 
-    			msg = gsub(msg, "%%p", casterName)
-    			msg = gsub(msg, "%%t", targetName)
+	 			msg = gsub(msg, "%%p", casterName)
+	 			msg = gsub(msg, "%%t", targetName)
 
-    			if chat_type == "WHISPER" then
-    				local whisperTarget = targetName
+	 			if chat_type == "WHISPER" then
+	 				local whisperTarget = targetName
 					if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
 						whisperTarget = format("%s-%s", targetName, targetRealm)
 					end
@@ -537,9 +540,9 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 					SendChatMessage(msg, chat_type, nil, whisperTarget)
 				else
 					self:Debug("Sending res message to chat channel:", chat_type)
-    				SendChatMessage(msg, chat_type)
-    			end
-            end
+	 				SendChatMessage(msg, chat_type)
+	 			end
+			end
 		end
 
 	elseif not isFirst then
@@ -550,11 +553,11 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 			local msg
 			if hasTarget then
 				-- handle class spells
-                if(hasIncomingRes == "PENDING") then
-                    msg = format(L["%s already has a res pending; they have not accepted yet"], targetName)
-                else
-    				msg = format(L["%s is already being ressed by %s."], targetName, origResser)
-                end
+				if hasIncomingRes == "PENDING" or hasIncomingRes == "SELFRES" then
+					msg = format(L["%s already has a res pending; they have not accepted yet"], targetName)
+				else
+	 				msg = format(L["%s is already being ressed by %s."], targetName, origResser)
+				end
 			else
 				-- handle Mass Resurrection
 				if notified[casterID] then return end -- don't spam!
@@ -577,10 +580,10 @@ end
 
 -- unit has been ressed, not accepted res yet
 function SmartRes2:ResTimeOutStarted(callback, targetID, targetGUID)
-	self:Debug("ResTimeOutStarted", callback, targetID, targetGUID)
+	--self:Debug("ResTimeOutStarted", callback, targetID, targetGUID)
 	if self.db.profile.enableTimeOutBars then
 		local status, endTime = ResInfo:UnitHasIncomingRes(targetID)
-		if status == "PENDING" then
+		if status == "PENDING" or status == "SELFRES" then
 			self:Debug("Status", status, "endTime", endTime)
 			self:CreateTimeOutBars(endTime, targetID)
 		end
@@ -589,7 +592,7 @@ end
 
 -- unit's res has expired or unit has accepted res
 function SmartRes2:ResTimeOutEnded(callback, targetID, targetGUID)
-	self:Debug("ResTimeOutEnded", callback, targetID, targetGUID)
+	--self:Debug("ResTimeOutEnded", callback, targetID, targetGUID)
 	if self.db.profile.resExpired and UnitIsDeadOrGhost(targetID) then
 		self:Print(L["%s's resurrection timer expired, and can be resurrected again"], UnitName(targetID) or targetID)
 	end
@@ -602,11 +605,13 @@ end
 -- a res cast has finished or cancelled
 function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUID, endTime)
 	self:Debug("DeleteBar", callback, targetID, casterID)
-	if resBars[casterID] then
-		resBars[casterID]:Fade(0.1)
+	local casterName = UnitName(casterID)
+	if resBars[casterName] then
+		resBars[casterName]:Fade(0.1)
+		resBars[casterName] = nil
 	end
-	if notified[casterID] then
-		notified[casterID] = nil
+	if notified[casterName] then
+		notified[casterName] = nil
 	end
 end
 
@@ -649,8 +654,8 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 		ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
-		self.rez_bars.RegisterCallback(self, "FadeFinished", "ResBarsFadeFinished")
-		self.timeOut_bars.RegisterCallback(self, "FadeFinished", "TimeOutBarsFadeFinished")
+		--self.rez_bars.RegisterCallback(self, "FadeFinished", "ResBarsFadeFinished")
+		--self.timeOut_bars.RegisterCallback(self, "FadeFinished", "TimeOutBarsFadeFinished")
 		self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 		self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 	end
@@ -739,7 +744,7 @@ function SmartRes2:MassResurrection()
 	end
 
 	button:SetAttribute("spell", GetSpellInfo(83968))
-	
+
 	local chat_type = strupper(self.db.profile.chatOutput)
 	if chat_type == "0-NONE" then return end
 	if chat_type == "WHISPER" then
@@ -812,12 +817,12 @@ local function VerifyUnit(unit, recast)
 		unitBeingRessed = true
 		return
 	end
-	if state == "PENDING" and not recast then
+	if (state == "PENDING" or state == "SELFRES") and not recast then
 		self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
 	end
-	if state == "PENDING" and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibResInfo bug that allows recasting during LFR
+	if (state == "PENDING" or state == "SELFRES") and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibResInfo bug that allows recasting during LFR
 		self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
@@ -894,7 +899,7 @@ function SmartRes2:Resurrection()
 	-- check if the player has enough Mana to cast a res spell. if not, no point in continuing. same if player is not a caster
 	local _, outOfMana = IsUsableSpell(self.playerSpell)
 	if outOfMana == 1 then
-	   return self:Print(ERR_OUT_OF_MANA)
+		return self:Print(ERR_OUT_OF_MANA)
 	end
 
 	local unit = GetBestCandidate()
@@ -939,6 +944,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
 	local bar = self.timeOut_bars:NewTimerBar(targetName, text, end_time, nil, [[Interface\Icons\Spell_Nature_TimeStop]], 0)
+	bar.RegisterCallback(self.timeOut_bars, "FadeFinished", SmartRes2.TimeOutBarsFadeFinished)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1)
 
@@ -958,12 +964,8 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 end
 
 function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)
-	self:Debug("CreateResBar", casterID, isFirst, hasIncomingRes, isMassRes)
-	if resBars[casterID] then
-		-- duplicate Mass Res bar
-		return
-	end
-	
+	--self:Debug("CreateResBar #", strjoin(" # ", tostringall(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)))
+
 	local spellName, _, icon
 	local casterName
 	local targetName
@@ -979,6 +981,11 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		spellName, _, _, icon = UnitCastingInfo(casterID)
 		casterName = UnitName(casterID)
 		targetName = UnitName(targetID) or NONE
+	end --self:Debug("spellName", spellName, "casterName", casterName, "targetName", targetName)
+
+	if resBars[casterName] then
+		-- duplicate Mass Res bar
+		return self:Debug("DUPLICATE MASS RES")
 	end
 
 	if self.db.profile.classColours then
@@ -995,7 +1002,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		end
 	end
 
-	if hasIncomingRes == "PENDING" then
+	if hasIncomingRes == "PENDING" or hasIncomginRes == "SELFRES" then
 		t = self.db.profile.waitingBarsColour
 	elseif isFirst then
 		-- check for first cast
@@ -1006,9 +1013,10 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
-	local bar = self.rez_bars:NewTimerBar(casterName, text, end_time, nil, icon, 0)
+	local bar, isNew = self.rez_bars:NewTimerBar(casterName, text, end_time, nil, icon, 0)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
+	bar.RegisterCallback(self.rez_bars, "FadeFinished", SmartRes2.ResBarsFadeFinished)
 
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
@@ -1031,15 +1039,27 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		edgeSize = self.db.profile.borderThickness,
 		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
-	resBars[casterID] = bar
+	resBars[casterName] = bar
 end
 
 -- LibBars event - called when bar finished fading
 function SmartRes2:ResBarsFadeFinished(event, bar, name)
-	self.rez_bars:ReleaseBar(bar)
+	if not name then
+		-- Hack to deal with LibBars callback setup
+		self, event, bar, name = SmartRes2, self, event, bar
+	end
+	self:Debug("ResBarsFadeFinished", name)
+	--self.rez_bars:ReleaseBar(bar)
+	resBars[name] = nil
 end
 function SmartRes2:TimeOutBarsFadeFinished(event, bar, name)
-	self.timeOut_bars:ReleaseBar(bar)
+	if not name then
+		-- Hack to deal with LibBars callback setup
+		self, event, bar, name = SmartRes2, self, event, bar
+	end
+	self:Debug("TimeOutBarsFadeFinished", name)
+	--self.timeOut_bars:ReleaseBar(bar)
+	resBars[name] = nil
 end
 
 function SmartRes2:StartTestBars()
