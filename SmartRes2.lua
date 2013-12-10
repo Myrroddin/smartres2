@@ -453,18 +453,26 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 	end
 end
 
+local return_chat = {
+	["GUILD"] = true,
+	["SAY"] = true,
+	["YELL"] = true,
+	["WHISPER"] = true,
+	["0-NONE"] = true,
+	["0-OFF"] = true
+}
 local function ChatType(chatType)
 	chatType = strupper(chatType)
-	if chatType == "GROUP" or chatType == "INSTANCE" or chatType == "PARTY" or chatType == "RAID" then
-		if IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
-			chatType = "INSTANCE_CHAT"
-		elseif IsInRaid() then
-			if chatType ~= "PARTY" then
-				chatType = "RAID"
-			end
-		elseif IsInGroup() then
-			chatType = "PARTY"
+	if return_chat[chatType] then
+		return chatType
+	elseif IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+		chatType = "INSTANCE_CHAT"
+	elseif IsInRaid() then
+		if chatType ~= "PARTY" then
+			chatType = "RAID"
 		end
+	elseif IsInGroup() then
+		chatType = "PARTY"
 	end
 	return chatType
 end
@@ -472,7 +480,7 @@ end
 -- ResInfo library callback functions ---------------------------------------
 -- Fires when a group member starts casting a resurrection spell on another group member.
 function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
-	self:Debug(callback, targetID, casterID)
+	-- self:Debug(callback, targetID, casterID)
 
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID)
@@ -480,21 +488,22 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	local hasIncomingRes, _, origResser = ResInfo:UnitHasIncomingRes(targetID)
     if origResser then origResser = UnitName(origResser) end
 
-	self:Debug("single?", not not hasTarget, "first?", isFirst)
+	-- self:Debug("single?", not not hasTarget, "first?", isFirst)
 
 	if self.db.profile.visibleResBars then
 		self:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, not hasTarget)
 	end
 
-	self:Debug("casterID", casterID, "UnitIsUnit", UnitIsUnit(casterID, "player"))
+	-- self:Debug("casterID", casterID, "UnitIsUnit", UnitIsUnit(casterID, "player"))
 	if UnitIsUnit(casterID, "player") then
 		-- self print whom you are resurrecting
 		-- but only if hasTarget is true
 		if hasTarget then
-			self:Debug(targetRealm, targetName, creatorName[targetName])
+			-- self:Debug(targetRealm, targetName, creatorName[targetName])
 			if targetRealm == "Llane" and creatorName[targetName] then
 				self:Print("You are resurrecting the Creator!!")
 			elseif self.db.profile.notifySelf then
+				self:Debug("Notifying self")
 				self:Print(L["You are ressing %s"], targetName)
 			end
 		end
@@ -521,11 +530,13 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 
     			if chat_type == "WHISPER" then
     				local whisperTarget = targetName
-				if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
-					whisperTarget = format("%s-%s", targetName, targetRealm)
-				end
-				SendChatMessage(msg, chat_type, nil, whisperTarget)
-			else
+					if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
+						whisperTarget = format("%s-%s", targetName, targetRealm)
+					end
+					self:Debug("Whisper target", whisperTarget)
+					SendChatMessage(msg, chat_type, nil, whisperTarget)
+				else
+					self:Debug("Sending res message to chat channel:", chat_type)
     				SendChatMessage(msg, chat_type)
     			end
             end
@@ -593,7 +604,6 @@ function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUI
 	self:Debug("DeleteBar", callback, targetID, casterID)
 	if resBars[casterID] then
 		resBars[casterID]:Fade(0.1)
-		resBars[casterID] = nil
 	end
 	if notified[casterID] then
 		notified[casterID] = nil
@@ -693,7 +703,6 @@ function SmartRes2:GROUP_ROSTER_UPDATE()
 		for i = 1, #timeOutBars do
 			timeOutBars[i]:Fade(0.1)
 		end
-		wipe(timeOutBars)
 		wipe(SortedResList)
 		unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
 	end
@@ -730,6 +739,23 @@ function SmartRes2:MassResurrection()
 	end
 
 	button:SetAttribute("spell", GetSpellInfo(83968))
+	
+	local chat_type = strupper(self.db.profile.chatOutput)
+	if chat_type == "0-NONE" then return end
+	if chat_type == "WHISPER" then
+		chat_type = "GROUP"
+	end
+	chat_type = ChatType(chat_type)
+	self:Debug("MR chat channel:", chat_type)
+	local msg
+	if self.db.profile.massResMessage then
+		msg = self.db.profile.massResMessage
+		self:Debug("MR custom", msg)
+	else
+		msg = L["I am casting Mass Resurrection."]
+		self:Debug("MR default", msg)
+	end
+	SendChatMessage(msg, chat_type)
 end
 
 local CLASS_PRIORITIES = {
@@ -787,6 +813,11 @@ local function VerifyUnit(unit, recast)
 		return
 	end
 	if state == "PENDING" and not recast then
+		self:Debug("UnitHasIncomingRes", state)
+		unitWaiting = true
+		return
+	end
+	if state == "PENDING" and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibResInfo bug that allows recasting during LFR
 		self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
@@ -931,15 +962,6 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	if resBars[casterID] then
 		-- duplicate Mass Res bar
 		return
-	end
-	
-	local msg
-	if self.db.profile.massResMessage then
-		msg = self.db.profile.massResMessage
-		self:Debug("MR custom", msg)
-	else
-		msg = L["I am casting Mass Resurrection."]
-		self:Debug("MR default", msg)
 	end
 	
 	local spellName, _, icon
