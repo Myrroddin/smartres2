@@ -299,11 +299,16 @@ function SmartRes2:OnEnable()
 	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
 
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
-	ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
-	ResInfo.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
-	ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
+
+	ResInfo.RegisterCallback(self, "LibResInfo_MassResStarted", "LibResInfo_ResCastStarted")
+	ResInfo.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
+	ResInfo.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
+
+	ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
+	ResInfo.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
+	ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
 
 	-- self.rez_bars.RegisterCallback(self, "FadeFinished", "ResBarsFadeFinished") -- this is not a thing
 	self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
