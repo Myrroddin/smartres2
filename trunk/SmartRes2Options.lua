@@ -492,7 +492,7 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.customchatmsg end,
 						set = function(info, value)
 							value = strtrim(value)
-							self.db.profile.customchatmsg = value
+							self.db.profile.customchatmsg = strlen(value) > 0 and value or nil
 						end,
 						width = "full"
 					},
@@ -504,7 +504,7 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.massResMessage end,
 						set = function(info, value)
 							value = strtrim(value)
-							self.db.profile.massResMessage = value
+							self.db.profile.massResMessage = strlen(value) > 0 and value or nil
 						end,
 						width = "full"
 					},
