@@ -310,10 +310,8 @@ function SmartRes2:OnEnable()
 	ResInfo.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
 
-	-- self.rez_bars.RegisterCallback(self, "FadeFinished", "ResBarsFadeFinished") -- this is not a thing
 	self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 
-	-- self.timeOut_bars.RegisterCallback(self, "FadeFinished", "TimeOutBarsFadeFinished") -- this is not a thing
 	self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 
 	self:BindMassRes()
@@ -488,7 +486,13 @@ end
 -- ResInfo library callback functions ---------------------------------------
 -- Fires when a group member starts casting a resurrection spell on another group member.
 function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
-	--self:Debug(callback, targetID, casterID)
+	-- self:Debug(callback, targetID, UnitName(targetID), casterID, UnitName(casterID))
+	
+	-- map Mass Res callback
+	local isMassRes = callback == "LibResComm_MassResStarted"
+	if isMassRes then
+		targetID, targetGUID, casterID, casterGUID, endTime = nil, nil, casterID, casterGUID, endTime
+	end
 
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID)
@@ -509,7 +513,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 		if hasTarget then
 			-- self:Debug(targetRealm, targetName, creatorName[targetName])
 			if targetRealm == "Llane" and creatorName[targetName] then
-				self:Print("You are resurrecting the Creator!!")
+				self:Print(L["You are resurrecting the Creator!!"])
 			elseif self.db.profile.notifySelf then
 				--self:Debug("Notifying self")
 				self:Print(L["You are ressing %s"], targetName)
@@ -589,7 +593,7 @@ function SmartRes2:ResTimeOutStarted(callback, targetID, targetGUID)
 	if self.db.profile.enableTimeOutBars then
 		local status, endTime = ResInfo:UnitHasIncomingRes(targetID)
 		if status == "PENDING" or status == "SELFRES" then
-			self:Debug("Status", status, "endTime", endTime)
+			-- self:Debug("Status", status, "endTime", endTime)
 			self:CreateTimeOutBars(endTime, targetID)
 		end
 	end
@@ -609,14 +613,19 @@ end
 
 -- a res cast has finished or cancelled
 function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUID, endTime)
-	self:Debug("DeleteBar", callback, targetID, casterID)
-	local casterName = UnitName(casterID)
-	if resBars[casterName] then
-		resBars[casterName]:Fade(0.1)
-		resBars[casterName] = nil
+	-- map Mass Res callback
+	local isMassRes = callback == "LibResComm_MassResStarted"
+	if isMassRes then
+		targetID, targetGUID, casterID, casterGUID, endTime = nil, nil, casterID, casterGUID, endTime
 	end
-	if notified[casterName] then
-		notified[casterName] = nil
+	
+	-- self:Debug("DeleteBar", callback, targetID, casterID)
+	if resBars[casterID] then
+		resBars[casterID]:Fade(0.1)
+		resBars[casterID] = nil
+	end
+	if notified[casterID] then
+		notified[casterID] = nil
 	end
 end
 
@@ -654,13 +663,14 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 	-- re-enable callbacks during battle if we don't want to see battle resses
 	if not self.db.profile.showBattleRes then
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
-		ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
-		ResInfo.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
-		ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 		ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
-		--self.rez_bars.RegisterCallback(self, "FadeFinished", "ResBarsFadeFinished")
-		--self.timeOut_bars.RegisterCallback(self, "FadeFinished", "TimeOutBarsFadeFinished")
+		ResInfo.RegisterCallback(self, "LibResInfo_MassResStarted", "LibResInfo_ResCastStarted")
+		ResInfo.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
+		ResInfo.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
+		ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
+		ResInfo.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
+		ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
 		self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 		self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 	end
@@ -794,36 +804,36 @@ end
 
 local function VerifyUnit(unit, recast)
 	local self = SmartRes2
-	self:Debug("VerifyUnit", unit)
+	-- self:Debug("VerifyUnit", unit)
 	-- unit is the next candidate. there is NO way to check LoS, so don't ask!
 	if not UnitIsDead(unit) then
-		self:Debug("UnitIsDead")
+		-- self:Debug("UnitIsDead")
 		return
 	end
 	unitDead = true
 	if UnitIsAFK(unit) then
-		self:Debug("UnitIsAFK")
+		-- self:Debug("UnitIsAFK")
 		unitAFK = true
 		return
 	end
 	if UnitIsGhost(unit) then
-		self:Debug("UnitIsGhost")
+		-- self:Debug("UnitIsGhost")
 		unitGhost = true
 		return
 	end
 	if IsSpellInRange(self.playerSpell, unit) ~= 1 then
-		self:Debug("IsSpellInRange NO!")
+		-- self:Debug("IsSpellInRange NO!")
 		unitOutOfRange = true
 		return
 	end
 	local state = ResInfo:UnitHasIncomingRes(unit)
 	if state == "CASTING" then
-		self:Debug("UnitHasIncomingRes", state)
+		-- self:Debug("UnitHasIncomingRes", state)
 		unitBeingRessed = true
 		return
 	end
 	if (state == "PENDING" or state == "SELFRES") and not recast then
-		self:Debug("UnitHasIncomingRes", state)
+		-- self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
 	end
@@ -834,7 +844,7 @@ local function VerifyUnit(unit, recast)
 		return
 	end
 	]]--
-	self:Debug("OK")
+	-- self:Debug("OK")
 	return true
 end
 
@@ -870,7 +880,7 @@ end
 
 local function GetBestCandidate()
 	local self = SmartRes2
-	self:Debug("GetBestCandidate")
+	-- self:Debug("GetBestCandidate")
 	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
 	if raidUpdated then
 		SortCurrentRaiders() -- only resort if group changed
@@ -879,7 +889,7 @@ local function GetBestCandidate()
 		local unit = data.unit
 		local validUnit = VerifyUnit(unit)
 		if validUnit then
-			self:Debug(unit, "is the best!")
+			-- self:Debug(unit, "is the best!")
 			return unit
 		end
 	end
@@ -887,14 +897,14 @@ local function GetBestCandidate()
 		local unit = data.unit
 		local validUnit = VerifyUnit(unit, true)
 		if validUnit then
-			self:Debug(unit, "is almost the best!")
+			-- self:Debug(unit, "is almost the best!")
 			return unit
 		end
 	end
 end
 
 function SmartRes2:Resurrection()
-	self:Debug("Resurrection")
+	-- self:Debug("Resurrection")
 	local resButton = self.resButton
 	resButton:SetAttribute("spell", nil)
 	resButton:SetAttribute("unit", nil)
@@ -911,8 +921,8 @@ function SmartRes2:Resurrection()
 
 	local unit = GetBestCandidate()
 	if unit then
-		self:Debug("spell:", self.playerSpell)
-		self:Debug("unit:", unit)
+		-- self:Debug("spell:", self.playerSpell)
+		-- self:Debug("unit:", unit)
 		resButton:SetAttribute("spell", self.playerSpell)
 		resButton:SetAttribute("unit", unit)
 	elseif not unitDead then
@@ -971,7 +981,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 end
 
 function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)
-	--self:Debug("CreateResBar #", strjoin(" # ", tostringall(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)))
+	-- self:Debug("CreateResBar #", strjoin(" # ", tostringall(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)))
 
 	local spellName, _, icon
 	local casterName
@@ -988,11 +998,11 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		spellName, _, _, icon = UnitCastingInfo(casterID)
 		casterName = UnitName(casterID)
 		targetName = UnitName(targetID) or NONE
-	end --self:Debug("spellName", spellName, "casterName", casterName, "targetName", targetName)
+	end -- self:Debug("spellName", spellName, "casterName", casterName, "targetName", targetName)
 
 	if resBars[casterName] then
 		-- duplicate Mass Res bar
-		return self:Debug("DUPLICATE MASS RES")
+		return -- self:Debug("DUPLICATE MASS RES")
 	end
 
 	if self.db.profile.classColours then
@@ -1046,7 +1056,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		edgeSize = self.db.profile.borderThickness,
 		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
-	resBars[casterName] = bar
+	resBars[casterID] = bar
 end
 
 -- LibBars event - called when bar finished fading
@@ -1056,7 +1066,6 @@ function SmartRes2:ResBarsFadeFinished(event, bar, name)
 		self, event, bar, name = SmartRes2, self, event, bar
 	end
 	self:Debug("ResBarsFadeFinished", name)
-	--self.rez_bars:ReleaseBar(bar)
 	resBars[name] = nil
 end
 function SmartRes2:TimeOutBarsFadeFinished(event, bar, name)
@@ -1065,7 +1074,6 @@ function SmartRes2:TimeOutBarsFadeFinished(event, bar, name)
 		self, event, bar, name = SmartRes2, self, event, bar
 	end
 	self:Debug("TimeOutBarsFadeFinished", name)
-	--self.timeOut_bars:ReleaseBar(bar)
 	resBars[name] = nil
 end
 
