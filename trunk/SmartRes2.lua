@@ -485,14 +485,14 @@ end
 
 -- ResInfo library callback functions ---------------------------------------
 -- Fires when a group member starts casting a resurrection spell on another group member.
+-- Or Mass Resurrection, since I have mapped it to this function.
 function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
-	-- self:Debug(callback, targetID, UnitName(targetID), casterID, UnitName(casterID))
-	
 	-- map Mass Res callback
 	local isMassRes = callback == "LibResComm_MassResStarted"
 	if isMassRes then
 		targetID, targetGUID, casterID, casterGUID, endTime = nil, nil, casterID, casterGUID, endTime
 	end
+	self:Debug(callback, targetID, UnitName(targetID), casterID, UnitName(casterID), "isMassRes", isMassRes)
 
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID)
