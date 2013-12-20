@@ -114,7 +114,7 @@ function addon:OptionsTable()
 						type = "toggle",
 						name = L["Show Icon"],
 						desc = L["Show or hide the icon for res spells"],
-						get = function() return	self.db.profile.resBarsIcon end,
+						get = function() return self.db.profile.resBarsIcon end,
 						set = function(info, value)
 							self.db.profile.resBarsIcon = value
 							if value then
@@ -130,7 +130,7 @@ function addon:OptionsTable()
 						type = "toggle",
 						name = L["Show Battle Resses"],
 						get = function() return self.db.profile.showBattleRes end,
-						set = function(info, value)	self.db.profile.showBattleRes = value end,
+						set = function(info, value) self.db.profile.showBattleRes = value end,
 						width = optWidth
 					},
 					classColours = {
@@ -139,7 +139,7 @@ function addon:OptionsTable()
 						name = CLASS_COLORS,
 						desc = L["Use class colours for the target on the res bars"],
 						get = function() return self.db.profile.classColours end,
-						set = function(info, value)	self.db.profile.classColours = value end,
+						set = function(info, value) self.db.profile.classColours = value end,
 						width = optWidth
 					},
 					spacer2 = {
@@ -247,7 +247,7 @@ function addon:OptionsTable()
 						desc = L["Select the texture for the res bars"],
 						values = AceGUIWidgetLSMlists.statusbar,
 						get = function() return self.db.profile.resBarsTexture end,
-						set = function(info, value)	self.db.profile.resBarsTexture = value end,
+						set = function(info, value) self.db.profile.resBarsTexture = value end,
 						width = optWidth
 					},
 					resBarsBorder = {
@@ -413,7 +413,7 @@ function addon:OptionsTable()
 						name = L["Random Res Messages"],
 						desc = L["Turn random res messages on or keep the same message. Default is off"],
 						get = function() return self.db.profile.randMsgs end,
-						set = function(info, value)	self.db.profile.randMsgs = value end,
+						set = function(info, value) self.db.profile.randMsgs = value end,
 						width = optWidth
 					},
 					notifySelf = {
@@ -422,7 +422,7 @@ function addon:OptionsTable()
 						name = L["Self Notification"],
 						desc = L["Prints a message to yourself whom you are ressing"],
 						get = function() return self.db.profile.notifySelf end,
-						set = function(info, value)	self.db.profile.notifySelf = value end,
+						set = function(info, value) self.db.profile.notifySelf = value end,
 						width = optWidth
 					},
 					resExpired = {
@@ -456,7 +456,7 @@ function addon:OptionsTable()
 							YELL = CHAT_MSG_YELL
 						},
 						get = function() return self.db.profile.chatOutput end,
-						set = function(info, value)	self.db.profile.chatOutput = value end,
+						set = function(info, value) self.db.profile.chatOutput = value end,
 						width = optWidth
 					},
 					notifyCollision = {
@@ -476,7 +476,7 @@ function addon:OptionsTable()
 							YELL = CHAT_MSG_YELL
 						},
 						get = function() return self.db.profile.notifyCollision end,
-						set = function(info, value)	self.db.profile.notifyCollision = value	end,
+						set = function(info, value) self.db.profile.notifyCollision = value end,
 						width = optWidth
 					},
 					spacer6 = {
