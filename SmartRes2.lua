@@ -72,7 +72,7 @@ local defaults = {
 		manualResKey = "",
 		massResBarColour = { r = 0.9 , g = 0.8, b = 0.5, a = 1 },
 		massResKey = "",
-		--massResMessage = "",
+		massResMessage = "",
 		maxBars = 10,
 		notifyCollision = "0-OFF",
 		notifySelf = true,
@@ -302,7 +302,7 @@ function SmartRes2:OnEnable()
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 	ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
 
-	ResInfo.RegisterCallback(self, "LibResInfo_MassResStarted")
+	ResInfo.RegisterCallback(self, "LibResInfo_MassResStarted", "LibResInfo_ResCastStarted")
 	ResInfo.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
 	ResInfo.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
 
@@ -444,14 +444,14 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 			tile = false,
 			tileSize = self.db.profile.scale + 1,
 			edgeSize = self.db.profile.borderThickness,
-			insets = { left = 0, right = 0, top = 0, bottom = 0 }
+			insets = { left = -4, right = -4, top = -4, bottom = -4 }
 		})
 		self.timeOut_bars:SetBackdrop({
 			edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
 			tile = false,
 			tileSize = self.db.profile.scale + 1,
 			edgeSize = self.db.profile.borderThickness,
-			insets = { left = 0, right = 0, top = 0, bottom = 0 }
+			insets = { left = -4, right = -4, top = -4, bottom = -4 }
 		})
 	elseif type == "font" then
 		self.rez_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
@@ -487,13 +487,18 @@ end
 -- Fires when a group member starts casting a resurrection spell on another group member.
 -- Or Mass Resurrection, since I have mapped it to this function.
 function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
-	self:Debug(callback, targetID, UnitName(targetID or ""), casterID, UnitName(casterID), "isMassRes", isMassRes)
+	-- map Mass Res callback
+	local isMassRes = callback == "LibResInfo_MassResStarted"
+	if isMassRes then
+		targetID, targetGUID, casterID, casterGUID, endTime = nil, nil, targetID, targetGUID, casterID, casterGUID, endTime
+	end
+	-- self:Debug(callback, targetID, UnitName(targetID or ""), casterID, UnitName(casterID), "isMassRes", isMassRes)
 
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID or "")
 	local casterName, casterRealm = UnitName(casterID)
 	local hasIncomingRes, _, origResser = ResInfo:UnitHasIncomingRes(targetID)
-	if origResser then origResser = UnitName(origResser) end
+	 if origResser then origResser = UnitName(origResser) end
 
 	-- self:Debug("single?", not not hasTarget, "first?", isFirst)
 
@@ -518,108 +523,67 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 		-- send normal, random, or custom chat message
 		local chat_type = ChatType(self.db.profile.chatOutput)
 		self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
-		if chat_type == "0-NONE" then -- if it is "none" then don't send any chat messages
-			return
-		end
+		if chat_type ~= "0-NONE" then -- if it is "none" then don't send any chat messages
+			if hasTarget then
+				local msg
+				if self.db.profile.customchatmsg then
+					msg = self.db.profile.customchatmsg
+					self:Debug("custom", msg)
+				elseif self.db.profile.randMsgs then
+					msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
+					self:Debug("random", msg)
+				else
+					msg = L["%p is ressing %t"]
+					self:Debug("default", msg)
+				end
 
-		local msg
-		if self.db.profile.customchatmsg then
-			msg = self.db.profile.customchatmsg
-			self:Debug("custom", msg)
-		elseif self.db.profile.randMsgs then
-			msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
-			self:Debug("random", msg)
-		else
-			msg = L["%p is ressing %t"]
-			self:Debug("default", msg)
-		end
+	 			msg = gsub(msg, "%%p", casterName)
+	 			msg = gsub(msg, "%%t", targetName)
 
-		msg = gsub(msg, "%%p", casterName)
-		msg = gsub(msg, "%%t", targetName)
-
-		if chat_type == "WHISPER" then
-			local whisperTarget = targetName
-			if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
-				whisperTarget = format("%s-%s", targetName, targetRealm)
+	 			if chat_type == "WHISPER" then
+	 				local whisperTarget = targetName
+					if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
+						whisperTarget = format("%s-%s", targetName, targetRealm)
+					end
+					self:Debug("Whisper target", whisperTarget)
+					SendChatMessage(msg, chat_type, nil, whisperTarget)
+				else
+					self:Debug("Sending res message to chat channel:", chat_type)
+	 				SendChatMessage(msg, chat_type)
+	 			end
 			end
-			self:Debug("Whisper target", whisperTarget)
-			SendChatMessage(msg, chat_type, nil, whisperTarget)
-		else
-			self:Debug("Sending res message to chat channel:", chat_type)
-			SendChatMessage(msg, chat_type)
 		end
 
 	elseif not isFirst then
 		-- notify collision caster
 		local chat_type = ChatType(self.db.profile.notifyCollision)
 		self:Debug("notifyCollision", self.db.profile.notifyCollision, "=>", chat_type)
-		if chat_type == "0-OFF" then return end
-
-		-- handle class spells
-		local msg
-		if hasIncomingRes == "PENDING" or hasIncomingRes == "SELFRES" then
-			msg = format(L["%s already has a res pending; they have not accepted yet"], targetName)
-		else
-			msg = format(L["%s is already being ressed by %s."], targetName, origResser)
-		end
-
-		if chat_type == "WHISPER" then
-			local whisperTarget = casterName
-			if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
-				whisperTarget = format("%s-%s", casterName, casterRealm)
+		if chat_type ~= "0-OFF" then
+			local msg
+			if hasTarget then
+				-- handle class spells
+				if hasIncomingRes == "PENDING" or hasIncomingRes == "SELFRES" then
+					msg = format(L["%s already has a res pending; they have not accepted yet"], targetName)
+				else
+	 				msg = format(L["%s is already being ressed by %s."], targetName, origResser)
+				end
+			else
+				-- handle Mass Resurrection
+				if notified[casterID] then return end -- don't spam!
+				notified[casterID] = casterID
+				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], origResser)
 			end
-			SendChatMessage(msg, chat_type, nil, whisperTarget)
-		else
-			SendChatMessage(msg, chat_type)
+			if chat_type == "WHISPER" then
+				local whisperTarget = casterName
+				if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
+					whisperTarget = format("%s-%s", casterName, casterRealm)
+				end
+				SendChatMessage(msg, chat_type, nil, whisperTarget)
+			else
+				SendChatMessage(msg, chat_type)
+			end
 		end
-	end
-end
 
-local MASS_RESURRECTION = GetSpellInfo(83968)
-
-function SmartRes2:LibResInfo_MassResStarted(callback, casterID, casterGUID, endTime)
-	self:Debug(callback, casterID, casterGUID, endTime)
-
-	local _, _, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
-
-	if self.db.profile.visibleResBars then
-		self:CreateResBar(casterID, endTime, targetID, isFirst, "MASSRES", true)
-	end
-
-	if isFirst or UnitIsUnit(casterID, "player") then return end
-
-	local chat_type = ChatType(self.db.profile.notifyCollision)
-	self:Debug("notifyCollision", self.db.profile.notifyCollision, "=>", chat_type)
-	if chat_type == "0-OFF" then return end
-
-	if notified[casterID] then return end -- don't spam!
-	notified[casterID] = casterID
-
-	local firstEnd, firstCaster = endTime
-	local unitBase = IsInRaid() and "raid" or "party"
-	for i = 1, GetNumGroupMembers() do
-		local unit = unitBase..i
-		local castName, _, _, _, _, castEnd = UnitCastingInfo(unit)
-		if castName == MASS_RESURRECTION and castEnd < endTime then
-			firstEnd, firstCaster = castEnd, unit
-		end
-	end
-	if not firstCaster then
-		-- error!
-		self:Debug("isFirst was false, but no firstCaster found!")
-		return
-	end
-	firstCaster = UnitName(firstCaster)
-	msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], firstCaster)
-
-	if chat_type == "WHISPER" then
-		local casterName, casterRealm = UnitName(casterID)
-		if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
-			casterName = format("%s-%s", casterName, casterRealm)
-		end
-		SendChatMessage(msg, chat_type, nil, casterName)
-	else
-		SendChatMessage(msg, chat_type)
 	end
 end
 
@@ -654,7 +618,7 @@ function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUI
 	if isMassRes then
 		targetID, targetGUID, casterID, casterGUID, endTime = nil, nil, casterID, casterGUID, endTime
 	end
-
+	
 	-- self:Debug("DeleteBar", callback, targetID, casterID)
 	if resBars[casterID] then
 		resBars[casterID]:Fade(0.1)
@@ -873,13 +837,11 @@ local function VerifyUnit(unit, recast)
 		unitWaiting = true
 		return
 	end
-	--[[ comment this out and test new LRI build
 	if (state == "PENDING" or state == "SELFRES") and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibResInfo bug that allows recasting during LFR
 		self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
 	end
-	]]--
 	-- self:Debug("OK")
 	return true
 end
@@ -958,7 +920,7 @@ function SmartRes2:Resurrection()
 	local unit = GetBestCandidate()
 	if unit then
 		-- self:Debug("spell:", self.playerSpell)
-		-- self:Debug("unit:", unit)
+		self:Debug("unit:", unit)
 		resButton:SetAttribute("spell", self.playerSpell)
 		resButton:SetAttribute("unit", unit)
 	elseif not unitDead then
@@ -1011,13 +973,13 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 		tile = false,
 		tileSize = self.db.profile.scale + 1,
 		edgeSize = self.db.profile.borderThickness,
-		insets = { left = 0, right = 0, top = 0, bottom = 0 }
+		insets = { left = -4, right = -4, top = -4, bottom = -4 }
 	})
 	timeOutBars[targetID] = bar
 end
 
 function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)
-	self:Debug("CreateResBar #", strjoin(" # ", tostringall(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)))
+	-- self:Debug("CreateResBar #", strjoin(" # ", tostringall(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)))
 
 	local spellName, _, icon
 	local casterName
@@ -1029,7 +991,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	if spellID then -- exists only for test bars
 		spellName, _, icon = GetSpellInfo(spellID)
 		casterName = casterID
-		targetName = targetID or ""
+		targetName = targetID
 	else -- LibResInfo_ResCastStarted
 		spellName, _, _, icon = UnitCastingInfo(casterID)
 		casterName = UnitName(casterID)
@@ -1090,7 +1052,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		tile = false,
 		tileSize = self.db.profile.scale + 1,
 		edgeSize = self.db.profile.borderThickness,
-		insets = { left = 0, right = 0, top = 0, bottom = 0 }
+		insets = { left = -4, right = -4, top = -4, bottom = -4 }
 	})
 	resBars[casterID] = bar
 end
@@ -1101,7 +1063,7 @@ function SmartRes2:ResBarsFadeFinished(event, bar, name)
 		-- Hack to deal with LibBars callback setup
 		self, event, bar, name = SmartRes2, self, event, bar
 	end
-	self:Debug("ResBarsFadeFinished", name)
+	-- self:Debug("ResBarsFadeFinished", name)
 	resBars[name] = nil
 end
 function SmartRes2:TimeOutBarsFadeFinished(event, bar, name)
@@ -1109,7 +1071,7 @@ function SmartRes2:TimeOutBarsFadeFinished(event, bar, name)
 		-- Hack to deal with LibBars callback setup
 		self, event, bar, name = SmartRes2, self, event, bar
 	end
-	self:Debug("TimeOutBarsFadeFinished", name)
+	-- self:Debug("TimeOutBarsFadeFinished", name)
 	resBars[name] = nil
 end
 
