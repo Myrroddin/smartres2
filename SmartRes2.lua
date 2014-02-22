@@ -444,14 +444,14 @@ function SmartRes2:UpdateMedia(callback, type, handle)
 			tile = false,
 			tileSize = self.db.profile.scale + 1,
 			edgeSize = self.db.profile.borderThickness,
-			insets = { left = -4, right = -4, top = -4, bottom = -4 }
+			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
 		self.timeOut_bars:SetBackdrop({
 			edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
 			tile = false,
 			tileSize = self.db.profile.scale + 1,
 			edgeSize = self.db.profile.borderThickness,
-			insets = { left = -4, right = -4, top = -4, bottom = -4 }
+			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
 	elseif type == "font" then
 		self.rez_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
@@ -495,7 +495,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	-- self:Debug(callback, targetID, UnitName(targetID or ""), casterID, UnitName(casterID), "isMassRes", isMassRes)
 
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
-	local targetName, targetRealm = UnitName(targetID or "")
+	local targetName, targetRealm = UnitName(targetID)
 	local casterName, casterRealm = UnitName(casterID)
 	local hasIncomingRes, _, origResser = ResInfo:UnitHasIncomingRes(targetID)
 	 if origResser then origResser = UnitName(origResser) end
@@ -522,33 +522,33 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 
 		-- send normal, random, or custom chat message
 		local chat_type = ChatType(self.db.profile.chatOutput)
-		self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
+		-- self:Debug("chatOutput", self.db.profile.chatOutput, "=>", chat_type)
 		if chat_type ~= "0-NONE" then -- if it is "none" then don't send any chat messages
 			if hasTarget then
 				local msg
 				if self.db.profile.customchatmsg then
 					msg = self.db.profile.customchatmsg
-					self:Debug("custom", msg)
+					-- self:Debug("custom", msg)
 				elseif self.db.profile.randMsgs then
 					msg = self.db.profile.randChatTbl[random(#self.db.profile.randChatTbl)]
-					self:Debug("random", msg)
+					-- self:Debug("random", msg)
 				else
 					msg = L["%p is ressing %t"]
-					self:Debug("default", msg)
+					-- self:Debug("default", msg)
 				end
 
 	 			msg = gsub(msg, "%%p", casterName)
 	 			msg = gsub(msg, "%%t", targetName)
 
 	 			if chat_type == "WHISPER" then
-	 				local whisperTarget = targetName
-					if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
+	 				local whisperTarget -- = targetName
+					-- if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
 						whisperTarget = format("%s-%s", targetName, targetRealm)
-					end
+					-- end
 					self:Debug("Whisper target", whisperTarget)
 					SendChatMessage(msg, chat_type, nil, whisperTarget)
 				else
-					self:Debug("Sending res message to chat channel:", chat_type)
+					-- self:Debug("Sending res message to chat channel:", chat_type)
 	 				SendChatMessage(msg, chat_type)
 	 			end
 			end
@@ -574,10 +574,10 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], origResser)
 			end
 			if chat_type == "WHISPER" then
-				local whisperTarget = casterName
-				if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
+				local whisperTarget -- = casterName
+				-- if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
 					whisperTarget = format("%s-%s", casterName, casterRealm)
-				end
+				-- end
 				SendChatMessage(msg, chat_type, nil, whisperTarget)
 			else
 				SendChatMessage(msg, chat_type)
@@ -973,7 +973,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 		tile = false,
 		tileSize = self.db.profile.scale + 1,
 		edgeSize = self.db.profile.borderThickness,
-		insets = { left = -4, right = -4, top = -4, bottom = -4 }
+		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
 	timeOutBars[targetID] = bar
 end
@@ -1052,7 +1052,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		tile = false,
 		tileSize = self.db.profile.scale + 1,
 		edgeSize = self.db.profile.borderThickness,
-		insets = { left = -4, right = -4, top = -4, bottom = -4 }
+		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
 	resBars[casterID] = bar
 end
