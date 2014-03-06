@@ -72,7 +72,6 @@ local defaults = {
 		manualResKey = "",
 		massResBarColour = { r = 0.9 , g = 0.8, b = 0.5, a = 1 },
 		massResKey = "",
-		massResMessage = "",
 		maxBars = 10,
 		notifyCollision = "0-OFF",
 		notifySelf = true,
@@ -492,7 +491,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	if isMassRes then
 		targetID, targetGUID, casterID, casterGUID, endTime = nil, nil, targetID, targetGUID, casterID, casterGUID, endTime
 	end
-	-- self:Debug(callback, targetID, UnitName(targetID or ""), casterID, UnitName(casterID), "isMassRes", isMassRes)
+	self:Debug(callback, targetID, UnitName(targetID or ""), casterID, UnitName(casterID), "isMassRes", isMassRes)
 
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
 	local targetName, targetRealm = UnitName(targetID)
@@ -802,9 +801,9 @@ local function GetClassOrder(unit)
 	return CLASS_PRIORITIES[c] or 9, lvl
 end
 
-local function VerifyUnit(unit, recast)
+local function VerifyUnit(unit)
 	local self = SmartRes2
-	-- self:Debug("VerifyUnit", unit)
+	self:Debug("VerifyUnit", unit)
 	-- unit is the next candidate. there is NO way to check LoS, so don't ask!
 	if not UnitIsDead(unit) then
 		-- self:Debug("UnitIsDead")
@@ -827,21 +826,22 @@ local function VerifyUnit(unit, recast)
 		return
 	end
 	local state = ResInfo:UnitHasIncomingRes(unit)
+	self:Debug("LRI state", state)
 	if state == "CASTING" then
 		-- self:Debug("UnitHasIncomingRes", state)
 		unitBeingRessed = true
 		return
 	end
-	if (state == "PENDING" or state == "SELFRES") and not recast then
+	if (state == "PENDING" or state == "SELFRES") then
 		-- self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
 	end
-	if (state == "PENDING" or state == "SELFRES") and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibResInfo bug that allows recasting during LFR
+	--[[ if (state == "PENDING" or state == "SELFRES") and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibResInfo bug that allows recasting during LFR
 		self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
-	end
+	end ]]--
 	-- self:Debug("OK")
 	return true
 end
@@ -878,7 +878,7 @@ end
 
 local function GetBestCandidate()
 	local self = SmartRes2
-	-- self:Debug("GetBestCandidate")
+	self:Debug("GetBestCandidate")
 	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
 	if raidUpdated then
 		SortCurrentRaiders() -- only resort if group changed
@@ -887,7 +887,7 @@ local function GetBestCandidate()
 		local unit = data.unit
 		local validUnit = VerifyUnit(unit)
 		if validUnit then
-			-- self:Debug(unit, "is the best!")
+			self:Debug(unit, "is the best!")
 			return unit
 		end
 	end
@@ -895,7 +895,7 @@ local function GetBestCandidate()
 		local unit = data.unit
 		local validUnit = VerifyUnit(unit, true)
 		if validUnit then
-			-- self:Debug(unit, "is almost the best!")
+			self:Debug(unit, "is almost the best!")
 			return unit
 		end
 	end
