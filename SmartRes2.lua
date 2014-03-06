@@ -540,10 +540,11 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	 			msg = gsub(msg, "%%t", targetName)
 
 	 			if chat_type == "WHISPER" then
-	 				local whisperTarget -- = targetName
-					-- if targetRealm and targetRealm ~= "" and targetRealm ~= currentRealm then
-						whisperTarget = format("%s-%s", targetName, targetRealm)
-					-- end
+	 				local whisperTarget
+					if not targetRealm then
+						targetRealm = currentRealm
+					end
+					whisperTarget = format("%s-%s", targetName, targetRealm)
 					self:Debug("Whisper target", whisperTarget)
 					SendChatMessage(msg, chat_type, nil, whisperTarget)
 				else
@@ -573,10 +574,11 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], origResser)
 			end
 			if chat_type == "WHISPER" then
-				local whisperTarget -- = casterName
-				-- if casterRealm and casterRealm ~= "" and casterRealm ~= currentRealm then
-					whisperTarget = format("%s-%s", casterName, casterRealm)
-				-- end
+				local whisperTarget
+				if not casterRealm then
+					casterRealm = currentRealm
+				end
+				whisperTarget = format("%s-%s", casterName, casterRealm)
 				SendChatMessage(msg, chat_type, nil, whisperTarget)
 			else
 				SendChatMessage(msg, chat_type)
