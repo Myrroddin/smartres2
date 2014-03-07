@@ -41,7 +41,7 @@ local raidUpdated
 local in_combat
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK
 local SortedResList = {}
-local currentRealm = GetRealmName()
+local local _, currentRealm = UnitFullName("player")
 local creatorName = {
 	["Myrroddin"] = true,
 	["Jelia"] = true,
@@ -540,11 +540,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	 			msg = gsub(msg, "%%t", targetName)
 
 	 			if chat_type == "WHISPER" then
-	 				local whisperTarget
-					if not targetRealm then
-						targetRealm = currentRealm
-					end
-					whisperTarget = format("%s-%s", targetName, targetRealm)
+					local whisperTarget = format("%s-%s", targetName, targetRealm or currentRealm)
 					self:Debug("Whisper target", whisperTarget)
 					SendChatMessage(msg, chat_type, nil, whisperTarget)
 				else
@@ -574,11 +570,7 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], origResser)
 			end
 			if chat_type == "WHISPER" then
-				local whisperTarget
-				if not casterRealm then
-					casterRealm = currentRealm
-				end
-				whisperTarget = format("%s-%s", casterName, casterRealm)
+				local whisperTarget = format("%s-%s", casterName, casterRealm or currentRealm)
 				SendChatMessage(msg, chat_type, nil, whisperTarget)
 			else
 				SendChatMessage(msg, chat_type)
@@ -602,7 +594,7 @@ end
 
 -- unit's res has expired or unit has accepted res
 function SmartRes2:ResTimeOutEnded(callback, targetID, targetGUID)
-	--self:Debug("ResTimeOutEnded", callback, targetID, targetGUID)
+	-- self:Debug("ResTimeOutEnded", callback, targetID, targetGUID)
 	if self.db.profile.resExpired and UnitIsDeadOrGhost(targetID) then
 		self:Print(L["%s's resurrection timer expired, and can be resurrected again"], UnitName(targetID) or targetID)
 	end
@@ -613,11 +605,11 @@ function SmartRes2:ResTimeOutEnded(callback, targetID, targetGUID)
 end
 
 -- a res cast has finished or cancelled
-function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUID, endTime)
+function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUID)
 	-- map Mass Res callback
-	local isMassRes = callback == "LibResComm_MassResStarted"
+	local isMassRes = callback == "LibResInfo_MassResFinished" or "LibResInfo_MassResCancelled"
 	if isMassRes then
-		targetID, targetGUID, casterID, casterGUID, endTime = nil, nil, casterID, casterGUID, endTime
+		targetID, targetGUID, casterID, casterGUID = nil, nil, casterID, casterGUID
 	end
 	
 	-- self:Debug("DeleteBar", callback, targetID, casterID)
