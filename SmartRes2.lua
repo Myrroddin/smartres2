@@ -41,7 +41,7 @@ local raidUpdated
 local in_combat
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK
 local SortedResList = {}
-local local _, currentRealm = UnitFullName("player")
+local _, currentRealm = UnitFullName("player")
 local creatorName = {
 	["Myrroddin"] = true,
 	["Jelia"] = true,
