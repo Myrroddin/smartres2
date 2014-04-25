@@ -486,18 +486,20 @@ end
 -- Fires when a group member starts casting a resurrection spell on another group member.
 -- Or Mass Resurrection, since I have mapped it to this function.
 function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
+	local targetName, targetRealm
 	-- map Mass Res callback
 	local isMassRes = callback == "LibResInfo_MassResStarted"
 	if isMassRes then
 		targetID, targetGUID, casterID, casterGUID, endTime = nil, nil, targetID, targetGUID, casterID, casterGUID, endTime
+	else
+		targetName, targetRealm = UnitName(targetID)
 	end
 	self:Debug(callback, targetID, UnitName(targetID or ""), casterID, UnitName(casterID), "isMassRes", isMassRes)
 
 	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
-	local targetName, targetRealm = UnitName(targetID)
 	local casterName, casterRealm = UnitName(casterID)
 	local hasIncomingRes, _, origResser = ResInfo:UnitHasIncomingRes(targetID)
-	 if origResser then origResser = UnitName(origResser) end
+	if origResser then origResser = UnitName(origResser) end
 
 	-- self:Debug("single?", not not hasTarget, "first?", isFirst)
 
