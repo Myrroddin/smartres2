@@ -933,9 +933,10 @@ function SmartRes2:Resurrection()
 end
 
 -- resbar functions ---------------------------------------------------------
-local function ClassColouredName(name)
-	if not name then return "|cffcccccc".. UNKNOWN.. "|r" end
-	local _, class = UnitClass(name)
+local function ClassColouredName(unit, name)
+	if not unit then return "|cffcccccc".. UNKNOWN.. "|r" end
+	if not name then UnitName(unit) end
+	local _, class = UnitClass(unit)
 	if not class then return "|cffcccccc"..name.."|r" end
 	local c = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[class]
 	return format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, name)
@@ -948,7 +949,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 	local t = self.db.profile.timeOutBarsColour
 
 	if self.db.profile.classColours then
-		text = ClassColouredName(targetName)
+		text = ClassColouredName(targetID, targetName)
 	else
 		text = targetName
 	end
@@ -1001,9 +1002,9 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 
 	if self.db.profile.classColours then
 		if isMassRes then
-			text = format("%s: %s", ClassColouredName(casterName), spellName)
+			text = format("%s: %s", ClassColouredName(casterID, casterName), spellName)
 		else
-			text = format(L["%s is ressing %s"], ClassColouredName(casterName), ClassColouredName(targetName))
+			text = format(L["%s is ressing %s"], ClassColouredName(casterID, casterName), ClassColouredName(targeID, targetName))
 		end
 	else
 		if isMassRes then
