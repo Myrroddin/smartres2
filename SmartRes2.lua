@@ -253,7 +253,7 @@ function SmartRes2:OnInitialize()
 	self.resButton = resButton
 
 	-- create separate button for Mass Resurrection
-	local massResButton = CreateFrame("button", "SR2MassResButton", UIPARENT, "SecureActionButtonTemplate")
+	local massResButton = CreateFrame("button", "SR2MassResButton", UIParent, "SecureActionButtonTemplate")
 	massResButton:SetAttribute("type", "spell")
 	massResButton:SetScript("PreClick", function() self:MassResurrection() end)
 	self.massResButton = massResButton
@@ -567,8 +567,8 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 				end
 			else
 				-- handle Mass Resurrection
-				if notified[casterID] then return end -- don't spam!
-				notified[casterID] = casterID
+				if notified[casterGUID] then return end -- don't spam!
+				notified[casterGUID] = true
 				msg = format(L["SmartRes2 would like you to know that %s is already resurrecting everybody."], origResser)
 			end
 			if chat_type == "WHISPER" then
@@ -600,9 +600,9 @@ function SmartRes2:ResTimeOutEnded(callback, targetID, targetGUID)
 	if self.db.profile.resExpired and UnitIsDeadOrGhost(targetID) then
 		self:Print(L["%s's resurrection timer expired, and can be resurrected again"], UnitName(targetID) or targetID)
 	end
-	if timeOutBars[targetID] then
-		timeOutBars[targetID]:Fade(0.1)
-		timeOutBars[targetID] = nil
+	if timeOutBars[targetGUID] then
+		timeOutBars[targetGUID]:Fade(0.1)
+		timeOutBars[targetGUID] = nil
 	end
 end
 
@@ -615,12 +615,12 @@ function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUI
 	end
 	
 	-- self:Debug("DeleteBar", callback, targetID, casterID)
-	if resBars[casterID] then
-		resBars[casterID]:Fade(0.1)
-		resBars[casterID] = nil
+	if resBars[casterGUID] then
+		resBars[casterGUID]:Fade(0.1)
+		resBars[casterGUID] = nil
 	end
-	if notified[casterID] then
-		notified[casterID] = nil
+	if notified[casterGUID] then
+		notified[casterGUID] = nil
 	end
 end
 
@@ -715,8 +715,9 @@ function SmartRes2:GROUP_ROSTER_UPDATE()
 		raidUpdated = true
 	else
 		raidUpdated = nil
-		for i = 1, #timeOutBars do
-			timeOutBars[i]:Fade(0.1)
+		for guid, bar in pairs(timeOutBars) do
+			bar:Fade(0.1)
+			timeOutBars[guid] = nil
 		end
 		wipe(SortedResList)
 		unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
@@ -945,6 +946,7 @@ end
 function SmartRes2:CreateTimeOutBars(endTime, targetID)
 	local targetName = UnitName(targetID)
 	local end_time = endTime - GetTime()
+	local targetGUID = UnitGUID(targetID)
 	local text
 	local t = self.db.profile.timeOutBarsColour
 
@@ -955,7 +957,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
-	local bar = self.timeOut_bars:NewTimerBar(targetName, text, end_time, nil, [[Interface\Icons\Spell_Nature_TimeStop]], 0)
+	local bar = self.timeOut_bars:NewTimerBar(targetGUID, text, end_time, nil, [[Interface\Icons\Spell_Nature_TimeStop]], 0)
 	bar.RegisterCallback(self.timeOut_bars, "FadeFinished", SmartRes2.TimeOutBarsFadeFinished)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1)
@@ -972,7 +974,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 		edgeSize = self.db.profile.borderThickness,
 		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
-	timeOutBars[targetID] = bar
+	timeOutBars[targetGUID] = bar
 end
 
 function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)
@@ -982,6 +984,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	local casterName
 	local targetName
 	local end_time = endTime - GetTime()
+	local casterGUID = UnitGUID(casterID)
 	local text
 	local t -- bar colours
 
@@ -995,7 +998,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		targetName = UnitName(targetID or "")
 	end -- self:Debug("spellName", spellName, "casterName", casterName, "targetName", targetName)
 
-	if resBars[casterName] then
+	if resBars[casterGUID] then
 		-- duplicate Mass Res bar
 		return -- self:Debug("DUPLICATE MASS RES")
 	end
@@ -1025,7 +1028,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
-	local bar, isNew = self.rez_bars:NewTimerBar(casterName, text, end_time, nil, icon, 0)
+	local bar, isNew = self.rez_bars:NewTimerBar(casterGUID, text, end_time, nil, icon, 0)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
 	bar.RegisterCallback(self.rez_bars, "FadeFinished", SmartRes2.ResBarsFadeFinished)
@@ -1051,7 +1054,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		edgeSize = self.db.profile.borderThickness,
 		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
-	resBars[casterID] = bar
+	resBars[casterGUID] = bar
 end
 
 -- LibBars event - called when bar finished fading
