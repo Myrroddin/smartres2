@@ -934,10 +934,13 @@ function SmartRes2:Resurrection()
 end
 
 -- resbar functions ---------------------------------------------------------
-local function ClassColouredName(unit, name)
+local function ClassColouredName(unit, name, class)
 	if not unit then return "|cffcccccc".. UNKNOWN.. "|r" end
 	if not name then UnitName(unit) end
-	local _, class = UnitClass(unit)
+	 if not class then
+          local _
+          _, class = UnitClass(unit)
+     end
 	if not class then return "|cffcccccc"..name.."|r" end
 	local c = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[class]
 	return format("|cff%02x%02x%02x%s|r", c.r * 255, c.g * 255, c.b * 255, name)
@@ -958,7 +961,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
 	local bar = self.timeOut_bars:NewTimerBar(targetGUID, text, end_time, nil, [[Interface\Icons\Spell_Nature_TimeStop]], 0)
-	bar.RegisterCallback(self.timeOut_bars, "FadeFinished", SmartRes2.TimeOutBarsFadeFinished)
+	bar.RegisterCallback(self.timeOut_bars, "FadeFinished", self.TimeOutBarsFadeFinished)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1)
 
@@ -977,7 +980,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 	timeOutBars[targetGUID] = bar
 end
 
-function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)
+function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID, testClass)
 	-- self:Debug("CreateResBar #", strjoin(" # ", tostringall(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)))
 
 	local spellName, _, icon
@@ -1005,9 +1008,9 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 
 	if self.db.profile.classColours then
 		if isMassRes then
-			text = format("%s: %s", ClassColouredName(casterID, casterName), spellName)
+			text = format("%s: %s", ClassColouredName(casterID, casterName, testClass), spellName)
 		else
-			text = format(L["%s is ressing %s"], ClassColouredName(casterID, casterName), ClassColouredName(targeID, targetName))
+			text = format(L["%s is ressing %s"], ClassColouredName(casterID, casterName, testClass), ClassColouredName(targetID, targetName, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)]))
 		end
 	else
 		if isMassRes then
@@ -1078,11 +1081,11 @@ end
 function SmartRes2:StartTestBars()
 	if not self.db.profile.enableAddon then return end
 	if self.db.profile.visibleResBars then
-		self:CreateResBar("NawtyNurse", GetTime() + 4, "FrankTheTank", true, nil, nil, 2008)
-		self:CreateResBar("BadCaster", GetTime() + 5, "FrankTheTank", nil, nil, nil, 115178)
-		self:CreateResBar("MassResser", GetTime() + 6, nil, true, nil, true, 83968)
-		self:CreateResBar("MassCollider", GetTime() + 7, nil, nil, nil, true, 83968)
-		self:CreateResBar("Sonayahh", GetTime() + 8, "AlreadyRessed", nil, "PENDING", nil, 7328)
+		self:CreateResBar("NawtyNurse", GetTime() + 4, "FrankTheTank", true, nil, nil, 2008, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
+		self:CreateResBar("BadCaster", GetTime() + 5, "FrankTheTank", nil, nil, nil, 115178, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
+		self:CreateResBar("MassResser", GetTime() + 6, nil, true, nil, true, 83968, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
+		self:CreateResBar("MassCollider", GetTime() + 7, nil, nil, nil, true, 83968, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
+		self:CreateResBar("Sonayahh", GetTime() + 8, "AlreadyRessed", nil, "PENDING", nil, 7328, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
 	end
 	wipe(resBars)
 end
