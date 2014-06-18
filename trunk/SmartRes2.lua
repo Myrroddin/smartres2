@@ -987,7 +987,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	local casterName
 	local targetName
 	local end_time = endTime - GetTime()
-	local casterGUID = UnitGUID(casterID)
+	local casterGUID
 	local text
 	local t -- bar colours
 
@@ -995,10 +995,12 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		spellName, _, icon = GetSpellInfo(spellID)
 		casterName = casterID
 		targetName = targetID
+		casterGUID = random(10000000)
 	else -- LibResInfo_ResCastStarted
 		spellName, _, _, icon = UnitCastingInfo(casterID)
 		casterName = UnitName(casterID)
-		targetName = UnitName(targetID or "")
+		targetName = UnitName(targetID)
+		casterGUID = UnitGUID(casterID)
 	end -- self:Debug("spellName", spellName, "casterName", casterName, "targetName", targetName)
 
 	if resBars[casterGUID] then
