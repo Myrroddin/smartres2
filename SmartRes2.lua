@@ -981,7 +981,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 end
 
 function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID, testClass)
-	-- self:Debug("CreateResBar #", strjoin(" # ", tostringall(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID)))
+	self:Debug("CreateResBar #", strjoin(" # ", tostringall(casterID, endTime, targetID, isFirst, hasIncomingRes, isMassRes, spellID, testClass)))
 
 	local spellName, _, icon
 	local casterName
@@ -996,6 +996,10 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		casterName = casterID
 		targetName = targetID
 		casterGUID = random(10000000)
+	elseif isMassRes then
+		spellName, _, _, icon = UnitCastingInfo(casterID)
+		casterName = UnitName(casterID)
+		casterGUID = UnitGUID(casterID)
 	else -- LibResInfo_ResCastStarted
 		spellName, _, _, icon = UnitCastingInfo(casterID)
 		casterName = UnitName(casterID)
