@@ -601,8 +601,10 @@ function SmartRes2:ResTimeOutEnded(callback, targetID, targetGUID)
 		self:Print(L["%s's resurrection timer expired, and can be resurrected again"], UnitName(targetID) or targetID)
 	end
 	if timeOutBars[targetGUID] then
-		timeOutBars[targetGUID]:Fade(0.1)
-		timeOutBars[targetGUID] = nil
+		for guid, bar in pairs(timeOutBars) do
+			bar:Fade(0.1)
+			timeOutBars[guid] = nil
+		end
 	end
 end
 
@@ -616,8 +618,12 @@ function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUI
 	
 	-- self:Debug("DeleteBar", callback, targetID, casterID)
 	if resBars[casterGUID] then
-		resBars[casterGUID]:Fade(0.1)
-		resBars[casterGUID] = nil
+		for guid, bar in pairs(resBars) do
+			-- resBars[casterGUID]:Fade(0.1)
+			-- resBars[casterGUID] = nil
+			bar:Fade(0.1)
+			resBars[guid] = nil
+		end
 	end
 	if notified[casterGUID] then
 		notified[casterGUID] = nil
