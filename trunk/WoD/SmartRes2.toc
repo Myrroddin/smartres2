@@ -14,7 +14,6 @@
 ## Author: Myrroddin of Knights of the Storm
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
-## X-Donate: http://pledgie.com/campaigns/19879
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid, Monk
 ## SavedVariables: SmartRes2DB
 ## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, koKR, zhTW, ptBR, itIT
