@@ -257,14 +257,15 @@ function SmartRes2:OnInitialize()
 	massResButton:SetAttribute("type", "spell")
 	massResButton:SetScript("PreClick", function() self:MassResurrection() end)
 	self.massResButton = massResButton
+	
+	self:SPELLS_CHANGED()
 end
 
 function SmartRes2:OnEnable()
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("GROUP_ROSTER_UPDATE")
-	self:RegisterEvent("GUILD_PERK_UPDATE", "VerifyPerk")
-	self:RegisterEvent("PLAYER_GUILD_UPDATE", "VerifyPerk")
+	self:RegisterEvent("SPELLS_CHANGED")
 
 	self.rez_bars = self.rez_bars or self:NewBarGroup("SmartRes2", self.db.profile.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
 	self.rez_bars:SetClampedToScreen(true)
@@ -619,8 +620,6 @@ function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUI
 	-- self:Debug("DeleteBar", callback, targetID, casterID)
 	if resBars[casterGUID] then
 		for guid, bar in pairs(resBars) do
-			-- resBars[casterGUID]:Fade(0.1)
-			-- resBars[casterGUID] = nil
 			bar:Fade(0.1)
 			resBars[guid] = nil
 		end
@@ -628,12 +627,6 @@ function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUI
 	if notified[casterGUID] then
 		notified[casterGUID] = nil
 	end
-end
-
--- Blizzard callback functions ----------------------------------------------
-function SmartRes2:VerifyPerk(unit)
-	if unit ~= "player" then return end
-	self:BindMassRes()
 end
 
 -- Important Note: Since the release of patch 3.2, certain fights in the game fire the
@@ -680,15 +673,9 @@ end
 
 -- key binding functions ----------------------------------------------------
 function SmartRes2:BindMassRes()
-	if IsSpellKnown(83968) then
-		self.knowsMassRes = true
-	else
-		self.knowsMassRes = nil
-	end
-
-	if self.db.profile.massResKey ~= "" and self.knowsMassRes then
+	if self.db.profile.massResKey ~= "" and self.db.char.knowsMassRes then
 		SetOverrideBindingClick(self.massResButton, false, self.db.profile.massResKey, "SR2MassResButton")
-	elseif self.db.profile.massResKey == "" or not self.knowsMassRes then
+	elseif self.db.profile.massResKey == "" or not self.db.char.knowsMassRes then
 		SetOverrideBinding(self.massResButton, false, self.db.profile.massResKey, nil)
 	end
 end
@@ -713,6 +700,14 @@ end
 function SmartRes2:UnBindKeys()
 	ClearOverrideBindings(self.resButton)
 	ClearOverrideBindings(self.massResButton)
+end
+
+function SmartRes2:SPELLS_CHANGED()
+	if IsSpellKnown(83968) then
+		self.db.char.knowsMassRes = true
+	else
+		self.db.char.knowsMassRes = nil
+	end
 end
 
 -- smart resurrection determination functions -------------------------------
