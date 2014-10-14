@@ -673,9 +673,9 @@ end
 
 -- key binding functions ----------------------------------------------------
 function SmartRes2:BindMassRes()
-	if self.db.profile.massResKey ~= "" and self.knowsMassRes then
+	if self.db.profile.massResKey ~= "" and self.db.char.knowsMassRes then
 		SetOverrideBindingClick(self.massResButton, false, self.db.profile.massResKey, "SR2MassResButton")
-	elseif self.db.profile.massResKey == "" or not self.knowsMassRes then
+	elseif self.db.profile.massResKey == "" or not self.db.char.knowsMassRes then
 		SetOverrideBinding(self.massResButton, false, self.db.profile.massResKey, nil)
 	end
 end
@@ -704,9 +704,9 @@ end
 
 function SmartRes2:SPELLS_CHANGED()
 	if IsSpellKnown(83968) then
-		self.knowsMassRes = true
+		self.db.char.knowsMassRes = true
 	else
-		self.knowsMassRes = nil
+		self.db.char.knowsMassRes = nil
 	end
 end
 
