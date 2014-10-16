@@ -512,7 +512,7 @@ function addon:OptionsTable()
 						order = 100,
 						type = "input",
 						name = L["Add to Random Table"],
-						desc = L["ADD_OUTPUT_KEY"],
+						desc = L["Add a random message to the table. %p (optional) is you, %t (mandatory) is your target. They can be in any order."],
 						get = function() return "" end,
 						set = function(info, value)
 							-- Insert non-empty values into the table
