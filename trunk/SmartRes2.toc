@@ -1,4 +1,4 @@
-## Interface: 60100
+## Interface: 60200
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
 ## Notes-frFR: Coordonner la résurrection du groupe/raid sans cible.
@@ -17,9 +17,9 @@
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid, Monk
 ## SavedVariables: SmartRes2DB
 ## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, koKR, zhTW, ptBR, itIT
-## X-Website: http://www.curse.com/addons/wow/smartres2
+## X-Website: http://mods.curse.com/addons/wow/smartres2
 ## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
-## X-License: (c) 2009 - 2015, Paul "Myrroddin" Vandersypen. All Rights Reserved
+## X-License: (c) 2009 - 2016, Paul "Myrroddin" Vandersypen. All Rights Reserved
 
 ## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibResInfo-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets, LibDataBroker-1.1
 
