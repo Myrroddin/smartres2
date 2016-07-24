@@ -1,14 +1,16 @@
 ## Interface: 70000
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
-## Notes-frFR: Coordonner la résurrection du groupe/raid sans cible.
-## Notes-deDE: Koordinierte, ziellose Wiederbelebung von Gruppen/Schlachtzügen. In Entwicklung
-## Notes-koKR: 지정된 타겟없이 파티/공격대를 순식간에 복구시킵니다. .toc 파일 내 Notes 예
-## Notes-ruRU: Аддон для координации воскрешений в группах/рейдах.Информативные заметки в поле
-## Notes-zhCN: 协助目标小队/团队灭团复活。
-## Notes-zhTW: 無目標團撲協同復活。升級了。
-## Notes-esES: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
-## Notes-esMX: Co-Parte targetless coordinado / Raid limpiar recuperación. Evolved
+## Notes-ruRU: @localization(locale="ruRU", key="Notes", namespace="ToC")@
+## Notes-deDE: @localization(locale="deDE", key="Notes", namespace="ToC")@
+## Notes-koKR: @localization(locale="koKR", key="Notes", namespace="ToC")@
+## Notes-esMX: @localization(locale="esMX", key="Notes", namespace="ToC")@
+## Notes-esES: @localization(locale="esES", key="Notes", namespace="ToC")@
+## Notes-ptBR: @localization(locale="ptBR", key="Notes", namespace="ToC")@
+## Notes-zhCN: @localization(locale="zhCN", key="Notes", namespace="ToC")@
+## Notes-zhTW: @localization(locale="zhTW", key="Notes", namespace="ToC")@
+## Notes-itIT: @localization(locale="itIT", key="Notes", namespace="ToC")@
+## Notes-frFR: @localization(locale="frFR", key="Notes", namespace="ToC")@
 ## Version: @project-version@
 ## X-Project-Revision: @project-revision@
 ## Author: Myrroddin of Knights of the Storm
@@ -21,7 +23,7 @@
 ## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
 ## X-License: (c) 2009 - 2016, Paul "Myrroddin" Vandersypen. All Rights Reserved
 
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibResInfo-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets, LibDataBroker-1.1
+## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibResInfo-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets, LibDataBroker-1.1, !ClassColors
 
 #@no-lib-strip@
 Libs\LibStub\LibStub.lua
@@ -39,8 +41,8 @@ Libs\LibSharedMedia-3.0\lib.xml
 Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 Libs\LibBars-1.0\lib.xml
 Libs\LibAboutPanel\lib.xml
-#@end-no-lib-strip@
 Libs\LibResInfo-1.0\LibResInfo-1.0.lua
+#@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 
 Locales\Localization.enUS.lua
