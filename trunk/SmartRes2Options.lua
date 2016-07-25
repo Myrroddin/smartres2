@@ -1,16 +1,12 @@
 ﻿local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 local L = addon.L
 
-local locale = GetLocale()
 local optWidth = nil
-if locale ~= "enUS" then
+if GetLocale ~= "enUS" then
 	optWidth = "double"
 end
 
-local AceConfigDialog = LibStub("AceConfigDialog-3.0")
-
 function addon:OptionsTable()
-	local AceConfig = LibStub("AceConfig-3.0")
 	local options = {
 		name = "SmartRes2",
 		handler = addon,

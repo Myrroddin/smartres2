@@ -44,6 +44,9 @@ Libs\LibAboutPanel\lib.xml
 Libs\LibResInfo-1.0\LibResInfo-1.0.lua
 #@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
+#@no-lib-strip@
+Libs\LibDBIcon-1.0\lib.xml
+#@end-no-lib-strip@
 
 Locales\Localization.enUS.lua
 Locales\Localization.itIT.lua
