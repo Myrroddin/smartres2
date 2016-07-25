@@ -10,26 +10,18 @@ local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0"
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2", true)
 
 local version = GetAddOnMetadata("SmartRes2", "Version")
---@alpha@
 if version:match("@") then
 	version = "Development"
-else
-	version = "Alpha "..version
 end
---@end-alpha@
 
 -- add localisation to addon
 SmartRes2.L = L
--- declare the database
-local db
 
 -- additional libraries -----------------------------------------------------
-local DataBroker = LibStub:GetLibrary("LibDataBroker-1.1")
-local Bars = LibStub:GetLibrary("LibBars-1.0")
-local ResInfo = LibStub:GetLibrary("LibResInfo-1.0")
-local Media = LibStub:GetLibrary("LibSharedMedia-3.0")
-
-Media:Register("statusbar", "Blizzard", [[Interface\TargetingFrame\UI-StatusBar]])
+local LDB = LibStub("LibLDB-1.1")
+local LRI = LibStub("LibLRI-1.0")
+local LSM = LibStub("LibSharedLSM-3.0")
+local DBI = LibStub("LibDBI-1.0")
 
 -- local variables ----------------------------------------------------------
 local resBars = {}
@@ -59,9 +51,10 @@ local defaults = {
 		chatOutput = "0-NONE",
 		classColours = true,
 		collisionBarsColour = { r = 1, g = 0, b = 0, a = 1 },
-		--@debug@
 		debugMode = true,
-		--@end-debug@
+		--[===[@non-debug@
+		debugMode = false,
+		--@end-non-debug@]===]
 		enableAddon = true,
 		enableTimeOutBars = true,
 		fontFlags = "NONE",
@@ -83,23 +76,58 @@ local defaults = {
 		resBarsBorder = "None",
 		resBarsTexture = "Blizzard",
 		resBarsX = 0,
-		resBarsY = 600,
+		resBarsY = -600,
 		reverseGrowth = false,
 		scale = 1,
 		showBattleRes = false,
 		timeOutBarsAnchor = true,
 		timeOutBarsColour = { r = 1, g = 1, b = 1, a = 1 },
-		timeOutBarsX = 50,
-		timeOutBarsY = 500,
+		timeOutBarsX = 0,
+		timeOutBarsY = -500,
 		visibleResBars = true,
-		waitingBarsColour = { r = 0, g = 0, b = 1, a = 1 }
+		waitingBarsColour = { r = 0, g = 0, b = 1, a = 1 },
+		randChatTbl = {
+			L["%p is bringing %t back to life!"],
+			L["Filthy peon! %p has to resurrect %t!"],
+			L["%p has to wake %t from eternal slumber."],
+			L["%p is ending %t's dirt nap."],
+			L["No fallen heroes! %p needs %t to march forward to victory!"],
+			L["%p doesn't think %t is immortal, but after this res cast, it is close enough."],
+			L["Sleeping on the job? %p is disappointed in %t."],
+			L["%p knew %t couldn't stay out of the fire. *Sigh*"],
+			L["Once again, %p pulls %t and their bacon out of the fire."],
+			L["%p thinks %t should work on their Dodge skill."],
+			L["%p refuses to accept blame for %t's death, but kindly undoes the damage."],
+			L["%p grabs a stick. A-ha! %t was only temporarily dead."],
+			L["%p is ressing %t"],
+			L["%p knows %t is faking. It was only a flesh wound!"],
+			L["Oh. My. God. %p has to breathe life back into %t AGAIN?!?"],
+			L["%p knows that %t dying was just an excuse to see another silly random res message."],
+			L["Think that was bad? %p proudly shows %t the scar tissue caused by Hogger."],
+			L["Just to be silly, %p tickles %t until they get back up."],
+			L["FOR THE HORDE! FOR THE ALLIANCE! %p thinks %t should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
+			L["And you thought the Scourge looked bad. In about 10 seconds, %p knows %t will want a comb, some soap, and a mirror."],
+			L["Somewhere, the Lich King is laughing at %p, because he knows %t will just die again eventually. More meat for the grinder!!"],
+			L["%p doesn't want the Lich King to get another soldier, so is bringing %t back to life."],
+			L["%p wonders about these stupid res messages. %t should just be happy to be alive."],
+			L["%p prays over the corpse of %t, and a miracle happens!"],
+			L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %p is making sure %t's death isn't permanent."],
+			L["%p performs a series of lewd acts on %t's still warm corpse. Ew."],
+		}
+	},
+	global = {
+		minimap = {
+			hide = false,
+			lock = false,
+			minimapPos = 190,
+			radius = 80
+		}
 	}
 }
 
 -- utility methods ---------------------------------------------------------
 
 function SmartRes2:Debug(str, ...)
-	--@debug@
 	if not self.db.profile.debugMode then return end
 	if not str or strlen(str) == 0 then return end
 	if select("#", ...) > 0 then
@@ -110,7 +138,6 @@ function SmartRes2:Debug(str, ...)
 		end
 	end
 	DEFAULT_CHAT_FRAME:AddMessage(format("|cffff9933%s:|r %s", self.name, str))
-	--@end-debug@
 end
 
 function SmartRes2:Print(str, ...)
@@ -126,35 +153,30 @@ function SmartRes2:Print(str, ...)
 end
 
 -- standard methods ---------------------------------------------------------
-
 function SmartRes2:OnInitialize()
 	-- register saved variables with AceDB
-	db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, true)
-	db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
-	db.RegisterCallback(self, "OnProfileReset", "OnNewProfile")
-	db.RegisterCallback(self, "OnNewProfile", "OnNewProfile")
-	self.db = db
-	self:FillRandChatDefaults()
+	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, true)
+	self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
+	self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
+	self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
 	self:SetEnabledState(self.db.profile.enableAddon)
 
 	-- addon options table
-	self.options = self:OptionsTable() -- see SmartRes2Options.lua
+	local options = self:OptionsTable() -- see SmartRes2Options.lua
 	-- add the 'Profiles' section
-	self.options.args.profilesTab = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
-	self.options.args.profilesTab.order = 50
+	options.args.profilesTab = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
+	options.args.profilesTab.order = 50
 
 	-- Register your options with AceConfigRegistry
-	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", self.options)
+	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
 
 	-- Add your options to the Blizz options window using AceConfigDialog
 	self.optionsFrame = LibStub("AceConfigDialog-3.0"):AddToBlizOptions("SmartRes2", "SmartRes2")
 
 	-- support for LibAboutPanel
-	if LibStub:GetLibrary("LibAboutPanel", true) then
-		self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
-	end
+	self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
 
+	--[[
 	-- @phanx: auto expand the sub-panels
 	do
 		self.optionsFrame:HookScript("OnShow", function(self)
@@ -197,6 +219,7 @@ function SmartRes2:OnInitialize()
 		hooksecurefunc(self.optionsFrame, "okay", OnClose)
 		hooksecurefunc(self.optionsFrame, "cancel", OnClose)
 	end
+	]]--
 
 	-- add console commands
 	self:RegisterChatCommand("sr", "SlashHandler")
@@ -213,38 +236,40 @@ function SmartRes2:OnInitialize()
 	local _, player_class = UnitClass("player")
 	self.playerSpell = resSpells[player_class]
 
-	-- create DataBroker Launcher
-	if DataBroker then
-		local launcher = DataBroker:NewDataObject("SmartRes2", {
-			type = "launcher",
-			icon = self.playerSpell and select(3, GetSpellInfo(self.playerSpell)) or select(3, GetSpellInfo(2006)),
-			OnClick = function(clickedframe, button)
-				if button == "LeftButton" then
-					-- keep our options table in sync with the ldb object state
-					self.db.profile.hideAnchor = not self.db.profile.hideAnchor
-					if self.db.profile.hideAnchor then
-						self.rez_bars:HideAnchor()
-						self.rez_bars:Lock()
-					else
-						self.rez_bars:ShowAnchor()
-						self.rez_bars:Unlock()
-						self.rez_bars:SetClampedToScreen(true)
-					end
-					LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
-				elseif button == "RightButton" then
-					InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
-				elseif button == "MiddleButton" then
-					self:StartTestBars()
+	-- create LDB Launcher
+	local launcher = LDB:NewDataObject("SmartRes2", {
+		type = "launcher",
+		icon = self.playerSpell and select(3, GetSpellInfo(self.playerSpell)) or select(3, GetSpellInfo(2006)),
+		OnClick = function(clickedframe, button)
+			if button == "LeftButton" then
+				-- keep our options table in sync with the ldb object state
+				self.db.profile.hideAnchor = not self.db.profile.hideAnchor
+				if self.db.profile.hideAnchor then
+					self.rez_bars:HideAnchor()
+					self.rez_bars:Lock()
+				else
+					self.rez_bars:ShowAnchor()
+					self.rez_bars:Unlock()
+					self.rez_bars:SetClampedToScreen(true)
 				end
-			end,
-			OnTooltipShow = function(self)
-				GameTooltip:AddLine("SmartRes2".." "..version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
-				GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."].."\n"..L["Middle click for Test Bars."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
-				GameTooltip:Show()
+				LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
+			elseif button == "RightButton" then
+				if LibStub("AceConfigDialog-3.0").OpenFrames["SmartRes2"] then
+					LibStub("AceConfigDialog-3.0"):Close("SmartRes2")
+				else
+					LibStub("AceConfigDialog-3.0"):Open("SmartRes2")
+				end
+			elseif button == "MiddleButton" then
+				self:StartTestBars()
 			end
-		})
-		self.launcher = launcher
-	end
+		end,
+		OnTooltipShow = function(self)
+			GameTooltip:AddLine("SmartRes2".." "..version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+			GameTooltip:AddLine(L["Left click to lock/unlock the res bars. Right click for configuration."].."\n"..L["Middle click for Test Bars."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+			GameTooltip:Show()
+		end
+	})
+	DBI:Register("SmartRes2", launcher, self.db.global.minimap)
 
 	-- create a secure button for ressing
 	local resButton = CreateFrame("button", "SmartRes2Button", UIParent, "SecureActionButtonTemplate")
@@ -259,6 +284,14 @@ function SmartRes2:OnInitialize()
 	self.massResButton = massResButton
 	
 	self:SPELLS_CHANGED()
+	
+	-- create bar groups ------------------------
+	-- API: name, orientation, length, thickness, frameName
+	self.res_bars = self:NewBarGroup(L["SmartRes2 Res Bars"], self.db.profile.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
+	self.timeOutBars = self:NewBarGroup(L["SmartRes2 Ressed Bars"], self.db.profile.horizontalOrientation, 300, 15, "SmartRes2_TimeOutBars")
+	-- height, scale, width, position, locked, etc
+	self:SetUpBarGroup(self.res_bars)
+	self:SetUpBarGroup(self.timeOutBars)
 end
 
 function SmartRes2:OnEnable()
@@ -267,55 +300,51 @@ function SmartRes2:OnEnable()
 	self:RegisterEvent("GROUP_ROSTER_UPDATE")
 	self:RegisterEvent("SPELLS_CHANGED")
 
-	self.rez_bars = self.rez_bars or self:NewBarGroup("SmartRes2", self.db.profile.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
-	self.rez_bars:SetClampedToScreen(true)
-	if self.db.profile.hideAnchor then
-		self.rez_bars:HideAnchor()
-		self.rez_bars:Lock()
-	else
-		self.rez_bars:ShowAnchor()
-		self.rez_bars:Unlock()
-	end
-	self.rez_bars:SetMaxBars(self.db.profile.maxBars)
-	self.rez_bars:SetHeight(self.db.profile.barHeight)
-	self.rez_bars:SetWidth(self.db.profile.barWidth)
-	self.rez_bars:SetScale(self.db.profile.scale)
+	LSM.RegisterCallback(self, "OnValueChanged", "UpdateLSM")
 
-	self.timeOut_bars = self.timeOut_bars or self:NewBarGroup("SmartRes2_TimeOutBars", self.db.profile.horizontalOrientation, 300, 15, "SmartRes2_TimeOutBars")
-	self.timeOut_bars:SetClampedToScreen(true)
-	if self.db.profile.timeOutBarsAnchor then
-		self.timeOut_bars:ShowAnchor()
-		self.timeOut_bars:Unlock()
-	else
-		self.timeOut_bars:HideAnchor()
-		self.timeOut_bars:Lock()
-	end
-	self.timeOut_bars:SetMaxBars(self.db.profile.maxBars)
-	self.timeOut_bars:SetHeight(self.db.profile.barHeight)
-	self.timeOut_bars:SetWidth(self.db.profile.barWidth)
-	self.timeOut_bars:SetScale(self.db.profile.scale)
-	self:RestorePosition()
+	LRI.RegisterCallback(self, "LibResInfo_ResCastStarted")
+	LRI.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
+	LRI.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
+	LRI.RegisterCallback(self, "LibResInfo_MassResStarted", "LibLRI_ResCastStarted")
+	LRI.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
+	LRI.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
+	LRI.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
+	LRI.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
+	LRI.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
 
-	Media.RegisterCallback(self, "OnValueChanged", "UpdateMedia")
-
-	ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
-	ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
-	ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
-
-	ResInfo.RegisterCallback(self, "LibResInfo_MassResStarted", "LibResInfo_ResCastStarted")
-	ResInfo.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
-	ResInfo.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
-
-	ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
-	ResInfo.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
-	ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
-
-	self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
-
-	self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
+	self.res_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
+	self.timeOutBars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 
 	self:BindMassRes()
 	self:BindKeys()
+end
+
+function SmartRes2:SetUpBarGroup(bar_group)
+	bar_group:SetClampedToScreen(true)
+	bar_group:SetMaxBars(self.db.profile.maxBars)
+	bar_group:SetHeight(self.db.profile.barHeight)
+	bar_group:SetWidth(self.db.profile.barWidth)
+	bar_group:SetScale(self.db.profile.scale)
+	
+	if bar_group == self.res_bars then
+		if self.db.profile.hideAnchor then
+			self.res_bars:HideAnchor()
+			self.res_bars:Lock()
+		else
+			self.res_bars:ShowAnchor()
+			self.res_bars:Unlock()
+		end
+	else
+		if self.db.profile.timeOutBarsAnchor then
+			self.timeOutBars:ShowAnchor()
+			self.timeOutBars:Unlock()
+		else
+			self.timeOutBars:HideAnchor()
+			self.timeOutBars:Lock()
+		end
+	end
+	
+	self:RestorePosition(bar_group)
 end
 
 function SmartRes2:SavePosition()
@@ -329,21 +358,22 @@ function SmartRes2:SavePosition()
 	self.db.profile.timeOutBarsY = t:GetTop() * ts
 end
 
-function SmartRes2:RestorePosition()
-	local x = self.db.profile.resBarsX
-	local y = self.db.profile.resBarsY
-	local tx = self.db.profile.timeOutBarsX
-	local ty = self.db.profile.timeOutBarsY
-	if not x or not y or not tx or not ty then return end
-
-	local f = self.rez_bars
-	local t = self.timeOut_bars
-	local s = f:GetEffectiveScale()
-	local ts = t:GetEffectiveScale()
-	f:ClearAllPoints()
-	t:ClearAllPoints()
-	f:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / s, y / s)
-	t:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", tx / ts, ty / ts)
+function SmartRes2:RestorePosition(bar_group)
+	local x, y
+	if bar_group == self.res_bars then
+		x = self.db.profile.resBarsX
+		y = self.db.profile.resBarsY
+	else
+		x = self.db.profile.timeOutBarsX
+		y = self.db.profile.timeOutBarsY
+	end
+	if not x or not y then
+		return
+	end
+	
+	local s = bar_group:GetEffectiveScale()
+	bar_group:ClearAllPoints()
+	bar_group:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / s, y / s)
 end
 
 -- process slash commands ---------------------------------------------------
@@ -352,7 +382,11 @@ function SmartRes2:SlashHandler(input)
 	if input == "test" then
 		self:StartTestBars()
 	else
-		InterfaceOptionsFrame_OpenToCategory(self.optionsFrame)
+		if LibStub("AceConfigDialog-3.0").OpenFrames["SmartRes2"] then
+			LibStub("AceConfigDialog-3.0"):Close("SmartRes2")
+		else
+			LibStub("AceConfigDialog-3.0"):Open("SmartRes2")
+		end
 	end
 end
 
@@ -360,8 +394,8 @@ end
 function SmartRes2:OnDisable()
 	self:UnBindKeys()
 	self:UnregisterAllEvents()
-	Media.UnregisterAllCallbacks(self)
-	ResInfo.UnregisterAllCallbacks(self)
+	LSM.UnregisterAllCallbacks(self)
+	LRI.UnregisterAllCallbacks(self)
 	self.rez_bars.UnregisterAllCallbacks(self)
 	self.timeOut_bars.UnregisterAllCallbacks(self)
 	wipe(resBars)
@@ -374,88 +408,29 @@ function SmartRes2:OnDisable()
 end
 
 -- General callback functions -----------------------------------------------
-
-function SmartRes2:FillRandChatDefaults()
-	-- Fix old lower case/camel case values
-	self.db.profile.chatOutput = strupper(self.db.profile.chatOutput)
-	self.db.profile.fontFlags = strupper(self.db.profile.fontFlags)
-	self.db.profile.notifyCollision = strupper(self.db.profile.notifyCollision)
-
-	local t = self.db.profile.randChatTbl
-	if t then
-		-- Fix old style formatting tokens
-		for i = 1, #t do
-			local msg = t[i]
-			msg = gsub(msg, "%%%%p%%%%", "%%p")
-			msg = gsub(msg, "%%%%t%%%%", "%%t")
-			t[i] = msg
-		end
-		return
-	end
-	self.db.profile.randChatTbl = {
-		L["%p is bringing %t back to life!"],
-		L["Filthy peon! %p has to resurrect %t!"],
-		L["%p has to wake %t from eternal slumber."],
-		L["%p is ending %t's dirt nap."],
-		L["No fallen heroes! %p needs %t to march forward to victory!"],
-		L["%p doesn't think %t is immortal, but after this res cast, it is close enough."],
-		L["Sleeping on the job? %p is disappointed in %t."],
-		L["%p knew %t couldn't stay out of the fire. *Sigh*"],
-		L["Once again, %p pulls %t and their bacon out of the fire."],
-		L["%p thinks %t should work on their Dodge skill."],
-		L["%p refuses to accept blame for %t's death, but kindly undoes the damage."],
-		L["%p grabs a stick. A-ha! %t was only temporarily dead."],
-		L["%p is ressing %t"],
-		L["%p knows %t is faking. It was only a flesh wound!"],
-		L["Oh. My. God. %p has to breathe life back into %t AGAIN?!?"],
-		L["%p knows that %t dying was just an excuse to see another silly random res message."],
-		L["Think that was bad? %p proudly shows %t the scar tissue caused by Hogger."],
-		L["Just to be silly, %p tickles %t until they get back up."],
-		L["FOR THE HORDE! FOR THE ALLIANCE! %p thinks %t should be more concerned about yelling FOR THE LICH KING! and prevents that from happening."],
-		L["And you thought the Scourge looked bad. In about 10 seconds, %p knows %t will want a comb, some soap, and a mirror."],
-		L["Somewhere, the Lich King is laughing at %p, because he knows %t will just die again eventually. More meat for the grinder!!"],
-		L["%p doesn't want the Lich King to get another soldier, so is bringing %t back to life."],
-		L["%p wonders about these stupid res messages. %t should just be happy to be alive."],
-		L["%p prays over the corpse of %t, and a miracle happens!"],
-		L["In a world of resurrection spells, why are NPC deaths permanent? It doesn't matter, since %p is making sure %t's death isn't permanent."],
-		L["%p performs a series of lewd acts on %t's still warm corpse. Ew."],
-	}
-end
-
--- called when new profile is created
-function SmartRes2:OnNewProfile()
-	self:FillRandChatDefaults()
-end
-
--- called when user changes profile
-function SmartRes2:OnProfileChanged()
-	db = self.db
-	self:FillRandChatDefaults()
-end
-
 -- called when user changes the texture of the bars
-function SmartRes2:UpdateMedia(callback, type, handle)
+function SmartRes2:UpdateLSM(callback, type, handle)
 	if type == "statusbar" then
-		self.rez_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
-		self.timeOut_bars:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+		self.res_bars:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
+		self.timeOut_bars:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
 	elseif type == "border" then
 		self.rez_bars:SetBackdrop({
-			edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
+			edgeFile = LSM:Fetch("border", self.db.profile.resBarsBorder),
 			tile = false,
 			tileSize = self.db.profile.scale + 1,
 			edgeSize = self.db.profile.borderThickness,
 			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
 		self.timeOut_bars:SetBackdrop({
-			edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
+			edgeFile = LSM:Fetch("border", self.db.profile.resBarsBorder),
 			tile = false,
 			tileSize = self.db.profile.scale + 1,
 			edgeSize = self.db.profile.borderThickness,
 			insets = { left = 0, right = 0, top = 0, bottom = 0 }
 		})
 	elseif type == "font" then
-		self.rez_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
-		self.timeOut_bars:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+		self.rez_bars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+		self.timeOut_bars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
 	end
 end
 
@@ -483,7 +458,7 @@ local function ChatType(chatType)
 	return chatType
 end
 
--- ResInfo library callback functions ---------------------------------------
+-- LRI library callback functions ---------------------------------------
 -- Fires when a group member starts casting a resurrection spell on another group member.
 -- Or Mass Resurrection, since I have mapped it to this function.
 function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, casterID, casterGUID, endTime)
@@ -497,9 +472,9 @@ function SmartRes2:LibResInfo_ResCastStarted(callback, targetID, targetGUID, cas
 	end
 	self:Debug(callback, targetID, UnitName(targetID or ""), casterID, UnitName(casterID), "isMassRes", isMassRes)
 
-	local _, hasTarget, _, isFirst = ResInfo:UnitIsCastingRes(casterID)
+	local _, hasTarget, _, isFirst = LRI:UnitIsCastingRes(casterID)
 	local casterName, casterRealm = UnitName(casterID)
-	local hasIncomingRes, _, origResser = ResInfo:UnitHasIncomingRes(targetID)
+	local hasIncomingRes, _, origResser = LRI:UnitHasIncomingRes(targetID)
 	if origResser then origResser = UnitName(origResser) end
 
 	-- self:Debug("single?", not not hasTarget, "first?", isFirst)
@@ -587,7 +562,7 @@ end
 function SmartRes2:ResTimeOutStarted(callback, targetID, targetGUID)
 	--self:Debug("ResTimeOutStarted", callback, targetID, targetGUID)
 	if self.db.profile.enableTimeOutBars then
-		local status, endTime = ResInfo:UnitHasIncomingRes(targetID)
+		local status, endTime = LRI:UnitHasIncomingRes(targetID)
 		if status == "PENDING" or status == "SELFRES" then
 			-- self:Debug("Status", status, "endTime", endTime)
 			self:CreateTimeOutBars(endTime, targetID)
@@ -612,7 +587,7 @@ end
 -- a res cast has finished or cancelled
 function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUID)
 	-- map Mass Res callback
-	local isMassRes = callback == "LibResInfo_MassResFinished" or "LibResInfo_MassResCancelled"
+	local isMassRes = callback == "LibLRI_MassResFinished" or "LibLRI_MassResCancelled"
 	if isMassRes then
 		targetID, targetGUID, casterID, casterGUID = nil, nil, casterID, casterGUID
 	end
@@ -642,13 +617,16 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 		self:UnBindKeys()
 		-- disable callbacks during battle if we don't want to see battle resses
 		if not self.db.profile.showBattleRes then
-			ResInfo.UnregisterAllCallbacks(self)
+			LRI.UnregisterAllCallbacks(self)
 			self.rez_bars.UnregisterAllCallbacks(self)
 			self.timeOut_bars.UnregisterAllCallbacks(self)
 		end
 	end
 	in_combat = true
 	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
+	if LibStub("AceConfigDialog-3.0").OpenFrames["MyrroUI"] then
+		LibStub("AceConfigDialog-3.0"):Close("MyrroUI")
+	end
 end
 
 function SmartRes2:PLAYER_REGEN_ENABLED()
@@ -656,15 +634,15 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 	self:BindMassRes()
 	-- re-enable callbacks during battle if we don't want to see battle resses
 	if not self.db.profile.showBattleRes then
-		ResInfo.RegisterCallback(self, "LibResInfo_ResCastStarted")
-		ResInfo.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
-		ResInfo.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
-		ResInfo.RegisterCallback(self, "LibResInfo_MassResStarted", "LibResInfo_ResCastStarted")
-		ResInfo.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
-		ResInfo.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
-		ResInfo.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
-		ResInfo.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
-		ResInfo.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
+		LRI.RegisterCallback(self, "LibResInfo_ResCastStarted")
+		LRI.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
+		LRI.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
+		LRI.RegisterCallback(self, "LibResInfoI_MassResStarted", "LibLRI_ResCastStarted")
+		LRI.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
+		LRI.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
+		LRI.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
+		LRI.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
+		LRI.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
 		self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 		self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 	end
@@ -824,7 +802,7 @@ local function VerifyUnit(unit)
 		unitOutOfRange = true
 		return
 	end
-	local state = ResInfo:UnitHasIncomingRes(unit)
+	local state = LRI:UnitHasIncomingRes(unit)
 	self:Debug("LRI state", state)
 	if state == "CASTING" then
 		-- self:Debug("UnitHasIncomingRes", state)
@@ -836,7 +814,7 @@ local function VerifyUnit(unit)
 		unitWaiting = true
 		return
 	end
-	--[[ if (state == "PENDING" or state == "SELFRES") and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibResInfo bug that allows recasting during LFR
+	--[[ if (state == "PENDING" or state == "SELFRES") and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibLRI bug that allows recasting during LFR
 		self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
@@ -970,10 +948,10 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
 
-	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
-	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	bar:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+	bar:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
-		edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
+		edgeFile = LSM:Fetch("border", self.db.profile.resBarsBorder),
 		tile = false,
 		tileSize = self.db.profile.scale + 1,
 		edgeSize = self.db.profile.borderThickness,
@@ -1002,7 +980,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		spellName, _, _, icon = UnitCastingInfo(casterID)
 		casterName = UnitName(casterID)
 		casterGUID = UnitGUID(casterID)
-	else -- LibResInfo_ResCastStarted
+	else -- LibLRI_ResCastStarted
 		spellName, _, _, icon = UnitCastingInfo(casterID)
 		casterName = UnitName(casterID)
 		targetName = UnitName(targetID)
@@ -1056,10 +1034,10 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	bar:SetHeight(self.db.profile.barHeight)
 	bar:SetWidth(self.db.profile.barWidth)
 
-	bar:SetFont(Media:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
-	bar:SetTexture(Media:Fetch("statusbar", self.db.profile.resBarsTexture))
+	bar:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+	bar:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
-		edgeFile = Media:Fetch("border", self.db.profile.resBarsBorder),
+		edgeFile = LSM:Fetch("border", self.db.profile.resBarsBorder),
 		tile = false,
 		tileSize = self.db.profile.scale + 1,
 		edgeSize = self.db.profile.borderThickness,
