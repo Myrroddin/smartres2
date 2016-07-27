@@ -3,11 +3,6 @@ local DBI = LibStub("LibDBIcon-1.0")
 local LSM = LibStub("LibSharedMedia-3.0")
 local L = addon.L
 
-local optWidth = nil
-if GetLocale ~= "enUS" then
-	optWidth = "double"
-end
-
 function addon:OptionsTable()
 	local options = {
 		name = "SmartRes2",
@@ -33,8 +28,7 @@ function addon:OptionsTable()
 							else
 								self:OnDisable()
 							end
-						end,
-						width = optWidth
+						end
 					},
 					--@debug@
 					debugMode = {
@@ -77,13 +71,10 @@ function addon:OptionsTable()
 							end
 						end
 					},
-					testBars = {
+					spacer1 = {
 						order = 50,
-						type = "execute",
-						name = L["Test Bars"],
-						desc = L["Show the test bars"],
-						func = function() self:StartTestBars() end,
-						width = optWidth
+						name = "",
+						type = "description"
 					},
 					resBarsTexture = {
 						order = 60,
@@ -97,8 +88,7 @@ function addon:OptionsTable()
 							self.db.profile.resBarsTexture = value
 							self.res_bars:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
 							self.timeOutBars:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
-						end,
-						width = optWidth
+						end
 					},
 					resBarsBorder = {
 						order = 70,
@@ -124,9 +114,20 @@ function addon:OptionsTable()
 								edgeSize = self.db.profile.borderThickness,
 								insets = { left = 0, right = 0, top = 0, bottom = 0 }
 							})
-						end,
-						width = optWidth
+						end
 					},
+					spacer2 = {
+						order = 80,
+						name = "",
+						type = "description"
+					},
+					testBars = {
+						order = 90,
+						type = "execute",
+						name = L["Test Bars"],
+						desc = L["Show the test bars"],
+						func = function() self:StartTestBars() end
+					}
 				}
 			},
 			resBarsOptionsTab = {
@@ -150,8 +151,7 @@ function addon:OptionsTable()
 								self.res_bars:ShowAnchor()
 								self.res_bars:Unlock()
 							end
-						end,
-						width = optWidth
+						end
 					},
 					visibleResBars = {
 						order = 20,
@@ -159,8 +159,7 @@ function addon:OptionsTable()
 						name = L["Show Bars"],
 						desc = L["Show or hide the res bars. Everything else will still work"],
 						get = function() return self.db.profile.visibleResBars end,
-						set = function(info, value) self.db.profile.visibleResBars = value end,
-						width = optWidth
+						set = function(info, value) self.db.profile.visibleResBars = value end
 					},
 					reverseGrowth = {
 						order = 30,
@@ -171,8 +170,7 @@ function addon:OptionsTable()
 						set = function(info, value)
 							self.db.profile.reverseGrowth = value
 							self.res_bars:ReverseGrowth(value)
-						end,
-						width = optWidth
+						end
 					},
 					resBarsIcon = {
 						order = 40,
@@ -187,16 +185,14 @@ function addon:OptionsTable()
 							else
 								self.res_bars:HideIcon()
 							end
-						end,
-						width = optWidth
+						end
 					},
 					showBattleRes = {
 						order = 50,
 						type = "toggle",
 						name = L["Show Battle Resses"],
 						get = function() return self.db.profile.showBattleRes end,
-						set = function(info, value)	self.db.profile.showBattleRes = value end,
-						width = optWidth
+						set = function(info, value)	self.db.profile.showBattleRes = value end
 					},
 					classColours = {
 						order = 60,
@@ -204,8 +200,7 @@ function addon:OptionsTable()
 						name = CLASS_COLORS,
 						desc = L["Use class colours for the target on the res bars"],
 						get = function() return self.db.profile.classColours end,
-						set = function(info, value)	self.db.profile.classColours = value end,
-						width = optWidth
+						set = function(info, value)	self.db.profile.classColours = value end
 					},
 					spacer2 = {
 						type = "description",
@@ -224,8 +219,7 @@ function addon:OptionsTable()
 						end,
 						min = 1,
 						max = 39,
-						step = 1,
-						width = optWidth
+						step = 1
 					},
 					barHeight = {
 						order = 90,
@@ -239,8 +233,7 @@ function addon:OptionsTable()
 						end,
 						min = 6,
 						max = 64,
-						step = 1,
-						width = optWidth
+						step = 1
 					},
 					barWidth = {
 						order = 100,
@@ -254,8 +247,7 @@ function addon:OptionsTable()
 						end,
 						min = 24,
 						max = 512,
-						step = 1,
-						width = optWidth
+						step = 1
 					},
 					scale = {
 						order = 110,
@@ -269,8 +261,7 @@ function addon:OptionsTable()
 						end,
 						min = 0.5,
 						max = 2,
-						step = 0.05,
-						width = optWidth
+						step = 0.05
 					},
 					resBarsAlpha = {
 						order = 120,
@@ -284,8 +275,7 @@ function addon:OptionsTable()
 						end,
 						min = 0.1,
 						max = 1,
-						step = 0.1,
-						width = optWidth
+						step = 0.1
 					},
 					borderThickness = {
 						order = 130,
@@ -296,8 +286,7 @@ function addon:OptionsTable()
 						set = function(info, value) self.db.profile.borderThickness = value end,
 						min = 1,
 						max = 10,
-						step = 1,
-						width = optWidth
+						step = 1
 					},
 					spacer3 = {
 						type = "description",
@@ -314,8 +303,7 @@ function addon:OptionsTable()
 							["RIGHT"] = L["Left to Right"]
 						},
 						get = function() return self.db.profile.horizontalOrientation end,
-						set = function(info, value) self.db.profile.horizontalOrientation = value end,
-						width = optWidth
+						set = function(info, value) self.db.profile.horizontalOrientation = value end
 					},
 					spacer4 = {
 						type = "description",
@@ -335,8 +323,7 @@ function addon:OptionsTable()
 						set = function(info, r, g, b, a)
 							local t = self.db.profile.resBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
-						end,
-						width = optWidth
+						end
 					},
 					collisionBarsColour = {
 						order = 180,
@@ -351,8 +338,7 @@ function addon:OptionsTable()
 						set = function(info, r, g, b, a)
 							local t = self.db.profile.collisionBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
-						end,
-						width = optWidth
+						end
 					},
 					waitingBarsColour = {
 						order = 190,
@@ -367,8 +353,7 @@ function addon:OptionsTable()
 						set = function(info, r, g, b, a)
 							local t = self.db.profile.waitingBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
-						end,
-						width = optWidth
+						end
 					},
 					massResBarColour = {
 						order = 200,
@@ -383,8 +368,7 @@ function addon:OptionsTable()
 						set = function(info, r, g, b, a)
 							local t = self.db.profile.massResBarColour
 							t.r, t.g, t.b, t.a = r, g, b, a
-						end,
-						width = optWidth
+						end
 					}
 				}
 			},
@@ -399,8 +383,7 @@ function addon:OptionsTable()
 						type = "toggle",
 						name = L["Enable Waiting for Accept Bars"],
 						get = function() return self.db.profile.enableTimeOutBars end,
-						set = function(info, value) self.db.profile.enableTimeOutBars = value end,
-						width = optWidth
+						set = function(info, value) self.db.profile.enableTimeOutBars = value end
 					},
 					showTimeOutBarsAnchor = {
 						order = 20,
@@ -417,8 +400,7 @@ function addon:OptionsTable()
 								self.timeOutBars:HideAnchor()
 								self.timeOutBars:Lock()
 							end
-						end,
-						width = optWidth
+						end
 					},
 					timeOutBarsColour = {
 						order = 30,
@@ -433,8 +415,7 @@ function addon:OptionsTable()
 						set = function(info, r, g, b, a)
 							local t = self.db.profile.timeOutBarsColour
 							t.r, t.g, t.b, t.a = r, g, b, a
-						end,
-						width = optWidth
+						end
 					}
 				}
 			},
@@ -452,8 +433,7 @@ function addon:OptionsTable()
 						get = function() return self.db.profile.randMsgs end,
 						set = function(info, value)
 							self.db.profile.randMsgs = value
-						end,
-						width = optWidth
+						end
 					},
 					notifySelf = {
 						order = 20,
@@ -461,8 +441,7 @@ function addon:OptionsTable()
 						name = L["Self Notification"],
 						desc = L["Prints a message to yourself whom you are ressing"],
 						get = function() return self.db.profile.notifySelf end,
-						set = function(info, value)	self.db.profile.notifySelf = value end,
-						width = optWidth
+						set = function(info, value)	self.db.profile.notifySelf = value end
 					},
 					resExpired = {
 						order = 30,
@@ -470,8 +449,7 @@ function addon:OptionsTable()
 						name = L["Unit Resurrection Expiration"],
 						desc = L["Notify yourself when a unit's resurrection timer has ended without them accepting"],
 						get = function() return self.db.profile.resExpired end,
-						set = function(info, value) self.db.profile.resExpired = value end,
-						width = optWidth
+						set = function(info, value) self.db.profile.resExpired = value end
 					},
 					spacer5 = {
 						type = "description",
@@ -495,8 +473,7 @@ function addon:OptionsTable()
 							YELL = CHAT_MSG_YELL
 						},
 						get = function() return self.db.profile.chatOutput end,
-						set = function(info, value)	self.db.profile.chatOutput = value end,
-						width = optWidth
+						set = function(info, value)	self.db.profile.chatOutput = value end
 					},
 					notifyCollision = {
 						order = 60,
@@ -515,8 +492,7 @@ function addon:OptionsTable()
 							YELL = CHAT_MSG_YELL
 						},
 						get = function() return self.db.profile.notifyCollision end,
-						set = function(info, value)	self.db.profile.notifyCollision = value	end,
-						width = optWidth
+						set = function(info, value)	self.db.profile.notifyCollision = value	end
 					},
 					spacer6 = {
 						type = "description",
@@ -607,8 +583,7 @@ function addon:OptionsTable()
 							self.db.profile.fontType = value
 							self.res_bars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
 							self.timeOutBars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
-						end,
-						width = optWidth
+						end
 					},
 					fontSize = {
 						order = 20,
@@ -623,8 +598,7 @@ function addon:OptionsTable()
 						end,
 						min = 3,
 						max = 20,
-						step = 1,
-						width = optWidth
+						step = 1
 					},
 					fontFlags = {
 						order = 30,
@@ -643,8 +617,7 @@ function addon:OptionsTable()
 							self.db.profile.fontFlags = value
 							self.res_bars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
 							self.timeOutBars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
-						end,
-						width = optWidth
+						end
 					}
 				}
 			},
@@ -662,8 +635,7 @@ function addon:OptionsTable()
 						set = function(info, value)
 							self.db.profile.autoResKey = value
 							self:BindKeys()
-						end,
-						width = optWidth
+						end
 					},
 					manualResKey = {
 						order = 20,
@@ -674,8 +646,7 @@ function addon:OptionsTable()
 						set  = function(info, value)
 							self.db.profile.manualResKey = value
 							self:BindKeys()
-						end,
-						width = optWidth
+						end
 					},
 					massResKey = {
 						order = 30,
@@ -687,8 +658,7 @@ function addon:OptionsTable()
 							self.db.profile.massResKey = value
 							self:BindMassRes()
 						end,
-						disabled = function() return not self.db.char.knowsMassRes end,
-						width = optWidth
+						disabled = function() return not self.db.char.knowsMassRes end
 					}
 				}
 			},
@@ -706,26 +676,22 @@ function addon:OptionsTable()
 					creditsDesc1 = {
 						order = 2,
 						type = "description",
-						name = "* "..L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes. SmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."],
-						width = optWidth
+						name = "* "..L["Massive kudos to Maia, Kyahx, and Poull for the original SmartRes. SmartRes2 was largely possible because of DathRarhek's LibResComm-1.0 so a big thanks to him."]
 					},
 					creditsDesc2 = {
 						order = 3,
 						type = "description",
-						name = "* "..L["I would personally like to thank Jerry on the wowace forums for coding the new, smarter, resurrection function."],
-						width = optWidth
+						name = "* "..L["I would personally like to thank Jerry on the wowace forums for coding the new, smarter, resurrection function."]
 					},
 					creditsDesc3 = {
 						order = 4,
 						type = "description",
-						name = "* "..L["Many bugfixes and development help from Onaforeignshore"],
-						width = optWidth
+						name = "* "..L["Many bugfixes and development help from Onaforeignshore"]
 					},
 					creditsDesc5 = {
 						order = 5,
 						type = "description",
-						name = "* "..L["Thank you translators!"],
-						width = optWidth
+						name = "* "..L["Thank you translators!"]
 					}
 				}
 			}

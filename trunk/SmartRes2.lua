@@ -156,9 +156,9 @@ end
 function SmartRes2:OnInitialize()
 	-- register saved variables with AceDB
 	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, true)
-	self.db.RegisterCallback(self, "OnProfileChanged", "OnProfileChanged")
-	self.db.RegisterCallback(self, "OnProfileCopied", "OnProfileChanged")
-	self.db.RegisterCallback(self, "OnProfileReset", "OnProfileChanged")
+	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
+	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
+	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
 	self:SetEnabledState(self.db.profile.enableAddon)
 
 	-- addon options table
@@ -303,7 +303,7 @@ function SmartRes2:OnEnable()
 	LRI.RegisterCallback(self, "LibResInfo_ResCastStarted")
 	LRI.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 	LRI.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
-	LRI.RegisterCallback(self, "LibResInfo_MassResStarted", "LibLRI_ResCastStarted")
+	LRI.RegisterCallback(self, "LibResInfo_MassResStarted", "LibResInfo_ResCastStarted")
 	LRI.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
 	LRI.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
 	LRI.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
@@ -406,6 +406,9 @@ function SmartRes2:OnDisable()
 end
 
 -- General callback functions -----------------------------------------------
+function SmartRes2:RefreshConfig()
+end
+
 local return_chat = {
 	["GUILD"] = true,
 	["SAY"] = true,
@@ -559,7 +562,7 @@ end
 -- a res cast has finished or cancelled
 function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUID)
 	-- map Mass Res callback
-	local isMassRes = callback == "LibLRI_MassResFinished" or "LibLRI_MassResCancelled"
+	local isMassRes = callback == "LibResInfo_MassResFinished" or "LibResInfo_MassResCancelled"
 	if isMassRes then
 		targetID, targetGUID, casterID, casterGUID = nil, nil, casterID, casterGUID
 	end
@@ -609,7 +612,7 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 		LRI.RegisterCallback(self, "LibResInfo_ResCastStarted")
 		LRI.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 		LRI.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
-		LRI.RegisterCallback(self, "LibResInfoI_MassResStarted", "LibLRI_ResCastStarted")
+		LRI.RegisterCallback(self, "LibResInfoI_MassResStarted", "LibResInfo_ResCastStarted")
 		LRI.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
 		LRI.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
 		LRI.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
@@ -786,7 +789,7 @@ local function VerifyUnit(unit)
 		unitWaiting = true
 		return
 	end
-	--[[ if (state == "PENDING" or state == "SELFRES") and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibLRI bug that allows recasting during LFR
+	--[[ if (state == "PENDING" or state == "SELFRES") and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then -- weird LibResInfo bug that allows recasting during LFR
 		self:Debug("UnitHasIncomingRes", state)
 		unitWaiting = true
 		return
@@ -952,7 +955,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		spellName, _, _, icon = UnitCastingInfo(casterID)
 		casterName = UnitName(casterID)
 		casterGUID = UnitGUID(casterID)
-	else -- LibLRI_ResCastStarted
+	else -- LibResInfo_ResCastStarted
 		spellName, _, _, icon = UnitCastingInfo(casterID)
 		casterName = UnitName(casterID)
 		targetName = UnitName(targetID)
