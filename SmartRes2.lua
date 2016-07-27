@@ -18,10 +18,10 @@ end
 SmartRes2.L = L
 
 -- additional libraries -----------------------------------------------------
-local LDB = LibStub("LibLDB-1.1")
-local LRI = LibStub("LibLRI-1.0")
-local LSM = LibStub("LibSharedLSM-3.0")
-local DBI = LibStub("LibDBI-1.0")
+local LDB = LibStub("LibDataBroker-1.1")
+local LRI = LibStub("LibResInfo-1.0")
+local LSM = LibStub("LibSharedMedia-3.0")
+local DBI = LibStub("LibDBIcon-1.0")
 
 -- local variables ----------------------------------------------------------
 local resBars = {}
@@ -245,12 +245,12 @@ function SmartRes2:OnInitialize()
 				-- keep our options table in sync with the ldb object state
 				self.db.profile.hideAnchor = not self.db.profile.hideAnchor
 				if self.db.profile.hideAnchor then
-					self.rez_bars:HideAnchor()
-					self.rez_bars:Lock()
+					self.res_bars:HideAnchor()
+					self.res_bars:Lock()
 				else
-					self.rez_bars:ShowAnchor()
-					self.rez_bars:Unlock()
-					self.rez_bars:SetClampedToScreen(true)
+					self.res_bars:ShowAnchor()
+					self.res_bars:Unlock()
+					self.res_bars:SetClampedToScreen(true)
 				end
 				LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
 			elseif button == "RightButton" then
@@ -300,8 +300,6 @@ function SmartRes2:OnEnable()
 	self:RegisterEvent("GROUP_ROSTER_UPDATE")
 	self:RegisterEvent("SPELLS_CHANGED")
 
-	LSM.RegisterCallback(self, "OnValueChanged", "UpdateLSM")
-
 	LRI.RegisterCallback(self, "LibResInfo_ResCastStarted")
 	LRI.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
 	LRI.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
@@ -321,6 +319,7 @@ end
 
 function SmartRes2:SetUpBarGroup(bar_group)
 	bar_group:SetClampedToScreen(true)
+	bar_group:SetClampRectInsets(20, -20, -20, 20)
 	bar_group:SetMaxBars(self.db.profile.maxBars)
 	bar_group:SetHeight(self.db.profile.barHeight)
 	bar_group:SetWidth(self.db.profile.barWidth)
@@ -348,8 +347,8 @@ function SmartRes2:SetUpBarGroup(bar_group)
 end
 
 function SmartRes2:SavePosition()
-	local f = self.rez_bars
-	local t = self.timeOut_bars
+	local f = self.res_bars
+	local t = self.timeOutBars
 	local s = f:GetEffectiveScale()
 	local ts = t:GetEffectiveScale()
 	self.db.profile.resBarsX = f:GetLeft() * s
@@ -394,10 +393,9 @@ end
 function SmartRes2:OnDisable()
 	self:UnBindKeys()
 	self:UnregisterAllEvents()
-	LSM.UnregisterAllCallbacks(self)
 	LRI.UnregisterAllCallbacks(self)
-	self.rez_bars.UnregisterAllCallbacks(self)
-	self.timeOut_bars.UnregisterAllCallbacks(self)
+	self.res_bars.UnregisterAllCallbacks(self)
+	self.timeOutBars.UnregisterAllCallbacks(self)
 	wipe(resBars)
 	wipe(timeOutBars)
 	wipe(notified)
@@ -408,32 +406,6 @@ function SmartRes2:OnDisable()
 end
 
 -- General callback functions -----------------------------------------------
--- called when user changes the texture of the bars
-function SmartRes2:UpdateLSM(callback, type, handle)
-	if type == "statusbar" then
-		self.res_bars:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
-		self.timeOut_bars:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
-	elseif type == "border" then
-		self.rez_bars:SetBackdrop({
-			edgeFile = LSM:Fetch("border", self.db.profile.resBarsBorder),
-			tile = false,
-			tileSize = self.db.profile.scale + 1,
-			edgeSize = self.db.profile.borderThickness,
-			insets = { left = 0, right = 0, top = 0, bottom = 0 }
-		})
-		self.timeOut_bars:SetBackdrop({
-			edgeFile = LSM:Fetch("border", self.db.profile.resBarsBorder),
-			tile = false,
-			tileSize = self.db.profile.scale + 1,
-			edgeSize = self.db.profile.borderThickness,
-			insets = { left = 0, right = 0, top = 0, bottom = 0 }
-		})
-	elseif type == "font" then
-		self.rez_bars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
-		self.timeOut_bars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
-	end
-end
-
 local return_chat = {
 	["GUILD"] = true,
 	["SAY"] = true,
@@ -618,8 +590,8 @@ function SmartRes2:PLAYER_REGEN_DISABLED()
 		-- disable callbacks during battle if we don't want to see battle resses
 		if not self.db.profile.showBattleRes then
 			LRI.UnregisterAllCallbacks(self)
-			self.rez_bars.UnregisterAllCallbacks(self)
-			self.timeOut_bars.UnregisterAllCallbacks(self)
+			self.res_bars.UnregisterAllCallbacks(self)
+			self.timeOutBars.UnregisterAllCallbacks(self)
 		end
 	end
 	in_combat = true
@@ -643,8 +615,8 @@ function SmartRes2:PLAYER_REGEN_ENABLED()
 		LRI.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
 		LRI.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
 		LRI.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
-		self.rez_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
-		self.timeOut_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
+		self.res_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
+		self.timeOutBars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 	end
 	in_combat = nil
 end
@@ -940,8 +912,8 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
-	local bar = self.timeOut_bars:NewTimerBar(targetGUID, text, end_time, nil, [[Interface\Icons\Spell_Nature_TimeStop]], 0)
-	bar.RegisterCallback(self.timeOut_bars, "FadeFinished", self.TimeOutBarsFadeFinished)
+	local bar = self.timeOutBars:NewTimerBar(targetGUID, text, end_time, nil, [[Interface\Icons\Spell_Nature_TimeStop]], 0)
+	bar.RegisterCallback(self.timeOutBars, "FadeFinished", self.TimeOutBarsFadeFinished)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1)
 
@@ -1017,10 +989,10 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	end
 
 	-- args are as follows: lib:NewTimerBar(name, text, time, maxTime, icon, flashTrigger)
-	local bar, isNew = self.rez_bars:NewTimerBar(casterGUID, text, end_time, nil, icon, 0)
+	local bar, isNew = self.res_bars:NewTimerBar(casterGUID, text, end_time, nil, icon, 0)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
-	bar.RegisterCallback(self.rez_bars, "FadeFinished", SmartRes2.ResBarsFadeFinished)
+	bar.RegisterCallback(self.res_bars, "FadeFinished", SmartRes2.ResBarsFadeFinished)
 
 	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
 	bar:SetOrientation(orientation)
