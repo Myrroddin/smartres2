@@ -1,4 +1,6 @@
 ﻿local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
+local DBI = LibStub("LibDBIcon-1.0")
+local LSM = LibStub("LibSharedMedia-3.0")
 local L = addon.L
 
 local optWidth = nil
@@ -13,44 +15,13 @@ function addon:OptionsTable()
 		type = "group",
 		childGroups = "tab",
 		args = {
-			barsOptionsTab = {
-				name = L["Res Bars"],
-				desc = L["Options for the res bars"],
+			generalTab = {
+				name = COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL,
 				type = "group",
-				order = 1,
+				order = 10,
 				args = {
-					barsOptionsHeader = {
-						order = 10,
-						type = "header",
-						name = L["Res Bars"]
-					},
-					--@debug@
-					debugMode = {
-						order = 15,
-						type = "toggle",
-						name = "Debug Mode",
-						get = function() return self.db.profile.debugMode end,
-						set = function(info, value)
-							self.db.profile.debugMode = value
-						end,
-						width = optWidth
-					},
-					--@end-debug@
-					resBarsTestBars = {
-						order = 20,
-						type = "execute",
-						name = L["Test Bars"],
-						desc = L["Show the test bars"],
-						func = function() self:StartTestBars() end,
-						width = optWidth
-					},
-					spacer1 = {
-						type = "description",
-						name = "",
-						order = 30
-					},
 					enableAddon = {
-						order = 40,
+						order = 10,
 						type = "toggle",
 						name = L["Enable SmartRes2"],
 						desc = L["Uncheck to disable Smartres2"],
@@ -58,15 +29,114 @@ function addon:OptionsTable()
 						set = function(info, value)
 							self.db.profile.enableAddon = value
 							if value then
-								self:Enable()
+								self:OnEnable()
 							else
-								self:Disable()
+								self:OnDisable()
 							end
 						end,
 						width = optWidth
 					},
-					hideAnchor = {
+					--@debug@
+					debugMode = {
+						order = 20,
+						type = "toggle",
+						name = "Debug Mode",
+						get = function() return self.db.profile.debugMode end,
+						set = function(info, value)
+							self.db.profile.debugMode = value
+						end,
+					},
+					--@end-debug@
+					miniMap = {
+						type = "toggle",
+						order = 30,
+						name = MINIMAP_LABEL,
+						desc = L["Show or hide the minimap icon."],
+						get = function() return not self.db.global.minimap.hide end,
+						set = function(_, value)
+							self.db.global.minimap.hide = not value
+							if value then
+								DBI:Show("SmartRes2")
+							else
+								DBI:Hide("SmartRes2")
+							end
+						end
+					},
+					buttonLock = {
+						type = "toggle",
+						order = 40,
+						name = L["Lock Button"],
+						desc = L["Lock minimap button and prevent moving."],
+						get = function() return self.db.global.minimap.lock end,
+						set = function(_, value)
+							self.db.global.minimap.lock = value
+							if value then
+								DBI:Lock("SmartRes2")
+							else
+								DBI:Unlock("SmartRes2")
+							end
+						end
+					},
+					testBars = {
 						order = 50,
+						type = "execute",
+						name = L["Test Bars"],
+						desc = L["Show the test bars"],
+						func = function() self:StartTestBars() end,
+						width = optWidth
+					},
+					resBarsTexture = {
+						order = 60,
+						type = "select",
+						dialogControl = "LSM30_Statusbar",
+						name = TEXTURES_SUBHEADER,
+						desc = L["Select the texture for the res bars"],
+						values = AceGUIWidgetLSMlists.statusbar,
+						get = function() return self.db.profile.resBarsTexture end,
+						set = function(info, value)
+							self.db.profile.resBarsTexture = value
+							self.res_bars:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
+							self.timeOutBars:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
+						end,
+						width = optWidth
+					},
+					resBarsBorder = {
+						order = 70,
+						type = "select",
+						dialogControl = "LSM30_Border",
+						name = DISPLAY_BORDERS,
+						desc = L["Select the border for the res bars"],
+						values = AceGUIWidgetLSMlists.border,
+						get = function() return self.db.profile.resBarsBorder end,
+						set = function(info, value)
+							self.db.profile.resBarsBorder = value
+							self.res_bars:SetBackdrop({
+								edgeFile = LSM:Fetch("border", self.db.profile.resBarsBorder),
+								tile = false,
+								tileSize = self.db.profile.scale + 1,
+								edgeSize = self.db.profile.borderThickness,
+								insets = { left = 0, right = 0, top = 0, bottom = 0 }
+							})
+							self.timeOutBars:SetBackdrop({
+								edgeFile = LSM:Fetch("border", self.db.profile.resBarsBorder),
+								tile = false,
+								tileSize = self.db.profile.scale + 1,
+								edgeSize = self.db.profile.borderThickness,
+								insets = { left = 0, right = 0, top = 0, bottom = 0 }
+							})
+						end,
+						width = optWidth
+					},
+				}
+			},
+			resBarsOptionsTab = {
+				name = L["Res Bars"],
+				desc = L["Options for the res bars"],
+				type = "group",
+				order = 20,
+				args = {
+					hideAnchor = {
+						order = 10,
 						type = "toggle",
 						name = L["Hide Anchor"],
 						desc = L["Toggles the anchor for the res bars so you can move them"],
@@ -74,18 +144,17 @@ function addon:OptionsTable()
 						set = function(info, value)
 							self.db.profile.hideAnchor = value
 							if value then
-								self.rez_bars:HideAnchor()
-								self.rez_bars:Lock()
+								self.res_bars:HideAnchor()
+								self.res_bars:Lock()
 							else
-								self.rez_bars:ShowAnchor()
-								self.rez_bars:Unlock()
-								self.rez_bars:SetClampedToScreen(true)
+								self.res_bars:ShowAnchor()
+								self.res_bars:Unlock()
 							end
 						end,
 						width = optWidth
 					},
 					visibleResBars = {
-						order = 60,
+						order = 20,
 						type = "toggle",
 						name = L["Show Bars"],
 						desc = L["Show or hide the res bars. Everything else will still work"],
@@ -94,19 +163,19 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					reverseGrowth = {
-						order = 80,
+						order = 30,
 						type = "toggle",
 						name = L["Grow Upwards"],
 						desc = L["Make the res bars grow up instead of down"],
 						get = function() return self.db.profile.reverseGrowth end,
 						set = function(info, value)
 							self.db.profile.reverseGrowth = value
-							self.rez_bars:ReverseGrowth(value)
+							self.res_bars:ReverseGrowth(value)
 						end,
 						width = optWidth
 					},
 					resBarsIcon = {
-						order = 90,
+						order = 40,
 						type = "toggle",
 						name = L["Show Icon"],
 						desc = L["Show or hide the icon for res spells"],
@@ -114,15 +183,15 @@ function addon:OptionsTable()
 						set = function(info, value)
 							self.db.profile.resBarsIcon = value
 							if value then
-								self.rez_bars:ShowIcon()
+								self.res_bars:ShowIcon()
 							else
-								self.rez_bars:HideIcon()
+								self.res_bars:HideIcon()
 							end
 						end,
 						width = optWidth
 					},
 					showBattleRes = {
-						order = 100,
+						order = 50,
 						type = "toggle",
 						name = L["Show Battle Resses"],
 						get = function() return self.db.profile.showBattleRes end,
@@ -130,7 +199,7 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					classColours = {
-						order = 110,
+						order = 60,
 						type = "toggle",
 						name = CLASS_COLORS,
 						desc = L["Use class colours for the target on the res bars"],
@@ -141,17 +210,17 @@ function addon:OptionsTable()
 					spacer2 = {
 						type = "description",
 						name = "",
-						order = 130
+						order = 70
 					},
 					numMaxBars = {
-						order = 160,
+						order = 80,
 						type = "range",
 						name = L["Maximum Bars"],
 						desc = L["Set the maximum of displayed bars"].."\n"..L["SmartRes2 must be disabled and re-enabled for changes to take effect"],
 						get = function() return self.db.profile.maxBars end,
 						set = function(info, value)
 							self.db.profile.maxBars = value
-							self.rez_bars:SetMaxBars(value)
+							self.res_bars:SetMaxBars(value)
 						end,
 						min = 1,
 						max = 39,
@@ -159,14 +228,14 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					barHeight = {
-						order = 170,
+						order = 90,
 						type = "range",
 						name = L["Bar Height"],
 						desc = L["Control the height of the res bars"],
 						get = function() return self.db.profile.barHeight end,
 						set = function(info, value)
 							self.db.profile.barHeight = value
-							self.rez_bars:SetHeight(value)
+							self.res_bars:SetHeight(value)
 						end,
 						min = 6,
 						max = 64,
@@ -174,14 +243,14 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					barWidth = {
-						order = 180,
+						order = 100,
 						type = "range",
 						name = L["Bar Width"],
 						desc = L["Control the width of the res bars"],
 						get = function() return self.db.profile.barWidth end,
 						set = function(info, value)
 							self.db.profile.barWidth = value
-							self.rez_bars:SetWidth(value)
+							self.res_bars:SetWidth(value)
 						end,
 						min = 24,
 						max = 512,
@@ -189,14 +258,14 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					scale = {
-						order = 190,
+						order = 110,
 						type = "range",
 						name = L["Scale"],
 						desc = L["Set the scale for the res bars"],
 						get = function() return self.db.profile.scale end,
 						set = function(info, value)
 							self.db.profile.scale = value
-							self.rez_bars:SetScale(value)
+							self.res_bars:SetScale(value)
 						end,
 						min = 0.5,
 						max = 2,
@@ -204,14 +273,14 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					resBarsAlpha = {
-						order = 200,
+						order = 120,
 						type = "range",
 						name = OPACITY,
 						desc = L["Set the Alpha for the res bars"],
 						get = function() return self.db.profile.resBarsAlpha end,
 						set = function(info, value)
 							self.db.profile.resBarsAlpha = value
-							self.rez_bars:SetAlpha(value)
+							self.res_bars:SetAlpha(value)
 						end,
 						min = 0.1,
 						max = 1,
@@ -219,7 +288,7 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					borderThickness = {
-						order = 210,
+						order = 130,
 						type = "range",
 						name = L["Border Thickness"],
 						desc = L["Set the thickness of the res bars border"],
@@ -233,32 +302,10 @@ function addon:OptionsTable()
 					spacer3 = {
 						type = "description",
 						name = "",
-						order = 220
-					},
-					resBarsTexture = {
-						order = 230,
-						type = "select",
-						dialogControl = "LSM30_Statusbar",
-						name = TEXTURES_SUBHEADER,
-						desc = L["Select the texture for the res bars"],
-						values = AceGUIWidgetLSMlists.statusbar,
-						get = function() return self.db.profile.resBarsTexture end,
-						set = function(info, value)	self.db.profile.resBarsTexture = value end,
-						width = optWidth
-					},
-					resBarsBorder = {
-						order = 240,
-						type = "select",
-						dialogControl = "LSM30_Border",
-						name = DISPLAY_BORDERS,
-						desc = L["Select the border for the res bars"],
-						values = AceGUIWidgetLSMlists.border,
-						get = function() return self.db.profile.resBarsBorder end,
-						set = function(info, value) self.db.profile.resBarsBorder = value end,
-						width = optWidth
+						order = 140
 					},
 					horizontalOrientation = {
-						order = 250,
+						order = 150,
 						type = "select",
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars"],
@@ -273,10 +320,10 @@ function addon:OptionsTable()
 					spacer4 = {
 						type = "description",
 						name = "",
-						order = 260
+						order = 160
 					},
 					resBarsColour = {
-						order = 270,
+						order = 170,
 						type = "color",
 						name = L["Bar Colour"],
 						desc = L["Pick the colour for non-collision (not a duplicate) res bar"],
@@ -292,7 +339,7 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					collisionBarsColour = {
-						order = 280,
+						order = 180,
 						type = "color",
 						name = L["Duplicate Bar Colour"],
 						desc = L["Pick the colour for collision (duplicate) res bars"],
@@ -308,7 +355,7 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					waitingBarsColour = {
-						order = 290,
+						order = 190,
 						type = "color",
 						name = L["Waiting Bar Colour"],
 						desc = L["Pick the colour for collision (player waiting for accept) res bars"],
@@ -324,7 +371,7 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					massResBarColour = {
-						order = 300,
+						order = 200,
 						type = "color",
 						name = L["Mass Resurrection Bar Colour"],
 						desc = L["Pick the colour for the Mass Resurrection bar"],
@@ -342,7 +389,7 @@ function addon:OptionsTable()
 				}
 			},
 			timeOutBarsTab = {
-				order = 10,
+				order = 30,
 				type = "group",
 				name = L["Resurrection Time Out Bars"],
 				desc = L["Displays bars of players who have been resurrected, but not yet accepted"],
@@ -364,12 +411,11 @@ function addon:OptionsTable()
 						set = function(info, value)
 							self.db.profile.timeOutBarsAnchor = value
 							if value then
-								self.timeOut_bars:ShowAnchor()
-								self.timeOut_bars:Unlock()
-								self.timeOut_bars:SetClampedToScreen(true)
+								self.timeOutBars:ShowAnchor()
+								self.timeOutBars:Unlock()
 							else
-								self.timeOut_bars:HideAnchor()
-								self.timeOut_bars:Lock()
+								self.timeOutBars:HideAnchor()
+								self.timeOutBars:Lock()
 							end
 						end,
 						width = optWidth
@@ -396,24 +442,21 @@ function addon:OptionsTable()
 				name = CHAT_OPTIONS_LABEL,
 				desc = L["Chat output options"],
 				type = "group",
-				order = 20,
+				order = 40,
 				args = {
-					resChatHeader = {
-						order = 10,
-						type = "header",
-						name = CHAT_OPTIONS_LABEL
-					},
 					randMsgs = {
-						order = 20,
+						order = 10,
 						type = "toggle",
 						name = L["Random Res Messages"],
 						desc = L["Turn random res messages on or keep the same message. Default is off"],
 						get = function() return self.db.profile.randMsgs end,
-						set = function(info, value)	self.db.profile.randMsgs = value end,
+						set = function(info, value)
+							self.db.profile.randMsgs = value
+						end,
 						width = optWidth
 					},
 					notifySelf = {
-						order = 30,
+						order = 20,
 						type = "toggle",
 						name = L["Self Notification"],
 						desc = L["Prints a message to yourself whom you are ressing"],
@@ -422,7 +465,7 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					resExpired = {
-						order = 40,
+						order = 30,
 						type = "toggle",
 						name = L["Unit Resurrection Expiration"],
 						desc = L["Notify yourself when a unit's resurrection timer has ended without them accepting"],
@@ -433,10 +476,10 @@ function addon:OptionsTable()
 					spacer5 = {
 						type = "description",
 						name = "",
-						order = 50
+						order = 40
 					},
 					chatOutput = {
-						order = 60,
+						order = 50,
 						type = "select",
 						name = L["Chat Output Type"],
 						desc = L["Where to print the res message. Raid, Party, Say, Yell, Guild, smart Group, or None"],
@@ -456,7 +499,7 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					notifyCollision = {
-						order = 70,
+						order = 60,
 						type = "select",
 						name = L["Duplicate Res Targets"],
 						desc = L["Notify a resser they created a collision. Could get very spammy"],
@@ -478,10 +521,10 @@ function addon:OptionsTable()
 					spacer6 = {
 						type = "description",
 						name = "",
-						order = 80
+						order = 70
 					},
 					customMessage = {
-						order = 85,
+						order = 80,
 						type = "input",
 						name = L["Custom Message"],
 						desc = L["Enter a custom message for normal resurrections. This overrides both the default and random messages. Does not impact Mass Resurrection messages. Use %p (optional) for yourself, %t (mandatory) for your target."],
@@ -550,7 +593,7 @@ function addon:OptionsTable()
 				name = L["Fonts"],
 				desc = L["Control fonts on the res bars"],
 				type = "group",
-				order = 30,
+				order = 50,
 				args = {
 					fontType = {
 						order = 10,
@@ -560,7 +603,11 @@ function addon:OptionsTable()
 						desc = L["Select a font for the text on the res bars"],
 						values = AceGUIWidgetLSMlists.font,
 						get = function() return self.db.profile.fontType end,
-						set = function(info, value) self.db.profile.fontType = value end,
+						set = function(info, value)
+							self.db.profile.fontType = value
+							self.res_bars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+							self.timeOutBars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+						end,
 						width = optWidth
 					},
 					fontSize = {
@@ -569,7 +616,11 @@ function addon:OptionsTable()
 						name = FONT_SIZE,
 						desc = L["Resize the res bars font"],
 						get = function() return self.db.profile.fontScale end,
-						set = function(info, value) self.db.profile.fontScale = value end,
+						set = function(info, value)
+							self.db.profile.fontScale = value
+							self.res_bars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+							self.timeOutBars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+						end,
 						min = 3,
 						max = 20,
 						step = 1,
@@ -588,7 +639,11 @@ function addon:OptionsTable()
 							["MONOCHROME,THICKOUTLINE"] = L["Thick outline and monochrome"]
 						},
 						get = function() return self.db.profile.fontFlags end,
-						set = function(info, value) self.db.profile.fontFlags = value end,
+						set = function(info, value)
+							self.db.profile.fontFlags = value
+							self.res_bars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+							self.timeOutBars:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
+						end,
 						width = optWidth
 					}
 				}
@@ -596,7 +651,7 @@ function addon:OptionsTable()
 			keyBindingsTab = {
 				name = KEY_BINDINGS,
 				type = "group",
-				order = 40,
+				order = 60,
 				args = {
 					autoResKey = {
 						order = 10,
@@ -623,7 +678,7 @@ function addon:OptionsTable()
 						width = optWidth
 					},
 					massResKey = {
-						order = 25,
+						order = 30,
 						type = "keybinding",
 						name = L["Mass Resurrection Key"],
 						desc = L["Press to start the guild perk Mass Resurrection"],
@@ -641,7 +696,7 @@ function addon:OptionsTable()
 				name = L["SmartRes2 Credits"],
 				desc = L["About the author and SmartRes2"],
 				type = "group",
-				order = 60,
+				order = 70,
 				args = {
 					creditsHeader1 = {
 						order = 1,

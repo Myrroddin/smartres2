@@ -23,7 +23,7 @@
 ## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
 ## X-License: (c) 2009 - 2016, Paul "Myrroddin" Vandersypen. All Rights Reserved
 
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibResInfo-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets, LibDataBroker-1.1, !ClassColors
+## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibResInfo-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets, LibDataBroker-1.1, !ClassColors, LibDBIcon-1.0
 
 #@no-lib-strip@
 Libs\LibStub\LibStub.lua
