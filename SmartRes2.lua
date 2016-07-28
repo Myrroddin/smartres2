@@ -27,10 +27,8 @@ local DBI = LibStub("LibDBIcon-1.0")
 local resBars = {}
 local timeOutBars = {}
 local notified = {}
-local orientation
 local icon
 local raidUpdated
-local in_combat
 local unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK
 local SortedResList = {}
 local _, currentRealm = UnitFullName("player")
@@ -39,6 +37,9 @@ local creatorName = {
 	["Jelia"] = true,
 	["Badash"] = true,
 	["Vanhoeffen"] = true,
+	["Uthartian"] = true,
+	["Selkei"] = true,
+	["Kadil"] = true,
 }
 
 -- addon defaults -----------------------------------------------------------
@@ -61,7 +62,7 @@ local defaults = {
 		fontScale = 12,
 		fontType = "Friz Quadrata TT",
 		hideAnchor = false,
-		horizontalOrientation = "RIGHT",
+		horizontalOrientation = "LEFT_TO_RIGHT",
 		manualResKey = "",
 		massResBarColour = { r = 0.9 , g = 0.8, b = 0.5, a = 1 },
 		massResKey = "",
@@ -76,14 +77,14 @@ local defaults = {
 		resBarsBorder = "None",
 		resBarsTexture = "Blizzard",
 		resBarsX = 0,
-		resBarsY = -600,
+		resBarsY = -200,
 		reverseGrowth = false,
 		scale = 1,
 		showBattleRes = false,
 		timeOutBarsAnchor = true,
 		timeOutBarsColour = { r = 1, g = 1, b = 1, a = 1 },
 		timeOutBarsX = 0,
-		timeOutBarsY = -500,
+		timeOutBarsY = -400,
 		visibleResBars = true,
 		waitingBarsColour = { r = 0, g = 0, b = 1, a = 1 },
 		randChatTbl = {
@@ -118,7 +119,7 @@ local defaults = {
 	global = {
 		minimap = {
 			hide = false,
-			lock = false,
+			lock = true,
 			minimapPos = 190,
 			radius = 80
 		}
@@ -175,52 +176,7 @@ function SmartRes2:OnInitialize()
 
 	-- support for LibAboutPanel
 	self.optionsFrame[L["About"]] = LibStub("LibAboutPanel").new("SmartRes2", "SmartRes2")
-
-	--[[
-	-- @phanx: auto expand the sub-panels
-	do
-		self.optionsFrame:HookScript("OnShow", function(self)
-			if InCombatLockdown() then return end
-			local target = self.parent or self.name
-			local i = 1
-			local button = _G["InterfaceOptionsFrameAddOnsButton"..i]
-			while button do
-				local element = button.element
-				if element.name == target then
-					if element.hasChildren and element.collapsed then
-						_G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"]:Click()
-					end
-					return
-				end
-				i = i + 1
-				button = _G["InterfaceOptionsFrameAddOnsButton"..i]
-			end
-		end)
-		local function OnClose(self)
-			if InCombatLockdown() then return end
-			local target = self.parent or self.name
-			local i = 1
-			local button = _G["InterfaceOptionsFrameAddOnsButton"..i]
-			while button do
-				local element = button.element
-				if element.name == target then
-					if element.hasChildren and not element.collapsed then
-						local selection = InterfaceOptionsFrameAddOns.selection
-						if not selection or selection.parent ~= target then
-							_G["InterfaceOptionsFrameAddOnsButton"..i.."Toggle"]:Click()
-						end
-					end
-					return
-				end
-				i = i + 1
-				button = _G["InterfaceOptionsFrameAddOnsButton"..i]
-			end
-		end
-		hooksecurefunc(self.optionsFrame, "okay", OnClose)
-		hooksecurefunc(self.optionsFrame, "cancel", OnClose)
-	end
-	]]--
-
+	
 	-- add console commands
 	self:RegisterChatCommand("sr", "SlashHandler")
 	self:RegisterChatCommand("smartres", "SlashHandler")
@@ -233,8 +189,16 @@ function SmartRes2:OnInitialize()
 		PALADIN = GetSpellInfo(7328), -- Redemption
 		MONK = GetSpellInfo(115178) -- Resuscitate
 	}
+	local classResSpells = {
+		PRIEST = GetSpellInfo(212036), -- Mass Resurrection
+		SHAMAN = GetSpellInfo(212048), -- Ancestral Vision
+		DRUID = GetSpellInfo(212040), -- Revitalize
+		PALADIN = GetSpellInfo(212056), -- Absolution
+		MONK = GetSpellInfo(212051) -- Reawaken
+	}
 	local _, player_class = UnitClass("player")
 	self.playerSpell = resSpells[player_class]
+	self.massResSpell = classResSpells[player_class]
 
 	-- create LDB Launcher
 	local launcher = LDB:NewDataObject("SmartRes2", {
@@ -250,7 +214,14 @@ function SmartRes2:OnInitialize()
 				else
 					self.res_bars:ShowAnchor()
 					self.res_bars:Unlock()
-					self.res_bars:SetClampedToScreen(true)
+				end
+				self.db.profile.timeOutBarsAnchor = not self.db.profile.timeOutBarsAnchor
+				if self.db.profile.timeOutBarsAnchor then
+					self.timeOutBars:ShowAnchor()
+					self.timeOutBars:Unlock()
+				else
+					self.timeOutBars:HideAnchor()
+					self.timeOutBars:Lock()
 				end
 				LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
 			elseif button == "RightButton" then
@@ -283,8 +254,6 @@ function SmartRes2:OnInitialize()
 	massResButton:SetScript("PreClick", function() self:MassResurrection() end)
 	self.massResButton = massResButton
 	
-	self:SPELLS_CHANGED()
-	
 	-- create bar groups ------------------------
 	-- API: name, orientation, length, thickness, frameName
 	self.res_bars = self:NewBarGroup(L["SmartRes2 Res Bars"], self.db.profile.horizontalOrientation, 300, 15, "SmartRes2_ResBars")
@@ -298,7 +267,8 @@ function SmartRes2:OnEnable()
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
 	self:RegisterEvent("PLAYER_REGEN_ENABLED")
 	self:RegisterEvent("GROUP_ROSTER_UPDATE")
-	self:RegisterEvent("SPELLS_CHANGED")
+	self:RegisterEvent("SPELLS_CHANGED", "SpellsChanged")
+	self:RegisterEvent("PLAYER_LEVEL_UP", "SpellsChanged")
 
 	LRI.RegisterCallback(self, "LibResInfo_ResCastStarted")
 	LRI.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
@@ -351,10 +321,10 @@ function SmartRes2:SavePosition()
 	local t = self.timeOutBars
 	local s = f:GetEffectiveScale()
 	local ts = t:GetEffectiveScale()
-	self.db.profile.resBarsX = f:GetLeft() * s
-	self.db.profile.resBarsY = f:GetTop() * s
-	self.db.profile.timeOutBarsX = t:GetLeft() * ts
-	self.db.profile.timeOutBarsY = t:GetTop() * ts
+	self.db.profile.resBarsX = floor(f:GetLeft() * s)
+	self.db.profile.resBarsY = floor(f:GetTop() * s)
+	self.db.profile.timeOutBarsX = floor(t:GetLeft() * ts)
+	self.db.profile.timeOutBarsY = floor(t:GetTop() * ts)
 end
 
 function SmartRes2:RestorePosition(bar_group)
@@ -371,8 +341,10 @@ function SmartRes2:RestorePosition(bar_group)
 	end
 	
 	local s = bar_group:GetEffectiveScale()
+	x = floor(x / s)
+	y = floor(y / s)
 	bar_group:ClearAllPoints()
-	bar_group:SetPoint("TOPLEFT", UIParent, "BOTTOMLEFT", x / s, y / s)
+	bar_group:SetPoint("TOP", UIParent, "BOTTOM", x, y)
 end
 
 -- process slash commands ---------------------------------------------------
@@ -402,7 +374,6 @@ function SmartRes2:OnDisable()
 	wipe(SortedResList)
 	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
 	raidUpdated = nil
-	in_combat = nil
 end
 
 -- General callback functions -----------------------------------------------
@@ -579,49 +550,36 @@ function SmartRes2:DeleteBar(callback, targetID, targetGUID, casterID, casterGUI
 	end
 end
 
--- Important Note: Since the release of patch 3.2, certain fights in the game fire the
--- "PLAYER_REGEN_DISABLED" event continuously during combat causing any subsequent events
--- we might trigger as a result to also fire continuously. It is recommended therefore to
--- use a checking variable that is set to 'on/1/etc' when entering combat and back to
--- 'off/0/etc' only when exiting combat and then use this as the final determinant on
--- whether or not to action a subsequent event.
 function SmartRes2:PLAYER_REGEN_DISABLED()
 	-- don't confuse the variable below with being in combat - we use it to see if we've run
 	-- the code below on entry into combat already so that we only run it once
-	if not in_combat then
-		self:UnBindKeys()
-		-- disable callbacks during battle if we don't want to see battle resses
-		if not self.db.profile.showBattleRes then
-			LRI.UnregisterAllCallbacks(self)
-			self.res_bars.UnregisterAllCallbacks(self)
-			self.timeOutBars.UnregisterAllCallbacks(self)
-		end
+	self:UnBindKeys()
+	-- disable callbacks during battle if we don't want to see battle resses
+	if not self.db.profile.showBattleRes then
+		LRI.UnregisterAllCallbacks(self)
+		self.res_bars.UnregisterAllCallbacks(self)
+		self.timeOutBars.UnregisterAllCallbacks(self)
 	end
-	in_combat = true
 	unitOutOfRange, unitBeingRessed, unitDead, unitWaiting, unitGhost, unitAFK = nil, nil, nil, nil, nil, nil
-	if LibStub("AceConfigDialog-3.0").OpenFrames["MyrroUI"] then
-		LibStub("AceConfigDialog-3.0"):Close("MyrroUI")
+	if LibStub("AceConfigDialog-3.0").OpenFrames["SmartRes2"] then
+		LibStub("AceConfigDialog-3.0"):Close("SmartRes2")
 	end
 end
 
 function SmartRes2:PLAYER_REGEN_ENABLED()
 	self:BindKeys()
 	self:BindMassRes()
-	-- re-enable callbacks during battle if we don't want to see battle resses
-	if not self.db.profile.showBattleRes then
-		LRI.RegisterCallback(self, "LibResInfo_ResCastStarted")
-		LRI.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
-		LRI.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
-		LRI.RegisterCallback(self, "LibResInfoI_MassResStarted", "LibResInfo_ResCastStarted")
-		LRI.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
-		LRI.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
-		LRI.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
-		LRI.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
-		LRI.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
-		self.res_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
-		self.timeOutBars.RegisterCallback(self, "AnchorMoved", "SavePosition")
-	end
-	in_combat = nil
+	LRI.RegisterCallback(self, "LibResInfo_ResCastStarted")
+	LRI.RegisterCallback(self, "LibResInfo_ResCastFinished", "DeleteBar")
+	LRI.RegisterCallback(self, "LibResInfo_ResCastCancelled", "DeleteBar")
+	LRI.RegisterCallback(self, "LibResInfoI_MassResStarted", "LibResInfo_ResCastStarted")
+	LRI.RegisterCallback(self, "LibResInfo_MassResFinished", "DeleteBar")
+	LRI.RegisterCallback(self, "LibResInfo_MassResCancelled", "DeleteBar")
+	LRI.RegisterCallback(self, "LibResInfo_ResPending", "ResTimeOutStarted")
+	LRI.RegisterCallback(self, "LibResInfo_ResUsed", "ResTimeOutEnded")
+	LRI.RegisterCallback(self, "LibResInfo_ResExpired", "ResTimeOutEnded")
+	self.res_bars.RegisterCallback(self, "AnchorMoved", "SavePosition")
+	self.timeOutBars.RegisterCallback(self, "AnchorMoved", "SavePosition")
 end
 
 -- key binding functions ----------------------------------------------------
@@ -655,11 +613,17 @@ function SmartRes2:UnBindKeys()
 	ClearOverrideBindings(self.massResButton)
 end
 
-function SmartRes2:SPELLS_CHANGED()
-	if IsSpellKnown(83968) then
+function SmartRes2:SpellsChanged(...)
+	if self.massResSpell then
 		self.db.char.knowsMassRes = true
 	else
 		self.db.char.knowsMassRes = nil
+	end
+	
+	if self.playerSpell then
+		self.db.char.knowsRes = true
+	else
+		self.db.char.knowsRes = nil
 	end
 end
 
@@ -687,7 +651,7 @@ function SmartRes2:MassResurrection()
 		return self:Print(L["You are not in a group."])
 	end
 
-	if not IsUsableSpell(83968) then
+	if not IsUsableSpell(self.massResSpell) then
 		return self:Print(L["You cannot cast Mass Resurrection right now."])
 	end
 
@@ -708,7 +672,7 @@ function SmartRes2:MassResurrection()
 		return self:Print(L["There are no valid targets for Mass Resurrection."])
 	end
 
-	button:SetAttribute("spell", GetSpellInfo(83968))
+	button:SetAttribute("spell", GetSpellInfo(self.massResSpell))
 
 	local chat_type = strupper(self.db.profile.chatOutput)
 	if chat_type == "0-NONE" then return end
@@ -893,8 +857,7 @@ local function ClassColouredName(unit, name, class)
 	if not unit then return "|cffcccccc".. UNKNOWN.. "|r" end
 	if not name then UnitName(unit) end
 	 if not class then
-          local _
-          _, class = UnitClass(unit)
+          local _, class = UnitClass(unit)
      end
 	if not class then return "|cffcccccc"..name.."|r" end
 	local c = (CUSTOM_CLASS_COLORS or RAID_CLASS_COLORS)[class]
@@ -920,9 +883,10 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 	bar:SetBackgroundColor(t.r, t.g, t.b, t.a)
 	bar:SetColorAt(0, 0, 0, 0, 1)
 
-	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
+	orientation = self.db.profile.horizontalOrientation
 	bar:SetOrientation(orientation)
-
+	
+	--[[
 	bar:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
 	bar:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
@@ -932,6 +896,7 @@ function SmartRes2:CreateTimeOutBars(endTime, targetID)
 		edgeSize = self.db.profile.borderThickness,
 		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
+	]]--
 	timeOutBars[targetGUID] = bar
 end
 
@@ -997,7 +962,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 	bar:SetColorAt(0, 0, 0, 0, 1) -- set bars to be black behind the cast bars
 	bar.RegisterCallback(self.res_bars, "FadeFinished", SmartRes2.ResBarsFadeFinished)
 
-	orientation = (self.db.profile.horizontalOrientation == "RIGHT") and Bars.RIGHT_TO_LEFT or Bars.LEFT_TO_RIGHT
+	orientation = self.db.profile.horizontalOrientation
 	bar:SetOrientation(orientation)
 
 	if self.db.profile.resBarsIcon then
@@ -1008,7 +973,8 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 
 	bar:SetHeight(self.db.profile.barHeight)
 	bar:SetWidth(self.db.profile.barWidth)
-
+	
+	--[[
 	bar:SetFont(LSM:Fetch("font", self.db.profile.fontType), self.db.profile.fontScale, self.db.profile.fontFlags)
 	bar:SetTexture(LSM:Fetch("statusbar", self.db.profile.resBarsTexture))
 	bar:SetBackdrop({
@@ -1018,6 +984,7 @@ function SmartRes2:CreateResBar(casterID, endTime, targetID, isFirst, hasIncomin
 		edgeSize = self.db.profile.borderThickness,
 		insets = { left = 0, right = 0, top = 0, bottom = 0 }
 	})
+	]]--
 	resBars[casterGUID] = bar
 end
 
@@ -1044,8 +1011,8 @@ function SmartRes2:StartTestBars()
 	if self.db.profile.visibleResBars then
 		self:CreateResBar("NawtyNurse", GetTime() + 4, "FrankTheTank", true, nil, nil, 2008, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
 		self:CreateResBar("BadCaster", GetTime() + 5, "FrankTheTank", nil, nil, nil, 115178, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
-		self:CreateResBar("MassResser", GetTime() + 6, nil, true, nil, true, 83968, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
-		self:CreateResBar("MassCollider", GetTime() + 7, nil, nil, nil, true, 83968, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
+		self:CreateResBar("MassResser", GetTime() + 6, nil, true, nil, true, self.massResSpell, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
+		self:CreateResBar("MassCollider", GetTime() + 7, nil, nil, nil, true, self.massResSpell, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
 		self:CreateResBar("Sonayahh", GetTime() + 8, "AlreadyRessed", nil, "PENDING", nil, 7328, CLASS_SORT_ORDER[random(#CLASS_SORT_ORDER)])
 	end
 	wipe(resBars)

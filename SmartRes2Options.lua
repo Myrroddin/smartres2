@@ -299,8 +299,8 @@ function addon:OptionsTable()
 						name = L["Horizontal Direction"],
 						desc = L["Change the horizontal direction of the res bars"],
 						values = {
-							["LEFT"] = L["Right to Left"],
-							["RIGHT"] = L["Left to Right"]
+							["RIGHT_TO_LEFT"] = L["Right to Left"],
+							["LEFT_TO_RIGHT"] = L["Left to Right"]
 						},
 						get = function() return self.db.profile.horizontalOrientation end,
 						set = function(info, value) self.db.profile.horizontalOrientation = value end
@@ -635,7 +635,8 @@ function addon:OptionsTable()
 						set = function(info, value)
 							self.db.profile.autoResKey = value
 							self:BindKeys()
-						end
+						end,
+						disabled = function() return not self.db.char.knowsRes end
 					},
 					manualResKey = {
 						order = 20,
@@ -646,7 +647,8 @@ function addon:OptionsTable()
 						set  = function(info, value)
 							self.db.profile.manualResKey = value
 							self:BindKeys()
-						end
+						end,
+						disabled = function() return not self.db.char.knowsRes end
 					},
 					massResKey = {
 						order = 30,
