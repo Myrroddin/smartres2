@@ -1,4 +1,4 @@
-## Interface: 70000
+## Interface: 70100
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
 ## Notes-ruRU: @localization(locale="ruRU", key="Notes", namespace="ToC")@
@@ -13,17 +13,22 @@
 ## Notes-frFR: @localization(locale="frFR", key="Notes", namespace="ToC")@
 ## Version: @project-version@
 ## X-Project-Revision: @project-revision@
-## Author: Myrroddin of Knights of the Storm
+
+## Author: Myrroddin
+## X-Author-Guild: Knights of the Storm
 ## X-Author-Server: Llane US
 ## X-Author-Faction: Alliance
+## X-Email: psvander at gmail dot com
 ## X-Category: Raid, Party, Healer, Priest, Shaman, Paladin, Druid, Monk
-## SavedVariables: SmartRes2DB
 ## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, koKR, zhTW, ptBR, itIT
-## X-Website: http://mods.curse.com/addons/wow/smartres2
-## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
-## X-License: (c) 2009 - 2016, Paul "Myrroddin" Vandersypen. All Rights Reserved
 
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibResInfo-1.0, LibSharedMedia-3.0, LibBars-1.0, LibAboutPanel, AceGUI-3.0-SharedMediaWidgets, LibDataBroker-1.1, !ClassColors, LibDBIcon-1.0
+## X-Website: https://mods.curse.com/addons/wow/smartres2
+## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
+## X-License: © 2009 - 2017, Paul "Myrroddin" Vandersypen. All Rights Reserved
+
+## SavedVariables: SmartRes2DB
+
+## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibDualSpec-1.0
 
 #@no-lib-strip@
 Libs\LibStub\LibStub.lua
@@ -36,12 +41,7 @@ Libs\AceDB-3.0\AceDB-3.0.xml
 Libs\AceDBOptions-3.0\AceDBOptions-3.0.xml
 Libs\AceEvent-3.0\AceEvent-3.0.xml
 Libs\AceLocale-3.0\AceLocale-3.0.xml
-
-Libs\LibSharedMedia-3.0\lib.xml
-Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
-Libs\LibBars-1.0\lib.xml
-Libs\LibAboutPanel\lib.xml
-Libs\LibResInfo-1.0\LibResInfo-1.0.lua
+Libs\LibDualSpec-1.0\LibDualSpec-1.0.lua
 #@end-no-lib-strip@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 #@no-lib-strip@
@@ -60,4 +60,3 @@ Locales\Localization.ptBR.lua
 Locales\Localization.koKR.lua
 
 SmartRes2.lua
-SmartRes2Options.lua
