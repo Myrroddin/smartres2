@@ -1,7 +1,7 @@
 --[[
-File author: --@file-author@
-File revision: --@file-revision@
-Date updated: --@file-date-iso@
+File author: @file-author@
+File revision: @file-revision@
+Date updated: @file-date-iso@
 ]]--
       
 local debug = false
@@ -11,4 +11,8 @@ debug = true
 
 local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true, debug)
 
---@localization(locale="enUS", format="lua_additive_table")@
+L["Lock Button"] = true
+L["Lock minimap button and prevent moving."] = true
+L["Show or hide the minimap icon."] = true
+L["Toggle SmartRes2 and all modules on/off."] = true
+L["Toggle module on/off."] = true
