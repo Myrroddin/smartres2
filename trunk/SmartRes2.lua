@@ -36,9 +36,7 @@ local defaults = {
 	profile = {
 		enableAddOn = true,
 		modules = {
-			["**"] = {
-				enableModule = true
-			}
+			["*"] = true
 		}
 	},
 	global = {
@@ -146,33 +144,26 @@ function SmartRes2:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileCopied", "Refresh")
 	self.db.RegisterCallback(self, "OnProfileReset", "Refresh")
 
-	-- set default embedded libs for modules
-	self:SetDefaultModuleLibraries("AceConsole-3.0", "AceEvent-3.0")
-
 	local options = self:GetOptions()
+	Registry:RegisterOptionsTable("SmartRes2", options)
 
 	options.args.profile = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
 	options.args.profile.order = -1	
 
 	-- dual spec the options
 	LDS:EnhanceDatabase(self.db, "SmartRes2")
-	LDS:EnhanceOptions(options.args.profile, self.db)
+	LDS:EnhanceOptions(options.args.profile, self.db)	
 
-	-- Registry:RegisterOptionsTable("SmartRes2", options)
-
-	-- Dialog:AddToBlizOptions("SmartRes2")
+	Dialog:AddToBlizOptions("SmartRes2", nil, nil, "general")
 
 	-- now embed module options into SmartRes2's options
 	for name, module in self:IterateModules() do
 		if type(module.GetOptions) == "function" then
-			options.args.modules.name = module:GetOptions()
-			-- local displayName = options.args.modules[name].name
-			-- Dialog:AddToBlizOptions(name, displayName, "SmartRes2", options.args[name])
+			options.args[name] = module:GetOptions()
+			local displayName = options.args[name].name
+			Dialog:AddToBlizOptions(name, displayName, "SmartRes2", name)
 		end
 	end
-
-	Registry:RegisterOptionsTable("SmartRes2", options)
-	Dialog:AddToBlizOptions("SmartRes2")
 
 	-- add console commands
 	self:RegisterChatCommand("sr", "SlashHandler")
@@ -207,7 +198,6 @@ function SmartRes2:OnInitialize()
 
 	-- OnEnable/OnDisable as appropriate
 	self:SetEnabledState(self.db.profile.enableAddOn)
-	self:Refresh()
 end
 
 function SmartRes2:OnEnable()
@@ -215,29 +205,27 @@ function SmartRes2:OnEnable()
 end
 
 function SmartRes2:OnDisable()
+	self:UnregisterAllEvents()
 end
 
 -- update our database --------------------------------------------------------
 function SmartRes2:Refresh()
 	db = self.db.profile
 
-	--[[
-	for k, v in self:IterateModules() do
-		local isEnabled, shouldEnable = v:IsEnabled(), self:GetModuleEnabled(k)
+	for name, module in self:IterateModules() do
+		local isEnabled, shouldEnable = module:IsEnabled(), self:GetModuleEnabled(name)
 		if shouldEnable and not isEnabled then
-			self:EnableModule(k)
+			self:EnableModule(name)
 		elseif isEnabled and not shouldEnable then
-			self:DisableModule(k)
+			self:DisableModule(name)
 		end
 
-		if type(v.Refresh) == "function" then
-			v:Refresh()
+		if type(module.Refresh) == "function" then
+			module:Refresh()
 		end
 	end
-	]]--
 end
 
---[[
 -- handle modules -------------------------------------------------------------
 function SmartRes2:GetModuleEnabled(moduleName)
 	return db.modules[moduleName]
@@ -252,7 +240,6 @@ function SmartRes2:SetModuleEnabled(moduleName, newState)
 		self:DisableModule(moduleName)
 	end
 end
-]]--
 
 -- process slash commands -----------------------------------------------------
 function SmartRes2:SlashHandler(input)
