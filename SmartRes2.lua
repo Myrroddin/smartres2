@@ -154,14 +154,14 @@ function SmartRes2:OnInitialize()
 	LDS:EnhanceDatabase(self.db, "SmartRes2")
 	LDS:EnhanceOptions(options.args.profile, self.db)	
 
-	Dialog:AddToBlizOptions("SmartRes2", nil, nil, "general")
+	Dialog:AddToBlizOptions("SmartRes2", "SmartRes2", nil, "general")
 
 	-- now embed module options into SmartRes2's options
 	for name, module in self:IterateModules() do
 		if type(module.GetOptions) == "function" then
 			options.args[name] = module:GetOptions()
 			local displayName = options.args[name].name
-			Dialog:AddToBlizOptions(name, displayName, "SmartRes2", name)
+			Dialog:AddToBlizOptions("SmartRes2", displayName, "SmartRes2", options.args[name])
 		end
 	end
 
