@@ -10,6 +10,7 @@ local _G = getfenv(0)
 local LibStub = _G.LibStub
 local GetSpellInfo = _G.GetSpellInfo
 local UnitClass = _G.UnitClass
+local table_insert = _G.table.insert
 
 -- declare addon --------------------------------------------------------------
 local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0")
@@ -30,13 +31,14 @@ local Command = LibStub("AceConfigCmd-3.0")
 
 -- declare variables ----------------------------------------------------------
 local db
+local modules = {}
 
 -- defaults table -------------------------------------------------------------
 local defaults = {
 	profile = {
 		enableAddOn = true,
 		modules = {
-			["*"] = true
+			["**"] = true
 		}
 	},
 	global = {
@@ -145,25 +147,36 @@ function SmartRes2:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileReset", "Refresh")
 
 	local options = self:GetOptions()
-	Registry:RegisterOptionsTable("SmartRes2", options)
+	
+	-- now embed module options into SmartRes2's options
+	function SmartRes2:InitializeModuleOptions(module)
+		if not module.GetOptions then
+			return
+		end
+		table_insert(modules, module)
+		local opts = module:GetOptions()
+		local name = module.uiName or module:GetName()
 
+		options.args[name] = {
+			name = name,
+			handler = module,
+			type = "group",
+			childGroups = "tab",
+			order = 10 + #self.modules,
+			args = opts
+		}
+	end
+
+	-- add profiles to options table
 	options.args.profile = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
-	options.args.profile.order = -1	
+	options.args.profile.order = -1
 
 	-- dual spec the options
 	LDS:EnhanceDatabase(self.db, "SmartRes2")
-	LDS:EnhanceOptions(options.args.profile, self.db)	
+	LDS:EnhanceOptions(options.args.profile, self.db)
 
-	Dialog:AddToBlizOptions("SmartRes2", "SmartRes2", nil, "general")
-
-	-- now embed module options into SmartRes2's options
-	for name, module in self:IterateModules() do
-		if type(module.GetOptions) == "function" then
-			options.args[name] = module:GetOptions()
-			local displayName = options.args[name].name
-			Dialog:AddToBlizOptions("SmartRes2", displayName, "SmartRes2", options.args[name])
-		end
-	end
+	Registry:RegisterOptionsTable("SmartRes2", options)
+	Dialog:AddToBlizOptions("SmartRes2")
 
 	-- add console commands
 	self:RegisterChatCommand("sr", "SlashHandler")
