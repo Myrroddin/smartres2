@@ -69,6 +69,7 @@ function SmartRes2:GetOptions()
 						type = "toggle",
 						name = ENABLE,
 						desc = L["Toggle SmartRes2 and all modules on/off."],
+						descStyle = "inline",
 						get = function() return self.db.profile.enableAddOn end,
 						set = function(info, value)
 							self.db.profile.enableAddOn = value
@@ -84,6 +85,7 @@ function SmartRes2:GetOptions()
 						order = 20,
 						name = MINIMAP_LABEL,
 						desc = L["Show or hide the minimap icon."],
+						descStyle = "inline",
 						get = function() return not self.db.global.minimap.hide end,
 						set = function(_, value)
 							self.db.global.minimap.hide = not value
@@ -99,6 +101,7 @@ function SmartRes2:GetOptions()
 						order = 30,
 						name = L["Lock Button"],
 						desc = L["Lock minimap button and prevent moving."],
+						descStyle = "inline",
 						get = function() return self.db.global.minimap.lock end,
 						set = function(_, value)
 							self.db.global.minimap.lock = value
@@ -107,6 +110,20 @@ function SmartRes2:GetOptions()
 							else
 								DBI:Unlock("SmartRes2")
 							end
+						end
+					},
+					resetButton = {
+						type = "execute",
+						order = 40,
+						name = L["Reset Button"],
+						desc = L["Reset the minimap button to defaults (position, visible, locked)."],
+						func = function()
+							self.db.global.minimap.hide = false
+							self.db.global.minimap.lock = true
+							self.db.global.minimap.minimapPos = 190
+							self.db.global.minimap.radius = 80
+							DBI:Show("SmartRes2")
+							DBI:Lock("SmartRes2")
 						end
 					}
 				}
@@ -162,7 +179,7 @@ function SmartRes2:OnInitialize()
 			handler = module,
 			type = "group",
 			childGroups = "tab",
-			order = 10 + #self.modules,
+			order = 10 + #modules,
 			args = opts
 		}
 	end
@@ -211,6 +228,7 @@ function SmartRes2:OnInitialize()
 
 	-- OnEnable/OnDisable as appropriate
 	self:SetEnabledState(self.db.profile.enableAddOn)
+	self:Refresh()
 end
 
 function SmartRes2:OnEnable()
@@ -226,31 +244,9 @@ function SmartRes2:Refresh()
 	db = self.db.profile
 
 	for name, module in self:IterateModules() do
-		local isEnabled, shouldEnable = module:IsEnabled(), self:GetModuleEnabled(name)
-		if shouldEnable and not isEnabled then
-			self:EnableModule(name)
-		elseif isEnabled and not shouldEnable then
-			self:DisableModule(name)
-		end
-
 		if type(module.Refresh) == "function" then
 			module:Refresh()
 		end
-	end
-end
-
--- handle modules -------------------------------------------------------------
-function SmartRes2:GetModuleEnabled(moduleName)
-	return db.modules[moduleName]
-end
-
-function SmartRes2:SetModuleEnabled(moduleName, newState)
-	local oldState = db.modules[moduleName]
-	if oldState == newState then return end
-	if newState then
-		self:EnableModule(moduleName)
-	else
-		self:DisableModule(moduleName)
 	end
 end
 

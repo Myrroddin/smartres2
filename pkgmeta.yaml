@@ -17,3 +17,6 @@ externals:
 
 ignore:
     - Libs/LibStub/tests
+
+tools-used:
+    - findglobals
