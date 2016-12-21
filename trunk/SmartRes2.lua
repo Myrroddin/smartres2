@@ -11,6 +11,16 @@ local LibStub = _G.LibStub
 local GetSpellInfo = _G.GetSpellInfo
 local UnitClass = _G.UnitClass
 local table_insert = _G.table.insert
+local COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL = _G.COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL
+local ENABLE = _G.ENABLE
+local GameTooltip = _G.GameTooltip
+local HIGHLIGHT_FONT_COLOR = _G.HIGHLIGHT_FONT_COLOR
+local MINIMAP_LABEL = _G.MINIMAP_LABEL
+local NORMAL_FONT_COLOR = _G.NORMAL_FONT_COLOR
+local select = _G.select
+local type = _G.type
+local UnitAffectingCombat = _G.UnitAffectingCombat
+local GetAddOnMetadata = _G.GetAddOnMetadata
 
 -- declare addon --------------------------------------------------------------
 local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0")
