@@ -10,7 +10,6 @@ local _G = getfenv(0)
 local LibStub = _G.LibStub
 local GetSpellInfo = _G.GetSpellInfo
 local UnitClass = _G.UnitClass
-local table_insert = _G.table.insert
 local COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL = _G.COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL
 local ENABLE = _G.ENABLE
 local GameTooltip = _G.GameTooltip
@@ -26,9 +25,9 @@ local GetAddOnMetadata = _G.GetAddOnMetadata
 local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 
-local version = GetAddOnMetadata("SmartRes2", "Version")
-if version:match("@") then
-	version = "Development"
+SmartRes2.version = GetAddOnMetadata("SmartRes2", "Version")
+if SmartRes2.version:match("@") then
+	SmartRes2.version = "Development"
 end
 
 -- additional libraries -------------------------------------------------------
@@ -41,14 +40,13 @@ local Command = LibStub("AceConfigCmd-3.0")
 
 -- declare variables ----------------------------------------------------------
 local db
-local modules = {}
 
 -- defaults table -------------------------------------------------------------
 local defaults = {
 	profile = {
 		enableAddOn = true,
 		modules = {
-			["**"] = true
+			['*'] = true
 		}
 	},
 	global = {
@@ -60,88 +58,6 @@ local defaults = {
 		}
 	}
 }
-
--- options table --------------------------------------------------------------
-function SmartRes2:GetOptions()
-	local options = {
-		name = "SmartRes2 " .. version,
-		handler = SmartRes2,
-		type = "group",
-		childGroups = "tab",
-		args = {
-			general = {
-				order = 1,
-				name = COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL,
-				type = "group",
-				args = {
-					enableAddOn = {
-						order = 10,
-						type = "toggle",
-						name = ENABLE,
-						desc = L["Toggle SmartRes2 and all modules on/off."],
-						descStyle = "inline",
-						get = function() return self.db.profile.enableAddOn end,
-						set = function(info, value)
-							self.db.profile.enableAddOn = value
-							if value then
-								self:Enable()
-							else
-								self:Disable()
-							end
-						end
-					},
-					minimap = {
-						type = "toggle",
-						order = 20,
-						name = MINIMAP_LABEL,
-						desc = L["Show or hide the minimap icon."],
-						descStyle = "inline",
-						get = function() return not self.db.global.minimap.hide end,
-						set = function(_, value)
-							self.db.global.minimap.hide = not value
-							if value then
-								DBI:Show("SmartRes2")
-							else
-								DBI:Hide("SmartRes2")
-							end
-						end
-					},
-					buttonLock = {
-						type = "toggle",
-						order = 30,
-						name = L["Lock Button"],
-						desc = L["Lock minimap button and prevent moving."],
-						descStyle = "inline",
-						get = function() return self.db.global.minimap.lock end,
-						set = function(_, value)
-							self.db.global.minimap.lock = value
-							if value then
-								DBI:Lock("SmartRes2")
-							else
-								DBI:Unlock("SmartRes2")
-							end
-						end
-					},
-					resetButton = {
-						type = "execute",
-						order = 40,
-						name = L["Reset Button"],
-						desc = L["Reset the minimap button to defaults (position, visible, locked)."],
-						func = function()
-							self.db.global.minimap.hide = false
-							self.db.global.minimap.lock = true
-							self.db.global.minimap.minimapPos = 190
-							self.db.global.minimap.radius = 80
-							DBI:Show("SmartRes2")
-							DBI:Lock("SmartRes2")
-						end
-					}
-				}
-			}
-		}
-	}
-	return options
-end
 
 -- returns proper LDB icon ----------------------------------------------------
 local function GetIcon()
@@ -173,44 +89,14 @@ function SmartRes2:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileCopied", "Refresh")
 	self.db.RegisterCallback(self, "OnProfileReset", "Refresh")
 
-	local options = self:GetOptions()
-	
-	-- now embed module options into SmartRes2's options
-	function SmartRes2:InitializeModuleOptions(module)
-		if not module.GetOptions then
-			return
-		end
-		table_insert(modules, module)
-		local opts = module:GetOptions()
-		local name = module.uiName or module:GetName()
-
-		options.args[name] = {
-			name = name,
-			handler = module,
-			type = "group",
-			childGroups = "tab",
-			order = 10 + #modules,
-			args = opts
-		}
-	end
-
-	-- add profiles to options table
-	options.args.profile = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
-	options.args.profile.order = -1
-
-	-- dual spec the options
-	LDS:EnhanceDatabase(self.db, "SmartRes2")
-	LDS:EnhanceOptions(options.args.profile, self.db)
-
-	Registry:RegisterOptionsTable("SmartRes2", options)
-	Dialog:AddToBlizOptions("SmartRes2")
+	self:SetupOptions()
 
 	-- add console commands
 	self:RegisterChatCommand("sr", "SlashHandler")
 	self:RegisterChatCommand("smartres", "SlashHandler")
 
 	-- create LDB Launcher
-	self.launcher = LDB:NewDataObject("SmartRes2 ".. version, {
+	self.launcher = LDB:NewDataObject("SmartRes2 ".. SmartRes2.version, {
 		type = "launcher",
 		icon = GetIcon(),
 		OnClick = function(clickedframe, button)
@@ -229,7 +115,7 @@ function SmartRes2:OnInitialize()
 			end
 		end,
 		OnTooltipShow = function(self)
-			GameTooltip:AddLine("SmartRes2 " .. version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+			GameTooltip:AddLine("SmartRes2 " .. SmartRes2.version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
 			GameTooltip:AddLine(L["Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 			GameTooltip:Show()
 		end
@@ -238,7 +124,6 @@ function SmartRes2:OnInitialize()
 
 	-- OnEnable/OnDisable as appropriate
 	self:SetEnabledState(self.db.profile.enableAddOn)
-	self:Refresh()
 end
 
 function SmartRes2:OnEnable()
@@ -253,9 +138,30 @@ end
 function SmartRes2:Refresh()
 	db = self.db.profile
 
-	for name, module in self:IterateModules() do
-		if type(module.Refresh) == "function" then
-			module:Refresh()
+	for k, v in self:IterateModules() do
+		if self:GetModuleEnabled(k) and not v:IsEnabled() then
+			self:EnableModule(k)
+		elseif not self:GetModuleEnabled(k) and v:IsEnabled() then
+			self:DisableModule(k)
+		end
+		if type(v.Refresh) == "function" then
+			v:Refresh()
+		end
+	end
+end
+
+function SmartRes2:GetModuleEnabled(module)
+	return db.modules[module]
+end
+
+function SmartRes2:SetModuleEnabled(module, value)
+	local old = db.modules[module]
+	db.modules[module] = value
+	if old ~= value then
+		if value then
+			self:EnableModule(module)
+		else
+			self:DisableModule(module)
 		end
 	end
 end
