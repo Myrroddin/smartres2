@@ -13,6 +13,7 @@ local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true, debug)
 
 L["Lock Button"] = true
 L["Lock minimap button and prevent moving."] = true
+L["Minimap Button"] = true
 L["Reset Button"] = true
 L["Reset the minimap button to defaults (position, visible, locked)."] = true
 L["Show or hide the minimap icon."] = true
