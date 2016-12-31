@@ -60,3 +60,4 @@ Locales\Localization.ptBR.lua
 Locales\Localization.koKR.lua
 
 SmartRes2.lua
+Config.lua
