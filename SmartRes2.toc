@@ -43,6 +43,7 @@ Libs\AceEvent-3.0\AceEvent-3.0.xml
 Libs\AceLocale-3.0\AceLocale-3.0.xml
 Libs\LibDualSpec-1.0\LibDualSpec-1.0.lua
 #@end-no-lib-strip@
+Libs\LibResInfo-1.0\LibResInfo-1.0.lua
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 #@no-lib-strip@
 Libs\LibDBIcon-1.0\lib.xml
