@@ -28,7 +28,7 @@
 
 ## SavedVariables: SmartRes2DB
 
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibDualSpec-1.0
+## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibDualSpec-1.0, LibResInfo-1.0
 
 #@no-lib-strip@
 Libs\LibStub\LibStub.lua
