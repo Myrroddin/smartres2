@@ -84,6 +84,10 @@ function SmartRes2:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, true)
 	db = self.db.profile
 
+	-- clean up old db, most variables updated via modules
+	self.db.profile.enableAddon = nil
+	self.db.profile.debugMode = nil
+
 	-- db update callbacks
 	self.db.RegisterCallback(self, "OnProfileChanged", "Refresh")
 	self.db.RegisterCallback(self, "OnProfileCopied", "Refresh")
