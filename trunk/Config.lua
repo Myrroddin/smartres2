@@ -1,5 +1,14 @@
 -- borrowed from Mapster, written by Hendrik "Nevcairiel" Leppkes < h.leppkes@gmail.com >
 
+-- upvalue globals ------------------------------------------------------------
+local _G = getfenv(0)
+local LibStub = _G.LibStub
+local COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL = _G.COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL
+local ENABLE = _G.ENABLE
+local MINIMAP_LABEL = _G.MINIMAP_LABEL
+local pairs = _G.pairs
+local type = _G.type
+
 local SmartRes2 = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 local DBI = LibStub("LibDBIcon-1.0")
@@ -100,7 +109,6 @@ local function getOptions()
                                     order = 30,
                                     name = L["Reset Button"],
                                     desc = L["Reset the minimap button to defaults (position, visible, locked)."],
-                                    descStyle = "inline",
                                     func = function()
                                         SmartRes2.db.global.minimap.hide = false
                                         SmartRes2.db.global.minimap.lock = true
@@ -133,7 +141,7 @@ function SmartRes2:SetupOptions()
 	self.optionsFrames.SmartRes2 = Dialog:AddToBlizOptions("SmartRes2", nil, nil, "general")
 
     -- profiles
-    self.optionsFrames.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
+    self.optionsFrames.profiles = DBOptions:GetOptionsTable(self.db)
     self:RegisterModuleOptions("Profiles", self.optionsFrames.profiles, "Profiles")
     -- multi spec the options
 	LDS:EnhanceDatabase(self.db, "SmartRes2")
