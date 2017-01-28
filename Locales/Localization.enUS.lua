@@ -20,3 +20,4 @@ L["Right click for configuration."] = true
 L["Show or hide the minimap icon."] = true
 L["Toggle module on/off."] = true
 L["Toggle SmartRes2 and all modules on/off."] = true
+L["You have no modules installed or enabled. Please go to Curse.com or Wowinterface.com and get some."] = true

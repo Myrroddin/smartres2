@@ -20,10 +20,15 @@ local select = _G.select
 local type = _G.type
 local UnitAffectingCombat = _G.UnitAffectingCombat
 local GetAddOnMetadata = _G.GetAddOnMetadata
+local ACCEPT = _G.ACCEPT
+local StaticPopup_Hide = _G.StaticPopup_Hide
+local StaticPopup_Show = _G.StaticPopup_Show
+local StaticPopupDialogs = _G.StaticPopupDialogs
 
 -- declare addon --------------------------------------------------------------
 local SmartRes2 = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceConsole-3.0", "AceEvent-3.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
+SmartRes2.L = L
 
 SmartRes2.version = GetAddOnMetadata("SmartRes2", "Version")
 if SmartRes2.version:match("@") then
@@ -100,7 +105,7 @@ function SmartRes2:OnInitialize()
 	self:RegisterChatCommand("smartres", "SlashHandler")
 
 	-- create LDB Launcher
-	self.launcher = LDB:NewDataObject("SmartRes2 ".. SmartRes2.version, {
+	self.launcher = LDB:NewDataObject("SmartRes2", {
 		type = "launcher",
 		icon = GetIcon(),
 		OnClick = function(clickedframe, button)
@@ -119,7 +124,7 @@ function SmartRes2:OnInitialize()
 			end
 		end,
 		OnTooltipShow = function(self)
-			GameTooltip:AddLine("SmartRes2 " .. SmartRes2.version, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+			GameTooltip:AddLine("SmartRes2", HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
 			GameTooltip:AddLine(L["Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 			GameTooltip:Show()
 		end
@@ -127,21 +132,49 @@ function SmartRes2:OnInitialize()
 	DBI:Register("SmartRes2", self.launcher, self.db.global.minimap)
 
 	-- OnEnable/OnDisable as appropriate
-	self:SetEnabledState(self.db.profile.enableAddOn)
+	self:SetEnabledState(db.enableAddOn)
+	
+	-- check if modules exist, if not, warn user ------------------------------
+	StaticPopupDialogs["SMARTRES2_NOMODULES"] = {
+		text = "|cffe6cc80SmartRes2:|r " .. L["You have no modules installed or enabled. Please go to Curse.com or Wowinterface.com and get some."],
+		button1 = ACCEPT,
+		timeout = 0,
+		whileDead = true,
+		hideOnEscape = true
+	}
+	db.noModWarning = true
 end
 
 function SmartRes2:OnEnable()
 	self:RegisterEvent("PLAYER_REGEN_DISABLED")
+
+	local numMods = 0
+	for k, v in self:IterateModules() do
+		numMods = numMods + 1
+		if self:GetModuleEnabled(k) and not v:IsEnabled() then
+			self:EnableModule(k)
+		elseif not self:GetModuleEnabled(k) and v:IsEnabled() then
+			self:DisableModule(k)
+		end
+		if type(v.Refresh) == "function" then
+			v:Refresh()
+		end
+	end
+	if db.noModWarning and numMods == 0 then
+		StaticPopup_Show ("SMARTRES2_NOMODULES")
+		db.noModWarning = false
+	end
 end
 
 function SmartRes2:OnDisable()
-	self:UnregisterAllEvents()
+	self:UnregisterEvent("PLAYER_REGEN_DISABLED")
+	StaticPopup_Hide ("SMARTRES2_NOMODULES")
 end
 
 -- update our database --------------------------------------------------------
 function SmartRes2:Refresh()
 	db = self.db.profile
-
+	
 	for k, v in self:IterateModules() do
 		if self:GetModuleEnabled(k) and not v:IsEnabled() then
 			self:EnableModule(k)
