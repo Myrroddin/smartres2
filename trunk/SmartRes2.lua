@@ -50,6 +50,7 @@ local db
 local defaults = {
 	profile = {
 		enableAddOn = true,
+		noModWarning = true,
 		modules = {
 			['*'] = true
 		}
@@ -90,8 +91,8 @@ function SmartRes2:OnInitialize()
 	db = self.db.profile
 
 	-- clean up old db, most variables updated via modules
-	self.db.profile.enableAddon = nil
-	self.db.profile.debugMode = nil
+	db.enableAddon = nil
+	db.debugMode = nil
 
 	-- db update callbacks
 	self.db.RegisterCallback(self, "OnProfileChanged", "Refresh")
@@ -142,7 +143,6 @@ function SmartRes2:OnInitialize()
 		whileDead = true,
 		hideOnEscape = true
 	}
-	db.noModWarning = true
 end
 
 function SmartRes2:OnEnable()
