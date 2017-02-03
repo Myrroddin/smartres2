@@ -3,13 +3,13 @@ File author: @file-author@
 File revision: @file-revision@
 Date updated: @file-date-iso@
 ]]--
-      
-local debug = false
+
+local silent = true
 --@debug@
-debug = true
+silent = false
 --@end-debug@
 
-local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true, debug)
+local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true, silent)
 
 L["Lock Button"] = true
 L["Lock minimap button and prevent moving."] = true

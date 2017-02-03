@@ -21,3 +21,4 @@ ignore:
 
 tools-used:
     - findglobals
+    - libresinfo

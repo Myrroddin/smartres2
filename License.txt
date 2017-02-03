@@ -1,4 +1,4 @@
-© 2009-2017 Paul "Myrroddin" Vandersypen, All Rights Reserved
+Copyright (c) 2009-2017 Paul "Myrroddin" Vandersypen, All Rights Reserved
 
 1. This software may not be copied, modified, changed, altered or otherwise be different than what the author has created without express written permission.
 
