@@ -1,0 +1,20 @@
+{
+    "Lua.diagnostics.globals": [
+        "HIGHLIGHT_FONT_COLOR",
+        "NORMAL_FONT_COLOR",
+        "ENABLE",
+        "JUST_OR",
+        "DISABLE",
+        "MINIMAP_LABEL",
+        "RAID_TARGET_1",
+        "RAID_TARGET_2",
+        "RAID_TARGET_3",
+        "RAID_TARGET_4",
+        "RAID_TARGET_5",
+        "RAID_TARGET_6",
+        "RAID_TARGET_7",
+        "RAID_TARGET_8",
+        "AddonCompartmentFrame",
+        "GetCursorPosition"
+    ]
+}

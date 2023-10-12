@@ -68,4 +68,3 @@ Locales\ptBR.lua
 Locales\koKR.lua
 
 SmartRes2.lua
-Config.lua
