@@ -15,11 +15,11 @@ externals:
     Libs/AceConfig-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceConfig-3.0
     Libs/AceComm-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceComm-3.0
     Libs/LibDualSpec-1.0: https://repos.curseforge.com/wow/libdualspec-1-0
-    Libs/LibResInfo-1.0: https://repos.curseforge.com/wow/libresinfo
     Libs/LibDataBroker-1.1: https://github.com/tekkub/libdatabroker-1-1/
-    Libs/LibDBIcon-1.0: https://repos.curseforge.com/wow/libdbicon-1-0/trunk
+    Libs/LibDBIcon-1.0: https://repos.curseforge.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
     Libs/LibCandyBar-3.0: https://repos.curseforge.com/wow/libcandybar-3-0/trunk
     Libs/LibAboutPanel-2.0: https://github.com/Myrroddin/libaboutpanel-2.0
+    Libs/LibSharedMedia-3.0: https://repos.curseforge.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0
 
 ignore:
     - Libs/LibStub/tests
