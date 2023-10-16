@@ -24,8 +24,9 @@ local DBI = LibStub("LibDBIcon-1.0")
 local Dialog = LibStub("AceConfigDialog-3.0")
 
 -- variables that are file scope
-local _, default_icon, isMainline, isWrath, player_class
+local _, default_icon, default_mass_res_icon, isMainline, isWrath, player_class
 default_icon = "Interface\\Icons\\Spell_holy_resurrection"
+default_mass_res_icon = "Interface\\Icons\\achievement_guildperk_massresurrection"
 isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 isWrath = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC
 player_class = UnitClassBase("player")
@@ -35,13 +36,16 @@ local db
 local defaults = {
 	profile = {
 		enabled = true,
-		massResKey = "/",
-		resKey = "*",
-		modules = {
-			["**"] = {}
+		["**"] = {		-- addon.db.profile.char...
+			massResKey = "/",
+			resKey = "*"
 		},
-		themes = {
-			["**"] = {}
+		modules = {
+			["**"] = {
+				themes = {
+					["**"] = {}
+				}
+			}
 		},
 		minimap = {
 			hide = false,
@@ -59,6 +63,13 @@ local function OpenOrCloseUX()
 		Dialog:Close("SmartRes2")
 	else
 		Dialog:Open("SmartRes2")
+	end
+end
+
+-- local function to close UX panel when the player enters combat
+local function CombatCloseUX()
+	if Dialog.OpenFrames["SmartRes2"] then
+		Dialog:Close("SmartRes2")
 	end
 end
 
@@ -102,9 +113,7 @@ function addon:OnInitialize()
 		icon = (db.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon,
 		OnClick = function(_, button)
 			if UnitAffectingCombat("player") then
-				if Dialog.OpenFrames["SmartRes2"] then
-					Dialog:Close("SmartRes2")
-				end
+				CombatCloseUX()
 				return
 			end
 			if button == "RightButton" then
@@ -135,9 +144,7 @@ end
 -- chat commands handler
 function addon:ChatCommands()
 	if UnitAffectingCombat("player") then
-		if Dialog.OpenFrames["SmartRes2"] then
-			Dialog:Close("SmartRes2")
-		end
+		CombatCloseUX()
 		return
 	end
 	OpenOrCloseUX()
@@ -159,8 +166,27 @@ function addon:GetIconForBrokerDisplay(playerClass)
 	end
 
 	local player_spell = res_spells[playerClass]
-	local player_spell_icon = select(3, (GetSpellInfo(player_spell)))
+	local player_spell_icon = select(3, GetSpellInfo(player_spell))
 
 	local icon = (player_spell and player_spell_icon) or default_icon
+	return icon
+end
+
+-- function for options UI that returns the player's class mass res icon
+function addon:GetClassMassResIcon(playerClass)
+	if not isMainline then return end
+	local mass_res_spells = {
+		["DRUID"] = GetSpellInfo(212040),				-- Revitalize
+		["EVOKER"] = GetSpellInfo(361178),				-- Mass Return
+		["MONK"] = GetSpellInfo(212051),				-- Reawaken
+		["PALADIN"] = GetSpellInfo(212056),				-- Absolution
+		["PRIEST"] = GetSpellInfo(212036),				-- Mass Resurrection
+		["SHAMAN"] = GetSpellInfo(212048),				-- Ancestral Vision
+	}
+
+	local player_spell = mass_res_spells[playerClass]
+	local player_spell_icon = select(3, GetSpellInfo(player_spell))
+
+	local icon = (player_spell and player_spell_icon) or default_mass_res_icon
 	return icon
 end

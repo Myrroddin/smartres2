@@ -9,9 +9,10 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 local DBI = LibStub("LibDBIcon-1.0")
 
 -- variables that are file scope
-local _, db, player_class, default_icon
+local _, db, player_class, default_icon, isMainline
 player_class = UnitClassBase("player")
 default_icon = "Interface\\Icons\\Spell_holy_resurrection"
+isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 
 function addon:GetOptions()
     db = self.db.profile
@@ -33,7 +34,7 @@ function addon:GetOptions()
                 type = "description",
                 name = L["Notes"],
                 fontSize = "large",
-                image = function() return (db.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon end,
+                image = default_icon,
                 imageWidth = 32,
                 imageHeight = 32
             },
@@ -61,6 +62,46 @@ function addon:GetOptions()
                                 addon:OnDisable()
                             end
                         end
+                    },
+                    singleIcon = {
+                        order = 20,
+                        type = "description",
+                        name = " ",
+                        fontSize = "large",
+                        width = 0.1,
+                        image = function() return self:GetIconForBrokerDisplay(player_class) end,
+                        imageWidth = 24,
+                        imageHeight = 24
+                    },
+                    singleKey = {
+                        order = 30,
+                        type = "keybinding",
+                        name = L["Single Target Res Key"],
+                        desc = L["Intelligently casts your single target res spell."],
+                        get = function() return db.char.resKey end,
+                        set = function(_, value) db.char.resKey = value end
+                    },
+                    massIcon = {
+                        order = 40,
+                        type = "description",
+                        disabled = function() return not isMainline end,
+                        hidden = function() return not isMainline end,
+                        name = " ",
+                        fontSize = "large",
+                        width = 0.1,
+                        image = function() return self:GetClassMassResIcon(player_class) end,
+                        imageWidth = 24,
+                        imageHeight = 24
+                    },
+                    massKey = {
+                        order = 50,
+                        type = "keybinding",
+                        disabled = function() return not isMainline end,
+                        hidden = function() return not isMainline end,
+                        name = L["Mass Res Key"],
+                        desc = L["Intelligently casts your mass res spell."],
+                        get = function() return db.char.massResKey end,
+                        set = function(_, value) db.char.massResKey = value end
                     }
                 }
             },
@@ -108,17 +149,6 @@ function addon:GetOptions()
                         set = function(_, value)
                             db.useClassIconForBroker = value
                             DBI:IconCallback(_, "SmartRes2", "icon", (value and self:GetIconForBrokerDisplay(player_class)) or default_icon)
-                        end
-                    },
-                    resetButton = {
-                        order = 60,
-                        type = "execute",
-                        name = L["Reset Button"],
-                        desc = L["Reset the minimap button to defaults (position, visible, locked)."],
-                        func = function()
-                            local temp = self.db.profile
-                            DBI:Refresh("SmartRes2", temp.minimap)
-                            DBI:IconCallback(_, "SmartRes2", "icon", (temp.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon)
                         end
                     }
                 }
