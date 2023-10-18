@@ -25,3 +25,5 @@ L["Intelligently casts your single target res spell."] = true
 L["Notes"] = "Co-ordinated targetless Party and Raid wipe recovery. Evolved"
 L["Mass Res Key"] = true
 L["Intelligently casts your mass res spell."] = true
+L["Manul Target Res"] = true
+L["Cast on corpses or unit frames."] = true

@@ -79,10 +79,37 @@ function addon:GetOptions()
                         name = L["Single Target Res Key"],
                         desc = L["Intelligently casts your single target res spell."],
                         get = function() return db.char.resKey end,
-                        set = function(_, value) db.char.resKey = value end
+                        set = function(_, value)
+                            value = value:trim()
+                            value = value:len() >= 1 and value or nil
+                            db.char.resKey = value
+                            self:SetResButtonScripts(value)
+                        end
+                    },
+                    manualIcon = {
+                        order = 40,
+                        type = "description",
+                        name = " ",
+                        fontSize = "large",
+                        width = 0.1,
+                        image = "Interface\\cursor\\uicastcursor2x",
+                        imageWidth = 24,
+                        imageHeight = 24
+                    },
+                    manualResKey = {
+                        order = 50,
+                        type = "keybinding",
+                        name = L["Manul Target Res"],
+                        desc = L["Cast on corpses or unit frames."],
+                        get = function() return db.char.manualResKey end,
+                        set = function(_, value)
+                            value = value:trim()
+                            value = value:len() >= 1 and value or nil
+                            db.char.manualResKey = value
+                        end
                     },
                     massIcon = {
-                        order = 40,
+                        order = 60,
                         type = "description",
                         disabled = function() return not isMainline end,
                         hidden = function() return not isMainline end,
@@ -94,14 +121,18 @@ function addon:GetOptions()
                         imageHeight = 24
                     },
                     massKey = {
-                        order = 50,
+                        order = 70,
                         type = "keybinding",
                         disabled = function() return not isMainline end,
                         hidden = function() return not isMainline end,
                         name = L["Mass Res Key"],
                         desc = L["Intelligently casts your mass res spell."],
                         get = function() return db.char.massResKey end,
-                        set = function(_, value) db.char.massResKey = value end
+                        set = function(_, value)
+                            value = value:trim()
+                            value = value:len() >= 1 and value or nil
+                            db.char.massResKey = value
+                        end
                     }
                 }
             },
