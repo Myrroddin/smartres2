@@ -104,6 +104,11 @@
         "CHAT_MSG_SAY",
         "CHAT_MSG_WHISPER_INFORM",
         "CHAT_MSG_YELL",
-        "OFF"
+        "OFF",
+        "CHARACTER",
+        "ChatFontSmall",
+        "ChatFontNormal",
+        "CHAT",
+        "CHAT_OPTIONS"
     ]
 }

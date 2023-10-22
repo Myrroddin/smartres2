@@ -67,5 +67,8 @@ Locales\zhTW.lua
 Locales\ptBR.lua
 Locales\koKR.lua
 
-SmartRes2.lua
-Options.lua
+Core.lua
+CoreOptions.lua
+
+Modules\Chat.lua
+Modules\ChatOptions.lua

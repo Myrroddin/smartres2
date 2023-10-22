@@ -57,21 +57,21 @@ function addon:GetOptions()
                         set = function(_, value)
                             db.enabled = value
                             if value then
-                                addon:OnEnable()
+                                addon:Enable()
                             else
-                                addon:OnDisable()
+                                addon:Disable()
                             end
                         end
                     },
-                    singleIcon = {
+                    feebackMessages = {
                         order = 20,
-                        type = "description",
-                        name = " ",
-                        fontSize = "large",
-                        width = 0.1,
-                        image = function() return self:GetIconForBrokerDisplay(player_class) end,
-                        imageWidth = 24,
-                        imageHeight = 24
+                        type = "toggle",
+                        name = L["Status Messages"],
+                        desc = L["Toggle feedback for keybinding changes."],
+                        get = function() return db.enableFeedback end,
+                        set = function(_, value)
+                            db.enableFeedback = value
+                        end
                     },
                     singleKey = {
                         order = 30,
@@ -83,45 +83,24 @@ function addon:GetOptions()
                             value = value:trim()
                             value = value:len() >= 1 and value or nil
                             db.char.resKey = value
-                            self:SetResButtonScripts(value)
+                            self:BindResKeys()
                         end
                     },
-                    manualIcon = {
-                        order = 40,
-                        type = "description",
-                        name = " ",
-                        fontSize = "large",
-                        width = 0.1,
-                        image = "Interface\\cursor\\uicastcursor2x",
-                        imageWidth = 24,
-                        imageHeight = 24
-                    },
                     manualResKey = {
-                        order = 50,
+                        order = 40,
                         type = "keybinding",
-                        name = L["Manul Target Res"],
+                        name = L["Manual Target Res"],
                         desc = L["Cast on corpses or unit frames."],
                         get = function() return db.char.manualResKey end,
                         set = function(_, value)
                             value = value:trim()
                             value = value:len() >= 1 and value or nil
                             db.char.manualResKey = value
+                            self:BindResKeys()
                         end
                     },
-                    massIcon = {
-                        order = 60,
-                        type = "description",
-                        disabled = function() return not isMainline end,
-                        hidden = function() return not isMainline end,
-                        name = " ",
-                        fontSize = "large",
-                        width = 0.1,
-                        image = function() return self:GetClassMassResIcon(player_class) end,
-                        imageWidth = 24,
-                        imageHeight = 24
-                    },
                     massKey = {
-                        order = 70,
+                        order = 50,
                         type = "keybinding",
                         disabled = function() return not isMainline end,
                         hidden = function() return not isMainline end,
@@ -132,6 +111,7 @@ function addon:GetOptions()
                             value = value:trim()
                             value = value:len() >= 1 and value or nil
                             db.char.massResKey = value
+                            self:BindMassResKey()
                         end
                     }
                 }
@@ -156,8 +136,26 @@ function addon:GetOptions()
                             end
                         end
                     },
-                    lock = {
+                    addonCompartment = {
                         order = 20,
+                        type = "toggle",
+                        disabled = function() return not isMainline end,
+                        hidden = function() return not isMainline end,
+                        name = L["AddOn Compartment"],
+                        desc = L["Toggle showing the minimap icon in the addon compartment."],
+                        get = function() return db.minimap.showInCompartment end,
+                        set = function(_, value)
+                            db.minimap.showInCompartment = value
+                            local icon = db.useClassIconForBroker and self:GetIconForBrokerDisplay() or default_icon
+                            if value then
+                                DBI:AddButtonToCompartment("SmartRes2", icon)
+                            else
+                                DBI:RemoveButtonFromCompartment("SmartRes2")
+                            end
+                        end
+                    },
+                    lock = {
+                        order = 30,
                         type = "toggle",
                         name = L["Lock Button"],
                         desc = L["Lock minimap button and prevent moving."],
@@ -172,7 +170,7 @@ function addon:GetOptions()
                         end
                     },
                     useClassIconForBroker = {
-                        order = 30,
+                        order = 40,
                         type = "toggle",
                         name = L["Class Button"],
                         desc = L["Use your class spell icon for the Broker display (defaults to Priest's Resurrection)."],
