@@ -14,6 +14,16 @@ player_class = UnitClassBase("player")
 default_icon = "Interface\\Icons\\Spell_holy_resurrection"
 isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 
+-- local function to round minimap button position so it isn't between degrees
+local function Round(value, decimals)
+    -- constrain the button to 360° (0-359)
+    if value <= 0 then return 0 end
+    if value >= 359 then return 359 end
+
+    local mult = 10 ^ (decimals or 0)
+    return floor(value * mult + 0.5) / mult
+end
+
 function addon:GetOptions()
     db = self.db.profile
     -- create the user options
@@ -63,7 +73,7 @@ function addon:GetOptions()
                             end
                         end
                     },
-                    feebackMessages = {
+                    feedbackMessages = {
                         order = 20,
                         type = "toggle",
                         name = L["Status Messages"],
@@ -134,53 +144,99 @@ function addon:GetOptions()
                             else
                                 DBI:Show("SmartRes2")
                             end
+                            DBI:Refresh("SmartRes2", db.minimap)
                         end
                     },
                     addonCompartment = {
                         order = 20,
                         type = "toggle",
-                        disabled = function() return not isMainline end,
-                        hidden = function() return not isMainline end,
+                        disabled = function() return not DBI:IsButtonCompartmentAvailable() end,
+                        hidden = function() return not DBI:IsButtonCompartmentAvailable() end,
                         name = L["AddOn Compartment"],
                         desc = L["Toggle showing the minimap icon in the addon compartment."],
                         get = function() return db.minimap.showInCompartment end,
                         set = function(_, value)
                             db.minimap.showInCompartment = value
                             local icon = db.useClassIconForBroker and self:GetIconForBrokerDisplay() or default_icon
-                            if value then
-                                DBI:AddButtonToCompartment("SmartRes2", icon)
-                            else
-                                DBI:RemoveButtonFromCompartment("SmartRes2")
+                            if DBI:IsButtonCompartmentAvailable() then
+                                if value then
+                                    DBI:AddButtonToCompartment("SmartRes2", icon)
+                                else
+                                    DBI:RemoveButtonFromCompartment("SmartRes2")
+                                end
                             end
+                            DBI:Refresh("SmartRes2", db.minimap)
                         end
                     },
                     lock = {
                         order = 30,
                         type = "toggle",
                         name = L["Lock Button"],
-                        desc = L["Lock minimap button and prevent moving."],
+                        desc = L["Lock minimap button and prevent dragging."],
                         get = function() return db.minimap.lock end,
                         set = function(_, value)
                             db.minimap.lock = value
                             if value then
+                                if db.lockOnDegree then
+                                    db.minimap.minimapPos = Round(db.minimap.minimapPos, 0)
+                                    DBI:SetButtonToPosition("SmartRes2", db.minimap.minimapPos)
+                                end
                                 DBI:Lock("SmartRes2")
                             else
                                 DBI:Unlock("SmartRes2")
                             end
+                            DBI:Refresh("SmartRes2", db.minimap)
+                        end
+                    },
+                    lockOnDegree = {
+                        order = 40,
+                        type = "toggle",
+                        name = L["Precise Lock"],
+                        desc = L["When locked, the button will adjust to an exact degree between 0-359°."],
+                        get = function() return db.lockOnDegree end,
+                        set = function(_, value)
+                            db.lockOnDegree = value
                         end
                     },
                     useClassIconForBroker = {
-                        order = 40,
+                        order = 50,
                         type = "toggle",
                         name = L["Class Button"],
-                        desc = L["Use your class spell icon for the Broker display (defaults to Priest's Resurrection)."],
+                        desc = L["Use your class spell icon (defaults to Priest's Resurrection)."],
                         get = function() return db.useClassIconForBroker end,
                         set = function(_, value)
                             db.useClassIconForBroker = value
-                            DBI:IconCallback(_, "SmartRes2", "icon", (value and self:GetIconForBrokerDisplay(player_class)) or default_icon)
+                            local button = DBI:GetMinimapButton("SmartRes2")
+                            local iconTexture = (value and self:GetIconForBrokerDisplay(player_class)) or default_icon
+                            button.icon:SetTexture(iconTexture)
                         end
+                    },
+                    minimapPos = {
+                        order = 60,
+                        type = "range",
+                        name = L["Rotation"],
+                        desc = L["Rotate the icon around the minimap."],
+                        get = function() return db.minimap.minimapPos end,
+                        set = function(_, value)
+                            if db.lockOnDegree then
+                                value = Round(value, 0)
+                            end
+                            db.minimap.minimapPos = value
+                            DBI:SetButtonToPosition("SmartRes2", value)
+                            DBI:Refresh("SmartRes2", db.minimap)
+                        end,
+                        min = 0,
+                        max = 359,
+                        step = 1,
+                        bigStep = 45
                     }
                 }
+            },
+            modules = {
+                order = 60,
+                type = "group",
+                name = "",
+                args = {}
             }
         }
     }

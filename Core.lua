@@ -9,7 +9,6 @@
 local GetAddOnMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
 local GetSpellName = GetSpellBookItemName or GetSpellName
 local SaveBindings = SaveBindings or AttemptToSaveBindings
-local CastSpellByName = hooksecurefunc("CastSpellByName", CastSpellByName) -- reduce the game screaming at us with taint errors
 
 -- create the main addon
 local addon = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceEvent-3.0", "AceConsole-3.0", "AceComm-3.0", "LibAboutPanel-2.0")
@@ -25,6 +24,7 @@ end
 -- additional libraries
 local DBI = LibStub("LibDBIcon-1.0")
 local Dialog = LibStub("AceConfigDialog-3.0")
+local DualSpec = LibStub:GetLibrary("LibDualSpec-1.0", true)
 
 -- variables that are file scope
 local _, knownResSpell, knownMassResSpell
@@ -48,13 +48,11 @@ massResButton:SetScript("PreClick", function()
 end)
 
 -- create the default user options and shortcut variable
-local db
-local defaults = {
+local db, options
+addon.defaults = {
 	profile = {
 		enabled = true,
-		enableFeeback = true,
-		["**"] = {		-- addon.db.profile.char...
-		},
+		enableFeedback = true,
 		minimap = {
 			hide = false,
 			lock = true,
@@ -62,7 +60,9 @@ local defaults = {
 			radius = 80,
 			showInCompartment = true
 		},
-		useClassIconForBroker = true
+		useClassIconForBroker = true,
+		lockOnDegree = true,
+		modules = {}
 	}
 }
 
@@ -84,7 +84,7 @@ end
 
 -- Ace3 embedded functions
 function addon:OnInitialize()
-	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, true)
+	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", self.defaults, true)
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
@@ -92,23 +92,19 @@ function addon:OnInitialize()
 	self:SetEnabledState(db.enabled)
 
 	-- get the options table from Options.lua
-	local options = self:GetOptions()
-
-	-- get module options
-	local moduleOrder = 100
-	for moduleName, module in self:IterateModules() do
-		options.args[moduleName] = module:GetOptions()
-		options.args[moduleName].order = moduleOrder
-		moduleOrder = moduleOrder + 10
-	end
+	options = self:GetOptions()
 
 	-- create Profiles
 	options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
 	options.args.profiles.order = 0 -- first tab in the options panel
 
 	-- LibDualSpec enchancements
-	LibStub("LibDualSpec-1.0"):EnhanceDatabase(self.db, "SmartRes2")
-	LibStub("LibDualSpec-1.0"):EnhanceOptions(options.args.profiles, self.db)
+	if isWrath or isMainline then
+		if DualSpec then
+			DualSpec:EnhanceDatabase(self.db, "SmartRes2")
+			DualSpec:EnhanceOptions(options.args.profiles, self.db)
+		end
+	end
 
 	-- add "About" panel from LibAboutPanel-2.0
 	options.args.aboutPanel = self:AboutOptionsTable("SmartRes2")
@@ -145,27 +141,25 @@ function addon:OnInitialize()
 		end
 	})
 	DBI:Register("SmartRes2", launcher, db.minimap)
+
+	-- register event when player enters combat; this event is never unregistered
+	self:RegisterEvent("PLAYER_REGEN_DISABLED", "EnteringCombat")
 end
 
 function addon:OnEnable()
-	self:SetEnabledState(db.enabled)
 	self:RegisterEvent("SPELLS_CHANGED", "GetUpdatedSpells")
 	self:BindResKeys()
 	self:BindMassResKey()
-	for moduleName, module in self:IterateModules() do
-		if db[moduleName].enabled and not module:IsEnabled() then
-			self:EnableModule(moduleName)
-		end
-	end
 end
 
 function addon:OnDisable()
-	self:SetEnabledState(db.enabled)
 	self:UnregisterEvent("SPELLS_CHANGED")
 	self:UnbindAllResAndMassResKeys()
 	for moduleName, module in self:IterateModules() do
-		if module:IsEnabled() then
-			self:DisableModule(moduleName)
+		if moduleName then
+			if module:IsEnabled() then
+				self:DisableModule(moduleName)
+			end
 		end
 	end
 end
@@ -173,7 +167,9 @@ end
 function addon:RefreshConfig()
 	db = self.db.profile
 	DBI:Refresh("SmartRes2", db.minimap)
-	DBI:IconCallback(_, "SmartRes2", "icon", (db.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon)
+	local button = DBI:GetMinimapButton("SmartRes2")
+	local iconTexture = (db.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon
+	button.icon:SetTexture(iconTexture)
 	for _, module in self:IterateModules() do
 		if type(module.RefreshConfig) == "function" then
 			module:RefreshConfig()
@@ -190,6 +186,25 @@ function addon:ChatCommands()
 		return
 	end
 	OpenOrCloseUX()
+end
+
+-- functions to register module options and check if a module is registered
+local moduleOrder, installedModules = 10, {}
+function addon:RegisterModuleOptions(moduleName, optionsTable)
+	if not options.args.modules then
+		options.args.modules = {}
+	end
+	options.args.modules[moduleName] = moduleName
+	options.args.modules[moduleName].order = moduleOrder
+	options.args.modules[moduleName].type = optionsTable and optionsTable.type or "group"
+	options.args.modules[moduleName].name = optionsTable and optionsTable.name or moduleName
+	options.args.modules[moduleName].args = optionsTable and optionsTable.args or {}
+	moduleOrder = moduleOrder + 10
+	installedModules[moduleName] = true
+end
+
+function addon:IsModuleAlreadyRegistered(moduleName)
+	return installedModules[moduleName] and true or false
 end
 
 -- function that returns the player's class resurrection spell icon or default_icon
@@ -305,8 +320,10 @@ function addon:BindResKeys()
 		if db.enableFeedback then
 			self:Print(L["You do not know a single target res spell, cannot bind keys."])
 		end
-		db.char.resKey = nil
-		db.char.manualResKey = nil
+		if db.char then
+			db.char.resKey = nil
+			db.char.manualResKey = nil
+		end
 		return
 	end
 	local ok
@@ -335,11 +352,23 @@ end
 
 -- bind the mass res key
 function addon:BindMassResKey()
+	if not isMainline then
+		if db.enableFeedback then
+			self:Print(L["Wrong game version, cannot bind mass res key."])
+		end
+		if db.char then
+			db.char.massResKey = nil
+		end
+		return
+	end
+
 	if not knownMassResSpell then
 		if db.enableFeedback then
 			self:Print(L["You do not know a mass res spell, cannot bind key."])
 		end
-		db.char.massResKey = nil
+		if db.char then
+			db.char.massResKey = nil
+		end
 		return
 	end
 	local ok
@@ -371,10 +400,22 @@ function addon:UnbindAllResAndMassResKeys()
 	SaveBindings(CHARACTER_BINDINGS)
 end
 
+-- handle events
+function addon:EnteringCombat()
+	if UnitAffectingCombat("player") then
+		CombatCloseUX()
+	end
+end
+
 -- smart res functions that pick dead targets intelligently
 function addon:SingleResurrection()
 end
 
 -- smart mass res function
 function addon:MassRessurection()
+	if not isMainline then return end
+	if not IsInGroup() then
+		self:Print(L["You are not in a group."])
+		return
+	end
 end

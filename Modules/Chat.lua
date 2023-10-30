@@ -6,26 +6,29 @@ local module = addon:NewModule("Chat")
 -- if we call self:Print(...) we would get Chat:Print(...)
 
 local db
-local defaults = {
+local moduleDefaults = {
     profile = {
         enabled = true,
+        notifySelf = true,
+        notifyCollision = true,
+        singleResOutput = "group",
+        massResOutput = "group",
     }
 }
 
 function module:OnInitialize()
-    self.db = addon.db:RegisterNamespace("Chat", defaults)
-    db = self.db.profile
-    self:SetEnabledState(db.enabled)
+    addon.db:RegisterNamespace(module:GetName(), moduleDefaults)
+    local options = self:GetOptions()
+    addon:RegisterModuleOptions(module:GetName(), options)
+    db = addon.db.profile.modules[module:GetName()]
 end
 
 function module:OnEnable()
-    self:SetEnabledState(db.enabled)
 end
 
 function module:OnDisable()
-    self:SetEnabledState(db.enabled)
 end
 
 function module:RefreshConfig()
-    db = self.db.profile
+    db = addon.db.profile.modules[module:GetName()]
 end
