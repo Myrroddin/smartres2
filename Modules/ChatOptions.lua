@@ -8,8 +8,8 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 function module:GetOptions()
     local db = addon.db.profile.modules[module:GetName()]
     local options = {
-        order = 10,
         type = "group",
+        childGroups = "tab",
         name = CHAT_OPTIONS_LABEL,
         args = {
             miscellaneous = {
@@ -47,9 +47,9 @@ function module:GetOptions()
                         type = "toggle",
                         name = L["Inform Colliders"],
                         desc = L["Tell other players their spells will not finish first."],
-                        get = function() return db.notififyCollision end,
+                        get = function() return db.notifyCollision end,
                         set = function(_, value)
-                            db.notififyCollision = value
+                            db.notifyCollision = value
                         end
                     }
                 }

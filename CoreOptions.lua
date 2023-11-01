@@ -196,6 +196,11 @@ function addon:GetOptions()
                         get = function() return db.lockOnDegree end,
                         set = function(_, value)
                             db.lockOnDegree = value
+                            if value then
+                                db.minimap.minimapPos = Round(db.minimap.minimapPos, 0)
+                                DBI:SetButtonToPosition("SmartRes2", db.minimap.minimapPos)
+                                DBI:Refresh("SmartRes2", db.minimap)
+                            end
                         end
                     },
                     useClassIconForBroker = {
@@ -231,12 +236,6 @@ function addon:GetOptions()
                         bigStep = 45
                     }
                 }
-            },
-            modules = {
-                order = 60,
-                type = "group",
-                name = "",
-                args = {}
             }
         }
     }

@@ -151,6 +151,7 @@
         "ChatEdit_GetActiveWindow",
         "ChatEdit_InsertLink",
         "ChatFrame_OpenChat",
-        "CLASS_ICON_TCOORDS"
+        "CLASS_ICON_TCOORDS",
+        "ABSORB"
     ]
 }

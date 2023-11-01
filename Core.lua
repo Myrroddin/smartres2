@@ -49,10 +49,15 @@ end)
 
 -- create the default user options and shortcut variable
 local db, options
-addon.defaults = {
+local defaults = {
 	profile = {
 		enabled = true,
 		enableFeedback = true,
+		char = {
+			manualResKey = nil,
+			reskey = nil,
+			massResKey = nil
+		},
 		minimap = {
 			hide = false,
 			lock = true,
@@ -84,7 +89,7 @@ end
 
 -- Ace3 embedded functions
 function addon:OnInitialize()
-	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", self.defaults, true)
+	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, true)
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
@@ -149,7 +154,9 @@ end
 function addon:OnEnable()
 	self:RegisterEvent("SPELLS_CHANGED", "GetUpdatedSpells")
 	self:BindResKeys()
-	self:BindMassResKey()
+	if isMainline then
+		self:BindMassResKey()
+	end
 end
 
 function addon:OnDisable()
@@ -176,7 +183,9 @@ function addon:RefreshConfig()
 		end
 	end
 	self:BindResKeys()
-	self:BindMassResKey()
+	if isMainline then
+		self:BindMassResKey()
+	end
 end
 
 -- chat commands handler
@@ -188,17 +197,17 @@ function addon:ChatCommands()
 	OpenOrCloseUX()
 end
 
+-- function to register module defaults and update database shortcut
+function addon:RegisterModuleDefaults(moduleName, moduleDefaults)
+	self.db.profile.modules[moduleName] = moduleDefaults
+	db = self.db.profile
+end
+
 -- functions to register module options and check if a module is registered
-local moduleOrder, installedModules = 10, {}
-function addon:RegisterModuleOptions(moduleName, optionsTable)
-	if not options.args.modules then
-		options.args.modules = {}
-	end
-	options.args.modules[moduleName] = moduleName
-	options.args.modules[moduleName].order = moduleOrder
-	options.args.modules[moduleName].type = optionsTable and optionsTable.type or "group"
-	options.args.modules[moduleName].name = optionsTable and optionsTable.name or moduleName
-	options.args.modules[moduleName].args = optionsTable and optionsTable.args or {}
+local moduleOrder, installedModules = 100, {}
+function addon:RegisterModuleOptions(moduleName, moduleOptions)
+	options.args[moduleName] = moduleOptions
+	options.args[moduleName].order = moduleOrder
 	moduleOrder = moduleOrder + 10
 	installedModules[moduleName] = true
 end
