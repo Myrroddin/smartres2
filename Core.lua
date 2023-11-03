@@ -6,14 +6,14 @@
 -- Project date: @project-date-iso@
 
 -- upvalue Blizzard APIs for game version compatibility
-local GetAddOnMetadata = (C_AddOns and C_AddOns.GetAddOnMetadata) or GetAddOnMetadata
+local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata or GetAddOnMetadata
 local GetSpellName = GetSpellBookItemName or GetSpellName
 local SaveBindings = SaveBindings or AttemptToSaveBindings
 
 -- create the main addon
-local addon = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceEvent-3.0", "AceConsole-3.0", "AceComm-3.0", "LibAboutPanel-2.0")
+local addon = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceEvent-3.0", "AceConsole-3.0", "AceComm-3.0", "AceSerializer-3.0", "LibAboutPanel-2.0")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
-addon:SetDefaultModuleLibraries("AceEvent-3.0", "AceComm-3.0", "AceConsole-3.0")
+addon:SetDefaultModuleLibraries("AceEvent-3.0", "AceConsole-3.0", "AceComm-3.0", "AceSerializer-3.0")
 
 -- get the addon version
 addon.version = GetAddOnMetadata("SmartRes2", "Version")
@@ -24,15 +24,14 @@ end
 -- additional libraries
 local DBI = LibStub("LibDBIcon-1.0")
 local Dialog = LibStub("AceConfigDialog-3.0")
-local DualSpec = LibStub:GetLibrary("LibDualSpec-1.0", true)
 
 -- variables that are file scope
 local _, knownResSpell, knownMassResSpell
 local default_icon = "Interface\\Icons\\Spell_holy_resurrection"
-local default_mass_res_icon = "Interface\\Icons\\achievement_guildperk_massresurrection"
 local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local isWrath = WOW_PROJECT_ID == WOW_PROJECT_WRATH_CLASSIC
 local player_class = UnitClassBase("player")
+local player_GUID = UnitGUID("player")
 
 -- res buttons to be fully created via Options.lua
 local resButton = CreateFrame("Button", "SmartRes2_ResButton", UIParent, "SecureActionButtonTemplate")
@@ -105,10 +104,8 @@ function addon:OnInitialize()
 
 	-- LibDualSpec enchancements
 	if isWrath or isMainline then
-		if DualSpec then
-			DualSpec:EnhanceDatabase(self.db, "SmartRes2")
-			DualSpec:EnhanceOptions(options.args.profiles, self.db)
-		end
+		LibStub("LibDualSpec-1.0"):EnhanceDatabase(self.db, "SmartRes2")
+		LibStub("LibDualSpec-1.0"):EnhanceOptions(options.args.profiles, self.db)
 	end
 
 	-- add "About" panel from LibAboutPanel-2.0
@@ -197,25 +194,6 @@ function addon:ChatCommands()
 	OpenOrCloseUX()
 end
 
--- function to register module defaults and update database shortcut
-function addon:RegisterModuleDefaults(moduleName, moduleDefaults)
-	self.db.profile.modules[moduleName] = moduleDefaults
-	db = self.db.profile
-end
-
--- functions to register module options and check if a module is registered
-local moduleOrder, installedModules = 100, {}
-function addon:RegisterModuleOptions(moduleName, moduleOptions)
-	options.args[moduleName] = moduleOptions
-	options.args[moduleName].order = moduleOrder
-	moduleOrder = moduleOrder + 10
-	installedModules[moduleName] = true
-end
-
-function addon:IsModuleAlreadyRegistered(moduleName)
-	return installedModules[moduleName] and true or false
-end
-
 -- function that returns the player's class resurrection spell icon or default_icon
 local res_spells_by_class = {
 	["PALADIN"] = GetSpellInfo(7328),						-- Redemption
@@ -247,18 +225,6 @@ if isMainline then
 	mass_res_spells_by_class["PALADIN"] = GetSpellInfo(212056)		-- Absolution
 	mass_res_spells_by_class["PRIEST"] = GetSpellInfo(212036)		-- Mass Resurrection
 	mass_res_spells_by_class["SHAMAN"] = GetSpellInfo(212048)		-- Ancestral Vision
-end
-
-function addon:GetClassMassResIcon(playerClass)
-	if not isMainline then
-		return "" -- empty string, in case Options.lua complains about a nil value
-	end
-
-	local player_spell = mass_res_spells_by_class[playerClass]
-	local player_spell_icon = select(3, GetSpellInfo(player_spell))
-
-	local icon = (player_spell and player_spell_icon) or default_mass_res_icon
-	return icon
 end
 
 -- function to learn which res spell and spell rank the player knows
@@ -329,10 +295,8 @@ function addon:BindResKeys()
 		if db.enableFeedback then
 			self:Print(L["You do not know a single target res spell, cannot bind keys."])
 		end
-		if db.char then
-			db.char.resKey = nil
-			db.char.manualResKey = nil
-		end
+		db.char.resKey = nil
+		db.char.manualResKey = nil
 		return
 	end
 	local ok
@@ -365,9 +329,7 @@ function addon:BindMassResKey()
 		if db.enableFeedback then
 			self:Print(L["Wrong game version, cannot bind mass res key."])
 		end
-		if db.char then
-			db.char.massResKey = nil
-		end
+		db.char.massResKey = nil
 		return
 	end
 
@@ -375,9 +337,7 @@ function addon:BindMassResKey()
 		if db.enableFeedback then
 			self:Print(L["You do not know a mass res spell, cannot bind key."])
 		end
-		if db.char then
-			db.char.massResKey = nil
-		end
+		db.char.massResKey = nil
 		return
 	end
 	local ok
@@ -408,6 +368,42 @@ function addon:UnbindAllResAndMassResKeys()
 	end
 	SaveBindings(CHARACTER_BINDINGS)
 end
+
+---------- APIs ---------
+-- function to register module defaults and update database shortcut
+function addon:RegisterModuleDefaults(moduleName, moduleDefaults)
+	self.db.profile.modules[moduleName] = moduleDefaults
+	db = self.db.profile
+end
+
+-- functions to register module options and check if a module is registered
+local moduleOrder, installedModules = 100, {}
+function addon:RegisterModuleOptions(moduleName, moduleOptions)
+	options.args[moduleName] = moduleOptions
+	options.args[moduleName].order = moduleOrder
+	moduleOrder = moduleOrder + 10
+	installedModules[moduleName] = true
+end
+
+function addon:IsModuleAlreadyRegistered(moduleName)
+	return installedModules[moduleName] and true or false
+end
+
+-- translate input table and return localizations
+function addon:TranslateTable(inputTable)
+    local outputTable = {}
+    for index, value in pairs(inputTable) do
+        outputTable[index] = L[value]
+    end
+    return outputTable
+end
+
+-- round to N decimals
+function addon:Round(value, decimals)
+	local mult = 10 ^ (decimals or 0)
+	return floor(value * mult + 0.5) / mult
+end
+--------- end of APIs ----------
 
 -- handle events
 function addon:EnteringCombat()

@@ -152,6 +152,9 @@
         "ChatEdit_InsertLink",
         "ChatFrame_OpenChat",
         "CLASS_ICON_TCOORDS",
-        "ABSORB"
+        "ABSORB",
+        "CHAT_MSG_WHISPER",
+        "CHAT_MSG_INSTANCE_CHAT",
+        "CHANNEL_CATEGORY_GROUP"
     ]
 }

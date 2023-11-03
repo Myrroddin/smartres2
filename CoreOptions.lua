@@ -14,16 +14,6 @@ player_class = UnitClassBase("player")
 default_icon = "Interface\\Icons\\Spell_holy_resurrection"
 isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 
--- local function to round minimap button position so it isn't between degrees
-local function Round(value, decimals)
-    -- constrain the button to 360° (0-359)
-    if value <= 0 then return 0 end
-    if value >= 359 then return 359 end
-
-    local mult = 10 ^ (decimals or 0)
-    return floor(value * mult + 0.5) / mult
-end
-
 function addon:GetOptions()
     db = self.db.profile
     -- create the user options
@@ -79,9 +69,7 @@ function addon:GetOptions()
                         name = L["Status Messages"],
                         desc = L["Toggle feedback for keybinding changes."],
                         get = function() return db.enableFeedback end,
-                        set = function(_, value)
-                            db.enableFeedback = value
-                        end
+                        set = function(_, value) db.enableFeedback = value end
                     },
                     singleKey = {
                         order = 30,
@@ -177,14 +165,17 @@ function addon:GetOptions()
                         set = function(_, value)
                             db.minimap.lock = value
                             if value then
-                                if db.lockOnDegree then
-                                    db.minimap.minimapPos = Round(db.minimap.minimapPos, 0)
-                                    DBI:SetButtonToPosition("SmartRes2", db.minimap.minimapPos)
-                                end
                                 DBI:Lock("SmartRes2")
                             else
                                 DBI:Unlock("SmartRes2")
                             end
+                            if db.lockOnDegree then
+                                db.minimap.minimapPos = addon:Round(db.minimap.minimapPos, 0)
+                            end
+                            -- constrain the button to 360° (0-359)
+                            if db.minimap.minimapPos <= 0 then value = 0 end
+                            if db.minimap.minimapPos >= 359 then value = 359 end
+                            DBI:SetButtonToPosition("SmartRes2", db.minimap.minimapPos)
                             DBI:Refresh("SmartRes2", db.minimap)
                         end
                     },
@@ -197,10 +188,13 @@ function addon:GetOptions()
                         set = function(_, value)
                             db.lockOnDegree = value
                             if value then
-                                db.minimap.minimapPos = Round(db.minimap.minimapPos, 0)
-                                DBI:SetButtonToPosition("SmartRes2", db.minimap.minimapPos)
-                                DBI:Refresh("SmartRes2", db.minimap)
+                                db.minimap.minimapPos = addon:Round(db.minimap.minimapPos, 0)
                             end
+                            -- constrain the button to 360° (0-359)
+                            if db.minimap.minimapPos <= 0 then db.minimap.minimapPos =  0 end
+                            if db.minimap.minimapPos >= 359 then db.minimap.minimapPos = 359 end
+                            DBI:SetButtonToPosition("SmartRes2", db.minimap.minimapPos)
+                            DBI:Refresh("SmartRes2", db.minimap)
                         end
                     },
                     useClassIconForBroker = {
@@ -224,16 +218,19 @@ function addon:GetOptions()
                         get = function() return db.minimap.minimapPos end,
                         set = function(_, value)
                             if db.lockOnDegree then
-                                value = Round(value, 0)
+                                value = addon:Round(value, 0)
                             end
+                            -- constrain the button to 360° (0-359)
+                            if value <= 0 then value =  0 end
+                            if value >= 359 then value = 359 end
                             db.minimap.minimapPos = value
-                            DBI:SetButtonToPosition("SmartRes2", value)
+                            DBI:SetButtonToPosition("SmartRes2", db.minimap.minimapPos)
                             DBI:Refresh("SmartRes2", db.minimap)
                         end,
                         min = 0,
                         max = 359,
                         step = 1,
-                        bigStep = 45
+                        bigStep = 15
                     }
                 }
             }
