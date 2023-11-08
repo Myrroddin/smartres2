@@ -372,7 +372,8 @@ end
 ---------- APIs ---------
 -- function to register module defaults and update database shortcut
 function addon:RegisterModuleDefaults(moduleName, moduleDefaults)
-	self.db.profile.modules[moduleName] = moduleDefaults
+	defaults.profile.modules[moduleName] = moduleDefaults
+	self.db:RegisterDefaults(defaults)
 	db = self.db.profile
 end
 
@@ -391,9 +392,10 @@ end
 
 -- translate input table and return localizations
 function addon:TranslateTable(inputTable)
+	-- inputTable's index is a string, value is a Boolean; therefore, we localize the index
     local outputTable = {}
-    for index, value in pairs(inputTable) do
-        outputTable[index] = L[value]
+    for index in pairs(inputTable) do
+        outputTable[index] = L[index]
     end
     return outputTable
 end
