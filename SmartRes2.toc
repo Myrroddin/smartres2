@@ -1,5 +1,5 @@
-## Interface: 100200
-## Interface-Classic: 11404
+## Interface: 100205
+## Interface-Classic: 11500
 ## Interface-Wrath: 30403
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
@@ -31,12 +31,12 @@
 
 ## X-Website: https://www.curseforge.com/wow/addons/smartres2
 ## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
-## X-License: Copyright (c) 2009 - 2023, Paul Vandersypen. All Rights Reserved
+## X-License: Copyright (c) 2024, Paul Vandersypen. All Rights Reserved
 
 ## SavedVariables: SmartRes2DB
 
 #@non-classic@
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibDualSpec-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0
+## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibDualSpec-1.0, 
 #@end-non-classic@
 #@classic@
 ## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0
