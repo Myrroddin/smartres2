@@ -1,5 +1,4 @@
 package-as: SmartRes2
-enable-toc-creation: yes
 wowi-archive-previous: no
 
 externals:
@@ -15,7 +14,6 @@ externals:
     Libs/AceConfig-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceConfig-3.0
     Libs/AceComm-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceComm-3.0
     Libs/AceSerializer-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceComm-3.0/AceSerializer-3.0
-    Libs/LibDualSpec-1.0: https://repos.curseforge.com/wow/libdualspec-1-0
     Libs/LibDataBroker-1.1: https://github.com/tekkub/libdatabroker-1-1/
     Libs/LibDBIcon-1.0: https://repos.curseforge.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
     Libs/LibCandyBar-3.0: https://repos.curseforge.com/wow/libcandybar-3-0/trunk
@@ -26,3 +24,11 @@ externals:
 
 ignore:
     - Libs/LibStub/tests
+    - Modules-Cata
+    - Modules-Mainline
+    - SmartRes2_Cata.toc
+    - SmartRes2_Mainline.toc
+    - Core-Cata.lua
+    - Core-Mainline.lua
+    - Options-Cata.lua
+    - Options-Mainline.lua

@@ -1,6 +1,4 @@
 ## Interface: 100207
-## Interface-Classic: 11502
-## Interface-Cata: 40400
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
 ## Notes-ruRU: @localization(locale="ruRU", key="Notes")@
@@ -35,12 +33,7 @@
 
 ## SavedVariables: SmartRes2DB
 
-#@non-classic@
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibDualSpec-1.0, 
-#@end-non-classic@
-#@classic@
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0
-#@end-classic@
+## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibDualSpec-1.0
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
@@ -54,9 +47,7 @@ Libs\AceGUI-3.0\AceGUI-3.0.xml
 Libs\AceConfig-3.0\AceConfig-3.0.xml
 Libs\AceComm-3.0\AceComm-3.0.xml
 Libs\AceSerializer-3.0\AceSerializer-3.0.xml
-#@non-classic@
 Libs\LibDualSpec-1.0\LibDualSpec-1.0.lua
-#@end-non-classic@
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Libs\LibDBIcon-1.0\lib.xml
 Libs\LibCandyBar-3.0\lib.xml
@@ -75,8 +66,8 @@ Locales\zhTW.lua
 Locales\ptBR.lua
 Locales\koKR.lua
 
-Core.lua
-CoreOptions.lua
+Core-Retail.lua
+Options-Retail.lua
 
-Modules\Chat.lua
-Modules\ChatOptions.lua
+Modules-Retail\Chat.lua
+Modules-Retail\ChatOptions.lua

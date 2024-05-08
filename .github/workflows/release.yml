@@ -39,9 +39,17 @@ jobs:
       # once cloned, we just run the GitHub Action for the packager project
       - name: Package and release
         uses: BigWigsMods/packager@v2
+        with:
+          args: -g retail -m pkgmeta-mainline.yml
 
       # Classic Era and Hardcore do not support dual talent specializations, thus LibDualSpec-1.0 is not needed
-      - name: Package and release for CE and HC
+      - name: Package and release for Classic Era, hardcore, and seasons
         uses: BigWigsMods/packager@v2
         with:
-          args: -g classic -m .pkgmeta-classic
+          args: -g classic -m pkgmeta-vanilla.yml
+      
+      # Cataclysm Classic package and release
+      - name: Package and release for Cataclysm Classic
+        uses: BigWigsMods/packager@v2
+        with:
+          args: -g cata -m pkgmeta-cata.yml
