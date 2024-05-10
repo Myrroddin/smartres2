@@ -6,7 +6,6 @@ local module = addon:NewModule("Chat")
 -- if we call self:Print(...) we would get Chat:Print(...)
 
 -- local variables
-local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 module.singleRandomMessages, module.massRandomMessages = {}, {}
 
 local db
@@ -59,7 +58,5 @@ function module:OnDisable()
 end
 
 function module:RefreshConfig()
-    wipe(module.singleRandomMessages)
-    wipe(module.massRandomMessages)
     db = addon.db.profile.modules[module:GetName()]
 end

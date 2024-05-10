@@ -1,6 +1,6 @@
 Copyright (c) 2024 Paul Vandersypen. All Rights Reserved
 
-1. This software may not be copied, modified, changed, altered or otherwise be different than what the author has created without express written permission.
+1. This software may not be copied, modified, changed, altered or otherwise be different than what the author has created without express written permission, unless for personal use.
 
 2. This software may only be distributed on wowinterface.com, wago.io, or curse.com or their respective authorized member websites.
 

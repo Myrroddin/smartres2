@@ -6,8 +6,7 @@ local module = addon:NewModule("Chat")
 -- if we call self:Print(...) we would get Chat:Print(...)
 
 -- local variables
-local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
-module.singleRandomMessages, module.massRandomMessages = {}, {}
+module.singleRandomMessages = {}
 
 local db
 local defaults = {
@@ -15,9 +14,7 @@ local defaults = {
     notifySelf = true,
     notifyCollision = "WHISPER",
     singleResOutput = "GROUP",
-    massResOutput = "GROUP",
     overrideSingleResMessage = nil,
-    overrideMassResMessage = nil,
     randomSingleMessages = {
         ["I am resurrecting %s."] = true,
         ["Hey %s! Stop being dead, lazy bones!"] = true,
@@ -37,11 +34,6 @@ local defaults = {
         ["Think that was bad? I proudly show %s the scar tissue caused by Hogger."] = true,
         ["How was the dirt nap, %s?"] = true,
         ["You have about 10 more seconds of sleep time, %s."] = true,
-    },
-    randomMassMessages = {
-        ["What's better than a resurrection spell? A mass resurrection spell!"] = true,
-        ["All your resurrections are belong to me!"] = true,
-        ["I am casting mass resurrection."] = true,
     }
 }
 
@@ -59,7 +51,5 @@ function module:OnDisable()
 end
 
 function module:RefreshConfig()
-    wipe(module.singleRandomMessages)
-    wipe(module.massRandomMessages)
     db = addon.db.profile.modules[module:GetName()]
 end

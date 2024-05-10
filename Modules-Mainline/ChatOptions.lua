@@ -4,22 +4,18 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 
 -- we must remember to call addon:Print(..) to get SmartRes2:Print(...)
 -- if we call self:Print(...) we would get Chat:Print(...)
-
-local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local function ChatTypes()
     local chatTypes = {
         ["GROUP"] = CHANNEL_CATEGORY_GROUP,
         ["GUILD"] = CHAT_MSG_GUILD,
-        ["NONE"] = NONE,
+        ["0-NONE"] = NONE,
         ["PARTY"] = CHAT_MSG_PARTY,
         ["RAID"] = CHAT_MSG_RAID,
         ["SAY"] = CHAT_MSG_SAY,
         ["WHISPER"] = CHAT_MSG_WHISPER_INFORM,
         ["YELL"] = CHAT_MSG_YELL,
+        ["INSTANCE"] = CHAT_MSG_INSTANCE_CHAT,
     }
-    if isMainline then
-        chatTypes["INSTANCE"] = CHAT_MSG_INSTANCE_CHAT
-    end
     return chatTypes
 end
 
@@ -201,8 +197,6 @@ function module:GetOptions()
             massRes = {
                 order = 30,
                 type = "group",
-                disabled = function() return not isMainline end,
-                hidden = function() return not isMainline end,
                 name = L["Mass Res Options"],
                 args = {
                     overrideMassResMessage = {
