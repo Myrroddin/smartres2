@@ -45,27 +45,27 @@ massResButton:SetScript("PreClick", function()
 end)
 
 -- create the default user options and shortcut variable
-local db, options
-local defaults = {
-	profile = {
-		enabled = true,
-		enableFeedback = true,
-		minimap = {
-			hide = false,
-			lock = true,
-			minimapPos = 45,
-			radius = 80,
-			showInCompartment = true
-		},
-		useClassIconForBroker = true,
-		lockOnDegree = true,
-		modules = {}
-	},
+local cdb, gdb, pdb, options
+local defaults = {,
 	char = {
 		manualResKey = nil,
 		reskey = nil,
 		massResKey = nil
 	},
+	global = {
+		minimap = {
+			hide = false,
+			lock = true,
+			showInCompartment = true,
+			useClassIconForBroker = true,
+			lockOnDegree = true,
+			minimapPos = 45
+		}
+	},
+	profile = {
+		enabled = true,
+		enableFeedback = true
+	}
 }
 
 -- local function to open/close the UX panel; saves writing the code multiple times
@@ -90,8 +90,14 @@ function addon:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
-	db = self.db
-	self:SetEnabledState(db.profile.enabled)
+
+	-- shortcuts
+	cdb = self.db.char
+	gdb = self.db.global
+	pdb = self.db.profile
+
+	-- enable or disable the addon based on the profile
+	self:SetEnabledState(pdb.enabled)
 
 	-- get the options table from Options.lua
 	options = self:GetOptions()
@@ -122,7 +128,7 @@ function addon:OnInitialize()
 		tocname = "SmartRes2",
 		label = "SmartRes2",
 		text = "SmartRes2",
-		icon = (db.profile.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon,
+		icon = (gdb.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon,
 		OnClick = function(_, button)
 			if UnitAffectingCombat("player") then
 				CombatCloseUX()
@@ -138,7 +144,7 @@ function addon:OnInitialize()
 			tooltip:Show()
 		end
 	})
-	DBI:Register("SmartRes2", launcher, db.profile.minimap)
+	DBI:Register("SmartRes2", launcher, gdb.minimap)
 
 	-- register events when player enters or leaves combat; these events are never unregistered
 	self:RegisterEvent("PLAYER_REGEN_DISABLED", "EnteringCombat")
@@ -147,34 +153,39 @@ end
 
 function addon:OnEnable()
 	self:RegisterEvent("SPELLS_CHANGED", "GetUpdatedSpells")
+	self:GetUpdatedSpells()
 	self:BindResKeys()
 	self:BindMassResKey()
-end
-
-function addon:OnDisable()
-	self:UnregisterEvent("SPELLS_CHANGED")
-	self:UnbindAllResAndMassResKeys()
 	for moduleName, module in self:IterateModules() do
-		if moduleName then
-			if module:IsEnabled() then
-				self:DisableModule(moduleName)
+		local mdbe = module.db.profile.enabled
+		if mdbe then
+			if not module:IsEnabled() then
+				self:EnableModule(moduleName)
 			end
 		end
 	end
 end
 
+function addon:OnDisable()
+	self:UnregisterEvent("SPELLS_CHANGED")
+	self:UnbindAllResAndMassResKeys()
+	for moduleName in self:IterateModules() do
+		self:DisableModule(moduleName)
+	end
+end
+
 function addon:RefreshConfig()
-	self.db:RegisterDefaults(defaults)
-	self.db:ResetDB("Default")
-	db = self.db
+	cdb = self.db.char
+	gdb = self.db.global
+	pdb = self.db.profile
 	for _, module in self:IterateModules() do
 		if type(module.RefreshConfig) == "function" then
 			module:RefreshConfig()
 		end
 	end
-	DBI:Refresh("SmartRes2", db.profile.minimap)
+	DBI:Refresh("SmartRes2", gdb.minimap)
 	local button = DBI:GetMinimapButton("SmartRes2")
-	local iconTexture = (db.profile.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon
+	local iconTexture = (gdb.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon
 	button.icon:SetTexture(iconTexture)
 	self:BindResKeys()
 	self:BindMassResKey()
@@ -267,94 +278,73 @@ end
 -- bind the single res keys
 function addon:BindResKeys()
 	if not knownResSpell then
-		if db.profile.enableFeedback then
+		if pdb.enableFeedback then
 			self:Print(L["You do not know a single target res spell, cannot bind keys."])
 		end
-		db.char.resKey = nil
-		db.char.manualResKey = nil
+		cdb.resKey = nil
+		cdb.manualResKey = nil
 		return
 	end
 	local ok
 
-	if db.char.resKey then
-		ok = SetBindingClick(db.char.resKey, resButton:GetName(), "LeftClick")
+	if cdb.resKey then
+		ok = SetBindingClick(cdb.resKey, resButton:GetName(), "LeftClick")
 		if ok then
-			if db.profile.enableFeedback then
+			if pdb.enableFeedback then
 				self:Print(L["Single target key bound."])
 			end
 		end
 	end
 
-	if db.char.manualResKey then
-		ok = SetBindingSpell(db.char.manualResKey, knownResSpell)
+	if cdb.manualResKey then
+		ok = SetBindingSpell(cdb.manualResKey, knownResSpell)
 		if ok then
-			if db.profile.enableFeedback then
+			if pdb.enableFeedback then
 				self:Print(L["Manual target key bound."])
 			end
 		end
 	end
 
 	-- save the bindings per characher so they persist through logout
-	SaveBindings(CHARACTER_BINDINGS)
+	SaveBindings(2)
 end
 
 -- bind the mass res key
 function addon:BindMassResKey()
 	if not knownMassResSpell then
-		if db.profile.enableFeedback then
+		if pdb.enableFeedback then
 			self:Print(L["You do not know a mass res spell, cannot bind key."])
 		end
-		db.char.massResKey = nil
+		cdb.massResKey = nil
 		return
 	end
 	local ok
 
-	if db.char.massResKey then
-		ok = SetBindingClick(db.char.massResKey, massResButton:GetName(), "LeftClick")
+	if cdb.massResKey then
+		ok = SetBindingClick(cdb.massResKey, massResButton:GetName(), "LeftClick")
 		if ok then
-			if db.profile.enableFeedback then
+			if pdb.enableFeedback then
 				self:Print(L["Mass res key bound."])
 			end
 		end
 	end
 
 	-- save the bindings per characher so they persist through logout
-	SaveBindings(CHARACTER_BINDINGS)
+	SaveBindings(2)
 end
 
 -- unbind all the keys
 function addon:UnbindAllResAndMassResKeys()
-	if db.char.resKey then
-		SetBinding(db.char.resKey)
+	if cdb.resKey then
+		SetBinding(cdb.resKey)
 	end
-	if db.char.manualResKey then
-		SetBinding(db.char.manualResKey)
+	if cdb.manualResKey then
+		SetBinding(cdb.manualResKey)
 	end
-	if db.char.massResKey then
-		SetBinding(db.char.massResKey)
+	if cdb.massResKey then
+		SetBinding(cdb.massResKey)
 	end
-	SaveBindings(CHARACTER_BINDINGS)
-end
-
----------- APIs ---------
--- function to register module defaults and update database shortcut
-function addon:RegisterModuleDefaults(moduleName, moduleDefaults)
-	defaults.profile.modules[moduleName] = moduleDefaults
-	self.db:RegisterDefaults(defaults)
-	db = self.db
-end
-
--- functions to register module options and check if a module is registered
-local moduleOrder, installedModules = 100, {}
-function addon:RegisterModuleOptions(moduleName, moduleOptions)
-	options.args[moduleName] = moduleOptions
-	options.args[moduleName].order = moduleOrder
-	moduleOrder = moduleOrder + 10
-	installedModules[moduleName] = true
-end
-
-function addon:IsModuleAlreadyRegistered(moduleName)
-	return installedModules[moduleName] and true or false
+	SaveBindings(2)
 end
 
 -- translate input table and return localizations

@@ -12,8 +12,8 @@ local db
 local defaults = {
     enabled = true,
     notifySelf = true,
-    notifyCollision = "WHISPER",
-    singleResOutput = "GROUP",
+    notifyCollision = "whisper",
+    singleResOutput = "group",
     overrideSingleResMessage = nil,
     randomSingleMessages = {
         ["I am resurrecting %s."] = true,
@@ -38,10 +38,13 @@ local defaults = {
 }
 
 function module:OnInitialize()
-    addon:RegisterModuleDefaults(module:GetName(), defaults)
-    local options = self:GetOptions()
-    addon:RegisterModuleOptions(module:GetName(), options)
-    db = addon.db.profile.modules[module:GetName()]
+    self.db = addon.db:RegisterNamespace(module:GetName(), {profile = defaults})
+	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
+	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
+	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
+    addon.options.args[module:GetName()] = self:GetOptions()
+    db = self.db.profile
+    self:SetEnabledState(db.enabled)
 end
 
 function module:OnEnable()
@@ -51,5 +54,5 @@ function module:OnDisable()
 end
 
 function module:RefreshConfig()
-    db = addon.db.profile.modules[module:GetName()]
+    db = self.db.profile
 end

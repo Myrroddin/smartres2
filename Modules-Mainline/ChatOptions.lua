@@ -6,21 +6,22 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 -- if we call self:Print(...) we would get Chat:Print(...)
 local function ChatTypes()
     local chatTypes = {
-        ["GROUP"] = CHANNEL_CATEGORY_GROUP,
-        ["GUILD"] = CHAT_MSG_GUILD,
-        ["0-NONE"] = NONE,
-        ["PARTY"] = CHAT_MSG_PARTY,
-        ["RAID"] = CHAT_MSG_RAID,
-        ["SAY"] = CHAT_MSG_SAY,
-        ["WHISPER"] = CHAT_MSG_WHISPER_INFORM,
-        ["YELL"] = CHAT_MSG_YELL,
-        ["INSTANCE"] = CHAT_MSG_INSTANCE_CHAT,
+        ["group"] = CHANNEL_CATEGORY_GROUP,
+        ["guild"] = CHAT_MSG_GUILD,
+        ["none"] = NONE,
+        ["party"] = CHAT_MSG_PARTY,
+        ["raid"] = CHAT_MSG_RAID,
+        ["say"] = CHAT_MSG_SAY,
+        ["whisper"] = CHAT_MSG_WHISPER_INFORM,
+        ["yell"] = CHAT_MSG_YELL,
+        ["instance"] = CHAT_MSG_INSTANCE_CHAT,
     }
     return chatTypes
 end
 
 function module:GetOptions()
-    local db = addon.db.profile.modules[module:GetName()]
+    self.db = addon.db:GetNamespace(module:GetName())
+    local db = self.db.profile
     local options = {
         type = "group",
         childGroups = "tab",
@@ -40,9 +41,9 @@ function module:GetOptions()
                         set = function(_, value)
                             db.enabled = value
                             if value then
-                                addon:EnableModule("Chat")
+                                addon:EnableModule(module:GetName())
                             else
-                                addon:DisableModule("Chat")
+                                addon:DisableModule(module:GetName())
                             end
                         end
                     },
