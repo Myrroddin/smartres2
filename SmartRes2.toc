@@ -70,5 +70,5 @@ Locales\koKR.lua
 Core-Mainline.lua
 Options-Mainline.lua
 
-Modules-Mainline\Chat.lua
-Modules-Mainline\ChatOptions.lua
+Modules-Mainline\Chat\Chat.lua
+Modules-Mainline\Chat\ChatOptions.lua

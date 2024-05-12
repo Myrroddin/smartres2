@@ -70,5 +70,5 @@ Locales\koKR.lua
 Core-Cata.lua
 Options-Cata.lua
 
-Modules-Cata\Chat.lua
-Modules-Cata\ChatOptions.lua
+Modules-Cata\Chat\Chat.lua
+Modules-Cata\Chat\ChatOptions.lua

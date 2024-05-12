@@ -69,5 +69,5 @@ Locales\koKR.lua
 Core-Vanilla.lua
 Options-Vanilla.lua
 
-Modules-Vanilla\Chat.lua
-Modules-Vanilla\ChatOptions.lua
+Modules-Vanilla\Chat\Chat.lua
+Modules-Vanilla\Chat\ChatOptions.lua

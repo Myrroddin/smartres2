@@ -9,14 +9,17 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 local DBI = LibStub("LibDBIcon-1.0")
 
 -- variables that are file scope
-local _, cdb, gdb, pdb, player_class, default_icon, isMainline
+local _, db, player_class, default_icon
 player_class = UnitClassBase("player")
+local realm_name = GetRealmName()
+local player_name = UnitName("player") .. " - " .. realm_name
 default_icon = "Interface\\Icons\\Spell_holy_resurrection"
 
 function addon:GetOptions()
-    cdb = self.db.char
-    gdb = self.db.global
-    pdb = self.db.profile
+    -- we need character-baased key binds
+	self.db.profile[player_name] = self.db.profile[player_name] or {}
+    -- shortcut
+    db = self.db.profile
     -- create the user options
     local options = {
         order = 10,
@@ -54,9 +57,9 @@ function addon:GetOptions()
                         type = "toggle",
                         name = ENABLE .. " " .. JUST_OR .. " " .. DISABLE,
                         desc = L["Toggle SmartRes2 and all modules on/off."],
-                        get = function() return pdb.enabled end,
+                        get = function() return db.enabled end,
                         set = function(_, value)
-                            pdb.enabled = value
+                            db.enabled = value
                             if value then
                                 addon:Enable()
                             else
@@ -69,19 +72,19 @@ function addon:GetOptions()
                         type = "toggle",
                         name = L["Status Messages"],
                         desc = L["Toggle feedback for keybinding changes."],
-                        get = function() return pdb.enableFeedback end,
-                        set = function(_, value) pdb.enableFeedback = value end
+                        get = function() return db.enableFeedback end,
+                        set = function(_, value) db.enableFeedback = value end
                     },
                     singleKey = {
                         order = 30,
                         type = "keybinding",
                         name = L["Single Target Res Key"],
                         desc = L["Intelligently casts your single target res spell."],
-                        get = function() return cdb.resKey end,
+                        get = function() return db[player_name].resKey end,
                         set = function(_, value)
                             value = value:trim()
-                            value = value:len() >= 1 and value or nil
-                            cdb.resKey = value
+                            value = value:len() >= 1 and value or ""
+                            db[player_name].resKey = value
                             self:BindResKeys()
                         end
                     },
@@ -90,11 +93,11 @@ function addon:GetOptions()
                         type = "keybinding",
                         name = L["Manual Target Res"],
                         desc = L["Cast on corpses or unit frames."],
-                        get = function() return cdb.manualResKey end,
+                        get = function() return db[player_name].manualResKey end,
                         set = function(_, value)
                             value = value:trim()
-                            value = value:len() >= 1 and value or nil
-                            cdb.manualResKey = value
+                            value = value:len() >= 1 and value or ""
+                            db[player_name].manualResKey = value
                             self:BindResKeys()
                         end
                     },
@@ -103,11 +106,11 @@ function addon:GetOptions()
                         type = "keybinding",
                         name = L["Mass Res Key"],
                         desc = L["Intelligently casts your mass res spell."],
-                        get = function() return cdb.massResKey end,
+                        get = function() returndb[player_name].massResKey end,
                         set = function(_, value)
                             value = value:trim()
-                            value = value:len() >= 1 and value or nil
-                            cdb.massResKey = value
+                            value = value:len() >= 1 and value or ""
+                           db[player_name].massResKey = value
                             self:BindMassResKey()
                         end
                     }
@@ -123,15 +126,15 @@ function addon:GetOptions()
                         type = "toggle",
                         name = L["Minimap Button"],
                         desc = L["Hide the minimap icon."],
-                        get = function() return gdb.minimap.hide end,
+                        get = function() return db.minimap.hide end,
                         set = function(_, value)
-                            gdb.minimap.hide = value
+                            db.minimap.hide = value
                             if value then
                                 DBI:Hide("SmartRes2")
                             else
                                 DBI:Show("SmartRes2")
                             end
-                            DBI:Refresh("SmartRes2", gdb.minimap)
+                            DBI:Refresh("SmartRes2", db.minimap)
                         end
                     },
                     lock = {
@@ -139,22 +142,22 @@ function addon:GetOptions()
                         type = "toggle",
                         name = L["Lock Button"],
                         desc = L["Lock minimap button and prevent dragging."],
-                        get = function() return gdb.minimap.lock end,
+                        get = function() return db.minimap.lock end,
                         set = function(_, value)
-                            gdb.minimap.lock = value
+                            db.minimap.lock = value
                             if value then
                                 DBI:Lock("SmartRes2")
                             else
                                 DBI:Unlock("SmartRes2")
                             end
-                            if gdb.minimap.lockOnDegree then
-                                gdb.minimap.minimapPos = addon:Round(gdb.minimap.minimapPos, 0)
+                            if db.minimap.lockOnDegree then
+                                db.minimap.minimapPos = addon:Round(db.minimap.minimapPos, 0)
                             end
                             -- constrain the button to 360° (0-359)
-                            if gdb.minimap.minimapPos <= 0 then value = 0 end
-                            if gdb.minimap.minimapPos >= 359 then value = 359 end
-                            DBI:SetButtonToPosition("SmartRes2", gdb.minimap.minimapPos)
-                            DBI:Refresh("SmartRes2", gdb.minimap)
+                            if db.minimap.minimapPos <= 0 then value = 0 end
+                            if db.minimap.minimapPos >= 359 then value = 359 end
+                            DBI:SetButtonToPosition("SmartRes2", db.minimap.minimapPos)
+                            DBI:Refresh("SmartRes2", db.minimap)
                         end
                     },
                     lockOnDegree = {
@@ -162,17 +165,17 @@ function addon:GetOptions()
                         type = "toggle",
                         name = L["Precise Lock"],
                         desc = L["When locked, the button will adjust to an exact degree between 0-359°."],
-                        get = function() return gdb.minimap.lockOnDegree end,
+                        get = function() return db.minimap.lockOnDegree end,
                         set = function(_, value)
-                            gdb.minimap.lockOnDegree = value
+                            db.minimap.lockOnDegree = value
                             if value then
-                                gdb.minimap.minimapPos = addon:Round(gdb.minimap.minimapPos, 0)
+                                db.minimap.minimapPos = addon:Round(db.minimap.minimapPos, 0)
                             end
                             -- constrain the button to 360° (0-359)
-                            if gdb.minimap.minimapPos <= 0 then gdb.minimap.minimapPos =  0 end
-                            if gdb.minimap.minimapPos >= 359 then gdb.minimap.minimapPos = 359 end
-                            DBI:SetButtonToPosition("SmartRes2", gdb.minimap.minimapPos)
-                            DBI:Refresh("SmartRes2", gdb.minimap)
+                            if db.minimap.minimapPos <= 0 then db.minimap.minimapPos =  0 end
+                            if db.minimap.minimapPos >= 359 then db.minimap.minimapPos = 359 end
+                            DBI:SetButtonToPosition("SmartRes2", db.minimap.minimapPos)
+                            DBI:Refresh("SmartRes2", db.minimap)
                         end
                     },
                     useClassIconForBroker = {
@@ -180,9 +183,9 @@ function addon:GetOptions()
                         type = "toggle",
                         name = L["Class Button"],
                         desc = L["Use your class spell icon (defaults to Priest's Resurrection)."],
-                        get = function() return gdb.minimap.useClassiconForBroker end,
+                        get = function() return db.minimap.useClassiconForBroker end,
                         set = function(_, value)
-                            gdb.minimap.useClassiconForBroker = value
+                            db.minimap.useClassiconForBroker = value
                             local button = DBI:GetMinimapButton("SmartRes2")
                             local iconTexture = (value and self:GetIconForBrokerDisplay(player_class)) or default_icon
                             button.icon:SetTexture(iconTexture)
@@ -193,17 +196,17 @@ function addon:GetOptions()
                         type = "range",
                         name = L["Rotate Button"],
                         desc = L["Rotate the icon around the minimap."],
-                        get = function() return gdb.minimap.minimapPos end,
+                        get = function() return db.minimap.minimapPos end,
                         set = function(_, value)
-                            if gdb.minimap.lockOnDegree then
+                            if db.minimap.lockOnDegree then
                                 value = addon:Round(value, 0)
                             end
                             -- constrain the button to 360° (0-359)
                             if value <= 0 then value =  0 end
                             if value >= 359 then value = 359 end
-                            gdb.minimap.minimapPos = value
-                            DBI:SetButtonToPosition("SmartRes2", gdb.minimap.minimapPos)
-                            DBI:Refresh("SmartRes2", gdb.minimap)
+                            db.minimap.minimapPos = value
+                            DBI:SetButtonToPosition("SmartRes2", db.minimap.minimapPos)
+                            DBI:Refresh("SmartRes2", db.minimap)
                         end,
                         min = 0,
                         max = 359,

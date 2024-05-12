@@ -30,6 +30,8 @@ local _, knownResSpell, knownMassResSpell
 local default_icon = "Interface\\Icons\\Spell_holy_resurrection"
 local player_class = UnitClassBase("player")
 local player_GUID = UnitGUID("player")
+local realm_name = GetRealmName()
+local player_name = UnitName("player") .. " - " .. realm_name
 
 -- res buttons to be fully created via Options.lua
 local resButton = CreateFrame("Button", "SmartRes2_ResButton", UIParent, "SecureActionButtonTemplate")
@@ -45,14 +47,11 @@ massResButton:SetScript("PreClick", function()
 end)
 
 
-local cdb, gdb, pdb, options
-local defaults = {,
-	char = {
-		manualResKey = nil,
-		reskey = nil,
-		massResKey = nil
-	},
-	global = {
+local db, options
+local defaults = {
+	profile = {
+		enabled = true,
+		enableFeedback = true,
 		minimap = {
 			hide = false,
 			lock = true,
@@ -60,10 +59,6 @@ local defaults = {,
 			lockOnDegree = true,
 			minimapPos = 45
 		}
-	},
-	profile = {
-		enabled = true,
-		enableFeedback = true
 	}
 }
 
@@ -90,13 +85,14 @@ function addon:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
 
-	-- shortcuts
-	cdb = self.db.char
-	gdb = self.db.global
-	pdb = self.db.profile
+	-- we need character-baased key binds
+	self.db.profile[player_name] = self.db.profile[player_name] or {}
+
+	-- shortcut
+	db = self.db.profile
 
 	-- enable or disable the addon based on the profile
-	self:SetEnabledState(pdb.enabled)
+	self:SetEnabledState(db.enabled)
 
 	-- get the options table from Options.lua
 	options = self:GetOptions()
@@ -127,7 +123,7 @@ function addon:OnInitialize()
 		tocname = "SmartRes2",
 		label = "SmartRes2",
 		text = "SmartRes2",
-		icon = (gdb.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon,
+		icon = (db.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon,
 		OnClick = function(_, button)
 			if UnitAffectingCombat("player") then
 				CombatCloseUX()
@@ -143,7 +139,7 @@ function addon:OnInitialize()
 			tooltip:Show()
 		end
 	})
-	DBI:Register("SmartRes2", launcher, gdb.minimap)
+	DBI:Register("SmartRes2", launcher, db.minimap)
 
 	-- register events when player enters or leaves combat; these events are never unregistered
 	self:RegisterEvent("PLAYER_REGEN_DISABLED", "EnteringCombat")
@@ -174,17 +170,16 @@ function addon:OnDisable()
 end
 
 function addon:RefreshConfig()
-	cdb = self.db.char
-	gdb = self.db.global
-	pdb = self.db.profile
+	self.db.profile[player_name] = {}
+	db = self.db.profile
 	for _, module in self:IterateModules() do
 		if type(module.RefreshConfig) == "function" then
 			module:RefreshConfig()
 		end
 	end
-	DBI:Refresh("SmartRes2", gdb.minimap)
+	DBI:Refresh("SmartRes2", db.minimap)
 	local button = DBI:GetMinimapButton("SmartRes2")
-	local iconTexture = (gdb.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon
+	local iconTexture = (db.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon
 	button.icon:SetTexture(iconTexture)
 	self:BindResKeys()
 	self:BindMassResKey()
@@ -257,56 +252,110 @@ function addon:GetUpdatedSpells()
 	knownMassResSpell = IsSpellKnown(83968) and GetSpellInfo(83968)
 end
 
+-- bind the single res keys
+function addon:BindResKeys()
+	-- clear the bindings if the player does not know a res spell
+	if not knownResSpell then
+		if db.enableFeedback then
+			self:Print(L["You do not know a single target res spell, cannot bind keys."])
+		end
+		db[player_name].resKey, db[player_name].manualResKey = "", ""
+		-- if the API SetBinding() is not passed a second arg then it unbinds the key
+		SetBinding(db[player_name].resKey)
+		SetBinding(db[player_name].manualResKey)
+		SaveBindings(2)
+		return
+	end
+
+	-- the user cleared the res spell keybind
+	if db[player_name].resKey == "" then
+		SetBinding(db[player_name].resKey)
+		SaveBindings(2)
+		return
+	end
+
+	-- the user cleared the manual res spell keybind
+	if db[player_name].manualResKey == "" then
+		SetBinding(db[player_name].manualResKey)
+		SaveBindings(2)
+		return
+	end
+
+	-- the user is setting a non-empty string for the keybinds
+	local ok = SetBindingClick(db[player_name].resKey, resButton:GetName(), "LeftClick")
+	if ok then
+		if db.enableFeedback then
+			self:Print(L["Single target key bound."])
+		end
+	end
+
+	ok = SetBindingSpell(db[player_name].manualResKey, knownResSpell)
+	if ok then
+		if db.enableFeedback then
+			self:Print(L["Manual target key bound."])
+		end
+	end
+
+	-- save the bindings per character so they persist through logout
+	SaveBindings(2)
+end
+
 -- bind the mass res key
 function addon:BindMassResKey()
 	if not knownMassResSpell then
-		if pdb.enableFeedback then
+		if db.enableFeedback then
 			self:Print(L["You do not know a mass res spell, cannot bind key."])
 		end
-		cdb.massResKey = nil
+		db[player_name].massResKey = ""
+		-- if the API SetBinding() is not passed a second arg then it unbinds the key
+		SetBinding(db[player_name].massResKey)
+		SaveBindings(2)
 		return
 	end
-	local ok
+	
+	-- the user cleared the mass res spell keybind
+	if db[player_name].massResKey == "" then
+		SetBinding(db[player_name].massResKey)
+		SaveBindings(2)
+		return
+	end
 
-	if cdb.massResKey then
-		ok = SetBindingClick(cdb.massResKey, massResButton:GetName(), "LeftClick")
-		if ok then
-			if pdb.enableFeedback then
-				self:Print(L["Mass res key bound."])
-			end
+	-- the user is setting a non-empty string for the keybinds
+	local ok = SetBindingClick(db[player_name].massResKey, massResButton:GetName(), "LeftClick")
+	if ok then
+		if db.enableFeedback then
+			self:Print(L["Mass res key bound."])
 		end
 	end
 
-	-- save the bindings per characher so they persist through logout
+	-- save the bindings so they persist through logout
 	SaveBindings(2)
 end
 
 -- unbind all the keys
 function addon:UnbindAllResAndMassResKeys()
-	if cdb.resKey then
-		SetBinding(cdb.resKey)
-	end
-	if cdb.manualResKey then
-		SetBinding(cdb.manualResKey)
-	end
-	if cdb.massResKey then
-		SetBinding(cdb.massResKey)
-	end
-	SaveBindings(2)
-end
+	-- if the API SetBinding() is not passed a second arg then it unbinds the key
 
--- unbind all the keys
-function addon:UnbindAllResAndMassResKeys()
-	if cdb.resKey then
-		SetBinding(cdb.resKey)
-	end
-	if cdb.manualResKey then
-		SetBinding(cdb.manualResKey)
-	end
-	if cdb.massResKey then
-		SetBinding(cdb.massResKey)
-	end
+	-- we do not want to override the user's settings for the keybinds, so create temp variables
+	local tempResKey = db[player_name].resKey
+	local tempManualResKey = db[player_name].manualResKey
+	local tempMassResKey = db[player_name].massResKey
+
+	-- temporarily set the user keybinds to empty strings
+	db[player_name].resKey = ""
+	db[player_name].manualResKey = ""
+	db[player_name].massResKey = ""
+
+	-- unbind the keys
+	SetBinding(db[player_name].resKey)
+	SetBinding(db[player_name].manualResKey)
+	SetBinding(db[player_name].massResKey)
 	SaveBindings(2)
+
+	-- restore the user settings
+	db[player_name].resKey = tempResKey
+	db[player_name].manualResKey = tempManualResKey
+	db[player_name].massResKey = tempMassResKey
 end
 
 -- translate input table and return localizations
@@ -324,7 +373,6 @@ function addon:Round(value, decimals)
 	local mult = 10 ^ (decimals or 0)
 	return floor(value * mult + 0.5) / mult
 end
---------- end of APIs ----------
 
 -- handle events
 function addon:EnteringCombat()
