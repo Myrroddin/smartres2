@@ -6,7 +6,7 @@
 -- Project date: @project-date-iso@
 
 -- upvalue Blizzard APIs for game version compatibility
-local GetAddOnMetadata = GetAddOnMetadata
+local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata
 local GetSpellBookItemName = GetSpellBookItemName
 local SaveBindings = SaveBindings
 

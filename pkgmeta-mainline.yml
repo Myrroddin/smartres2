@@ -34,11 +34,11 @@ ignore:
   - Libs/*.txt
   - Libs/*.textile
   - Libs/LibDualSpec-1.0\LibStub.lua
-  - Modules-Vanilla
+  - Modules-Classic
   - Modules-Cata
-  - SmartRes2_Vanilla.toc
+  - SmartRes2_Classic.toc
   - SmartRes2_Cata.toc
-  - Core-Vanilla.lua
+  - Core-Classic.lua
   - Core-Cata.lua
-  - Options-Vanilla.lua
+  - Options-Classic.lua
   - Options-Cata.lua

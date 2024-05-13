@@ -106,7 +106,7 @@ function addon:GetOptions()
                         type = "keybinding",
                         name = L["Mass Res Key"],
                         desc = L["Intelligently casts your mass res spell."],
-                        get = function() returndb[player_name].massResKey end,
+                        get = function() return db[player_name].massResKey end,
                         set = function(_, value)
                             value = value:trim()
                             value = value:len() >= 1 and value or ""

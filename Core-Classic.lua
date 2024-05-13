@@ -6,7 +6,7 @@
 -- Project date: @project-date-iso@
 
 -- upvalue Blizzard APIs for game version compatibility
-local GetAddOnMetadata = GetAddOnMetadata
+local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata
 local GetSpellBookItemName = GetSpellBookItemName
 local SaveBindings = SaveBindings
 
@@ -94,6 +94,13 @@ function addon:OnInitialize()
 	-- create Profiles
 	options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
 	options.args.profiles.order = 0 -- first tab in the options panel
+
+	-- LibDualSpec enchancements for Seasons == 2 (Season of Discovery)
+	local isSoD = (WOW_PROJECT_ID == WOW_PROJECT_CLASSIC) and (C_Seasons and C_Seasons.GetActiveSeason() == 2)
+	if isSoD then
+		LibStub("LibDualSpec-1.0"):EnhanceDatabase(self.db, "SmartRes2")
+		LibStub("LibDualSpec-1.0"):EnhanceOptions(options.args.profiles, self.db)
+	end
 
 	-- add "About" panel from LibAboutPanel-2.0
 	options.args.aboutPanel = self:AboutOptionsTable("SmartRes2")

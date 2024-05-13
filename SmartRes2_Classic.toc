@@ -33,7 +33,7 @@
 
 ## SavedVariables: SmartRes2DB
 
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibResInfo-2.0
+## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibDualSpec-1.0, LibResInfo-2.0
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
@@ -47,6 +47,7 @@ Libs\AceGUI-3.0\AceGUI-3.0.xml
 Libs\AceConfig-3.0\AceConfig-3.0.xml
 Libs\AceComm-3.0\AceComm-3.0.xml
 Libs\AceSerializer-3.0\AceSerializer-3.0.xml
+Libs\LibDualSpec-1.0\LibDualSpec-1.0.lua
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Libs\LibDBIcon-1.0\lib.xml
 Libs\LibCandyBar-3.0\lib.xml
@@ -66,8 +67,8 @@ Locales\zhTW.lua
 Locales\ptBR.lua
 Locales\koKR.lua
 
-Core-Vanilla.lua
-Options-Vanilla.lua
+Core-Classic.lua
+Options-Classic.lua
 
-Modules-Vanilla\Chat\Chat.lua
-Modules-Vanilla\Chat\ChatOptions.lua
+Modules-Classic\Chat\Chat.lua
+Modules-Classic\Chat\ChatOptions.lua

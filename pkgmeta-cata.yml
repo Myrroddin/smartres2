@@ -14,6 +14,7 @@ externals:
   Libs/AceConfig-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceConfig-3.0
   Libs/AceComm-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceComm-3.0
   Libs/AceSerializer-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceComm-3.0/AceSerializer-3.0
+  Libs/LibDualSpec-1.0: https://repos.curseforge.com/wow/libdualspec-1-0
   Libs/LibCandyBar-3.0: https://repos.curseforge.com/wow/libcandybar-3-0/trunk/LibCandyBar-3.0
   Libs/LibSharedMedia-3.0: https://repos.curseforge.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0
   Libs/LibAboutPanel-2.0:
@@ -33,11 +34,10 @@ ignore:
   - Libs/*.txt
   - Libs/*.textile
   - Libs/LibDualSpec-1.0\LibStub.lua
-  - Modules-Vanilla
+  - Modules-Classic
   - Modules-Mainline
-  - SmartRes2_Vanilla.toc
-  - SmartRes2_Mainline.toc
+  - SmartRes2_Classic.toc
   - Core-Mainline.lua
-  - Core-Vanilla.lua
+  - Core-Classic.lua
   - Options-Mainline.lua
-  - Options-Vanilla.lua
+  - Options-Classic.lua

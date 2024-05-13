@@ -46,7 +46,7 @@ jobs:
       - name: Package and release for Classic Era, hardcore, and seasons
         uses: BigWigsMods/packager@v2
         with:
-          args: -g classic -m pkgmeta-vanilla.yml
+          args: -g classic -m pkgmeta-classic.yml
       
       # Cataclysm Classic package and release
       - name: Package and release for Cataclysm Classic
