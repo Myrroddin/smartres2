@@ -156,6 +156,7 @@
         "CHAT_MSG_WHISPER",
         "CHAT_MSG_INSTANCE_CHAT",
         "CHANNEL_CATEGORY_GROUP",
-        "enabled"
+        "enabled",
+        "HELP_LABEL"
     ]
 }

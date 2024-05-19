@@ -9,10 +9,9 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 local DBI = LibStub("LibDBIcon-1.0")
 
 -- variables that are file scope
-local _, db, player_class, default_icon
+local db, player_class, default_icon
 player_class = UnitClassBase("player")
-local realm_name = GetRealmName()
-local player_name = UnitName("player") .. " - " .. realm_name
+local player_name = UnitName("player") .. " - " .. GetRealmName()
 default_icon = "Interface\\Icons\\Spell_holy_resurrection"
 
 function addon:GetOptions()
@@ -23,12 +22,12 @@ function addon:GetOptions()
     -- create the user options
     local options = {
         order = 10,
+        handler = adddon,
         type = "group",
-        name = "",
-        handler = addon,
         childGroups = "tab",
+        name = "",
         args = {
-            title = {
+            addonTitle = {
                 order = 10,
                 type = "header",
                 name = "SmartRes2 " .. addon.version
@@ -70,6 +69,7 @@ function addon:GetOptions()
                     feedbackMessages = {
                         order = 20,
                         type = "toggle",
+                        disabled = function() return not db.enabled end,
                         name = L["Status Messages"],
                         desc = L["Toggle feedback for keybinding changes."],
                         get = function() return db.enableFeedback end,
@@ -78,6 +78,7 @@ function addon:GetOptions()
                     singleKey = {
                         order = 30,
                         type = "keybinding",
+                        disabled = function() return not db.enabled end,
                         name = L["Single Target Res Key"],
                         desc = L["Intelligently casts your single target res spell."],
                         get = function() return db[player_name].resKey end,
@@ -91,6 +92,7 @@ function addon:GetOptions()
                     manualResKey = {
                         order = 40,
                         type = "keybinding",
+                        disabled = function() return not db.enabled end,
                         name = L["Manual Target Res"],
                         desc = L["Cast on corpses or unit frames."],
                         get = function() return db[player_name].manualResKey end,
@@ -106,13 +108,13 @@ function addon:GetOptions()
             minimap = {
                 order = 50,
                 type = "group",
+                disabled = function() return not db.enabled end,
                 name = MINIMAP_LABEL,
                 args = {
                     hide = {
                         order = 10,
                         type = "toggle",
-                        name = L["Minimap Button"],
-                        desc = L["Hide the minimap icon."],
+                        name = L["Hide the Minimap Button"],
                         get = function() return db.minimap.hide end,
                         set = function(_, value)
                             db.minimap.hide = value

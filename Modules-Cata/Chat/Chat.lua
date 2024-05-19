@@ -1,12 +1,16 @@
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
-local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 local module = addon:NewModule("Chat")
+local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 
 -- we must remember to call addon:Print(..) to get SmartRes2:Print(...)
 -- if we call self:Print(...) we would get Chat:Print(...)
 
 -- local variables
-module.singleRandomMessages, module.massRandomMessages = {}, {}
+module.randomSingleMessages, module.randomMassMessages = {}, {}
+
+-- upvalue Lua APIs
+local tinsert = table.insert
+local tsort = table.sort
 
 local db
 local defaults = {
@@ -25,7 +29,7 @@ local defaults = {
         ["We can rebuild %s. Better. Stronger. Faster."] = true,
         ["Anyone want to experiment on %s's corpse? No? Okay, fine, I'll do the resurrection thing."] = true,
         ["-50 DKP for being dead, %s."] = true,
-        ["Stop partying at the funeral, people. I'm bring %s back to life."] = true,
+        ["Stop partying at the funeral, people. I'm bringing %s back to life."] = true,
         ["Standing in the fire does not give you a Haste buff, %s."] = true,
         ["Going to the Shadowlands, %s? I don't think so!"] = true,
         ["Rumours of %s's demise have been greatly exaggerated."] = true,
@@ -36,11 +40,20 @@ local defaults = {
         ["Think that was bad? I proudly show %s the scar tissue caused by Hogger."] = true,
         ["How was the dirt nap, %s?"] = true,
         ["You have about 10 more seconds of sleep time, %s."] = true,
+        ["My res cast time on %s is the fastest."] = true,
+        ["%s, you better not let this res time out!"] = true,
     },
     randomMassMessages = {
         ["What's better than a resurrection spell? A mass resurrection spell!"] = true,
         ["All your resurrections are belong to me!"] = true,
         ["I am casting mass resurrection."] = true,
+        ["You get a res, and you, and you. Mass resurrection for everybody!"] = true,
+        ["This mass resurrection is brought to you by the Light."] = true,
+        ["Terenas Menethil taught me mass resurrection. All of you benefit from his knowledge."] = true,
+        ["Casting mass resurrection is like doing a jigsaw puzzle without the picture. I hope everyone's parts are correct!"] = true,
+        ["If you are seeing this mass resurrection message, my cast time is the fastest."] = true,
+        ["Of all the random mass resurrection messages, I get this one!?"] = true,
+        ["Blame the healer for this mass res. Oh, wait..."] = true,
     }
 }
 
@@ -49,9 +62,9 @@ function module:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
-    addon.options.args[module:GetName()] = self:GetOptions()
     db = self.db.profile
     self:SetEnabledState(db.enabled)
+    addon.options.args[module:GetName()] = self:GetOptions()
 end
 
 function module:OnEnable()
@@ -61,5 +74,6 @@ function module:OnDisable()
 end
 
 function module:RefreshConfig()
+    self.randomSingleMessages, self.randomMassMessages = {}, {}
     db = self.db.profile
 end

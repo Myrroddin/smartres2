@@ -20,7 +20,7 @@
 ## X-Author-Faction: Alliance
 ## X-Email: psvander@gmail.com
 ## X-Category: Raid, Party, Healer
-## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, koKR, zhTW, ptBR, itIT
+## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, zhTW, ptBR, itIT, koKR
 
 ## X-Curse-Project-ID: 19988
 ## X-WoWI-ID: 16006

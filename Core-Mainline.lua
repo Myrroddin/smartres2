@@ -5,10 +5,12 @@
 -- File revision: @file-revision@
 -- Project date: @project-date-iso@
 
--- upvalue Blizzard APIs for game version compatibility
+-- upvalue Lua and Blizzard APIs for faster lookups
 local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata
 local GetSpellBookItemName = GetSpellBookItemName
-local SaveBindings = SaveBindings
+local SaveBindings, UnitClassBase, UnitGUID = SaveBindings, UnitClassBase, UnitGUID
+local UnitName, GetRealmName = UnitName, GetRealmName
+local CreateFrame, LibStub = CreateFrame, LibStub
 
 -- create the main addon
 local addon = LibStub("AceAddon-3.0"):NewAddon("SmartRes2", "AceEvent-3.0", "AceConsole-3.0", "AceComm-3.0", "AceSerializer-3.0", "LibAboutPanel-2.0", "LibResInfo-2.0")
@@ -30,8 +32,7 @@ local _, knownResSpell, knownMassResSpell
 local default_icon = "Interface\\Icons\\Spell_holy_resurrection"
 local player_class = UnitClassBase("player")
 local player_GUID = UnitGUID("player")
-local realm_name = GetRealmName()
-local player_name = UnitName("player") .. " - " .. realm_name
+local player_name = UnitName("player") .. " - " .. GetRealmName()
 
 -- res buttons to be fully created via Options.lua
 local resButton = CreateFrame("Button", "SmartRes2_ResButton", UIParent, "SecureActionButtonTemplate")
@@ -100,7 +101,7 @@ function addon:OnInitialize()
 
 	-- create Profiles
 	options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
-	options.args.profiles.order = 0 -- first tab in the options panel
+	options.args.profiles.order = 200
 
 	-- LibDualSpec enchancements
 	LibStub("LibDualSpec-1.0"):EnhanceDatabase(self.db, "SmartRes2")
@@ -109,6 +110,9 @@ function addon:OnInitialize()
 	-- add "About" panel from LibAboutPanel-2.0
 	options.args.aboutPanel = self:AboutOptionsTable("SmartRes2")
 	options.args.aboutPanel.order = -1 -- last tab in the options panel
+
+	-- need to add the options to the addon table so modules can add their options
+	self.options = options
 
 	-- register the options table with AceConfig and add the options table to the Blizzard Options UI
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
@@ -152,11 +156,21 @@ function addon:OnEnable()
 	self:GetUpdatedSpells()
 	self:BindResKeys()
 	self:BindMassResKey()
+	local moduleOrder = 60
 	for moduleName, module in self:IterateModules() do
-		local mdbe = module.db.profile.enabled
-		if mdbe then
-			if not module:IsEnabled() then
-				self:EnableModule(moduleName)
+		-- verify a module exists before messing with its settings
+		if moduleName then
+			-- assign modules an incremented order in the main options table
+			self.options.args[moduleName].order = moduleOrder
+			moduleOrder = moduleOrder + 10
+			-- disable the module's tab if the core addon is disabled
+			self.options.args[moduleName].disabled = function() return not db.enabled end
+			-- check if a module should be enabled, and if so, enable it
+			local mdbe = module.db.profile.enabled
+			if mdbe then
+				if not module:IsEnabled() then
+					self:EnableModule(moduleName)
+				end
 			end
 		end
 	end
@@ -166,16 +180,22 @@ function addon:OnDisable()
 	self:UnregisterEvent("SPELLS_CHANGED")
 	self:UnbindAllResAndMassResKeys()
 	for moduleName in self:IterateModules() do
-		self:DisableModule(moduleName)
+		-- verify a module exists before disabling it
+		if moduleName then
+			self:DisableModule(moduleName)
+		end
 	end
 end
 
 function addon:RefreshConfig()
 	self.db.profile[player_name] = {}
 	db = self.db.profile
-	for _, module in self:IterateModules() do
-		if type(module.RefreshConfig) == "function" then
-			module:RefreshConfig()
+	for moduleName, module in self:IterateModules() do
+		-- verify a module exists before messing with its settings
+		if moduleName then
+			if type(module.RefreshConfig) == "function" then
+				module:RefreshConfig()
+			end
 		end
 	end
 	DBI:Refresh("SmartRes2", db.minimap)
@@ -330,7 +350,7 @@ function addon:BindMassResKey()
 		SaveBindings(2)
 		return
 	end
-	
+
 	-- the user cleared the mass res spell keybind
 	if db[player_name].massResKey == "" then
 		SetBinding(db[player_name].massResKey)

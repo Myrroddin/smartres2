@@ -23,6 +23,7 @@ function module:GetOptions()
     self.db = addon.db:GetNamespace(module:GetName())
     local db = self.db.profile
     local options = {
+        order = 10,
         type = "group",
         childGroups = "tab",
         name = CHAT_OPTIONS_LABEL,
@@ -36,7 +37,7 @@ function module:GetOptions()
                         order = 10,
                         type = "toggle",
                         name = ENABLE .. " " .. JUST_OR .. " " .. DISABLE,
-                        desc = L["Toggle Chat module on or off."],
+                        desc = L["Toggle module on/off."],
                         get = function() return db.enabled end,
                         set = function(_, value)
                             db.enabled = value
@@ -50,6 +51,7 @@ function module:GetOptions()
                     notifySelf = {
                         order = 20,
                         type = "toggle",
+                        disabled = function() return not db.enabled end,
                         name = L["Notify Self"],
                         desc = L["Tell yourself who you are ressing."],
                         get = function() return db.notifySelf end,
@@ -58,6 +60,7 @@ function module:GetOptions()
                     notifyCollision = {
                         order = 30,
                         type = "select",
+                        disabled = function() return not db.enabled end,
                         style = "dropdown",
                         name = L["Inform Colliders"],
                         desc = L["Tell other players their spells will not finish first."],
@@ -70,6 +73,7 @@ function module:GetOptions()
             singleRes = {
                 order = 20,
                 type = "group",
+                disabled = function() return not db.enabled end,
                 name = L["Single Res Options"],
                 args = {
                     overrideSingleResMessage = {
@@ -89,12 +93,10 @@ function module:GetOptions()
                             value = value:trim()
                             value = value:len() >= 1 and value or nil
                             if value and not strmatch(value, "%%s") then
-                                addon:Print(L["You must include %s somewhere in the string for the target's name."])
-                                return false
+                                return (L["You must include %s somewhere in the string for the target's name."])
                             end
                             if value and value:len() >= 256 then
-                                addon:Print(L["Message must be 255 characters or less. Currently %d characters."], value:len())
-                                return false
+                                return (L["Message must be 255 characters or less. Currently %d characters."]):format(value:len())
                             end
                             return true
                         end
@@ -110,7 +112,7 @@ function module:GetOptions()
                             value = value:len() >= 1 and value or nil
                             if value then
                                 db.randomSingleMessages[value] = true
-                                module.singleRandomMessages[value] = value
+                                self.randomSingleMessages[value] = value
                             end
                         end,
                         usage = L["Example: Hey %s, I am resurrecting you!"],
@@ -118,80 +120,59 @@ function module:GetOptions()
                             value = value:trim()
                             value = value:len() >= 1 and value or nil
                             if value and not strmatch(value, "%%s") then
-                                addon:Print(L["You must include %s somewhere in the string for the target's name."])
-                                return false
+                                return (L["You must include %s somewhere in the string for the target's name."])
                             end
                             if value and value:len() >= 256 then
-                                addon:Print(L["Message must be 255 characters or less. Currently %d characters."], value:len())
-                                return false
+                                return (L["Message must be 255 characters or less. Currently %d characters."]):format(value:len())
+                            end
+                            if value and db.randomSingleMessages[value] ~= nil then
+                                return (L["The string %s already exists and cannot be added again."]):format(value)
                             end
                             return true
                         end
                     },
-                    chatChannel = {
-                        order = 30,
-                        type = "select",
-                        style = "dropdown",
-                        name = L["Chat Channel"],
-                        desc = L["Output channel for res messages."],
-                        width = "half",
-                        get = function() return db.singleResOutput end,
-                        set = function(_, value) db.singleResOutput = value end,
-                        values = function() return ChatTypes() end
-                    },
                     enabledRandomSingleResMessages = {
-                        order = 40,
+                        order = 30,
                         type = "multiselect",
                         dialogControl = "Dropdown",
                         name = L["Random Messages"],
                         desc = L["Toggle which random messages to use."],
-                        width = 3,
-                        get = function(_, key)
-                            local strName = db.randomSingleMessages[key]
-                            if db.randomSingleMessages[key] then
-                                module.singleRandomMessages[strName] = strName
-                            else
-                                module.singleRandomMessages[strName] = nil
-                            end
-                            return db.randomSingleMessages[key]
-                        end,
+                        width = "full",
+                        get = function(_, key) return db.randomSingleMessages[key] end,
                         set = function(_, key, value)
-                            local strName = db.randomSingleMessages[key]
                             db.randomSingleMessages[key] = value
                             if db.randomSingleMessages[key] then
-                                module.singleRandomMessages[strName] = strName
+                                self.randomSingleMessages[key] = key
                             else
-                                module.singleRandomMessages[strName] = nil
+                                self.randomSingleMessages[key] = nil
                             end
-                        end,
-                        confirm = function()
-                            if #module.singleRandomMessages == 1 then
-                                return L["You are about to disable the last random message. Changing Chat Channel to None is a better solution. Confirm?"]
-                            end
-                            return false
                         end,
                         values = function() return addon:TranslateTable(db.randomSingleMessages) end
                     },
                     deleteRandomSingleResMessages = {
-                        order = 50,
+                        order = 40,
                         type = "multiselect",
                         dialogControl = "Dropdown",
                         name = L["Delete Random Res Messages"],
                         desc = L["Delete messages from the DB. Reset the profile to undo."],
                         width = "full",
-                        get = function(_, key) return #db.randomSingleMessages >= 1 and db.randomSingleMessages[key] or nil end,
+                        get = function() return true end,
                         set = function(_, key)
-                            local strName = db.randomSingleMessages[key]
+							-- the only possible value (not used) for "value" is false (because get always returns true), so we don't bother checking it and remove the entry from the table
                             db.randomSingleMessages[key] = nil
-                            module.singleRandomMessages[strName] = nil
-                        end,
-                        confirm = function()
-                            if #db.randomSingleMessages == 1 then
-                                return L["You are about to delete the last random message. Confirm?"]
-                            end
-                            return false
+                            self.randomSingleMessages[key] = nil
                         end,
                         values = function() return addon:TranslateTable(db.randomSingleMessages) end
+                    },
+                    chatChannel = {
+                        order = 50,
+                        type = "select",
+                        style = "dropdown",
+                        name = L["Chat Channel"],
+                        desc = L["Output channel for single res messages."],
+                        get = function() return db.singleResOutput end,
+                        set = function(_, value) db.singleResOutput = value end,
+                        values = function() return ChatTypes() end
                     }
                 }
             }
