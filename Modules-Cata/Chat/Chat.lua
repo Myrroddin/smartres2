@@ -8,10 +8,6 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 -- local variables
 module.randomSingleMessages, module.randomMassMessages = {}, {}
 
--- upvalue Lua APIs
-local tinsert = table.insert
-local tsort = table.sort
-
 local db
 local defaults = {
     enabled = true,

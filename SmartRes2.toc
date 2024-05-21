@@ -53,6 +53,7 @@ Libs\LibDBIcon-1.0\lib.xml
 Libs\LibCandyBar-3.0\lib.xml
 Libs\LibAboutPanel-2.0\lib.xml
 Libs\LibSharedMedia-3.0\lib.xml
+Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 Libs\LibResInfo-2.0\lib.xml
 
 Locales\enUS.lua
@@ -72,3 +73,5 @@ Options-Mainline.lua
 
 Modules-Mainline\Chat\Chat.lua
 Modules-Mainline\Chat\ChatOptions.lua
+Modules-Mainline\Bars\Bars.lua
+Modules-Mainline\Bars\BarsOptions.lua

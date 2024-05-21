@@ -157,6 +157,8 @@
         "CHAT_MSG_INSTANCE_CHAT",
         "CHANNEL_CATEGORY_GROUP",
         "enabled",
-        "HELP_LABEL"
+        "HELP_LABEL",
+        "COLOR",
+        "COLORS"
     ]
 }

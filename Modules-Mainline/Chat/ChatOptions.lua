@@ -5,21 +5,6 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 -- we must remember to call addon:Print(..) to get SmartRes2:Print(...)
 -- if we call self:Print(...) we would get Chat:Print(...)
 
-local function ChatTypes()
-    local chatTypes = {
-        ["group"] = CHANNEL_CATEGORY_GROUP,
-        ["guild"] = CHAT_MSG_GUILD,
-        ["instance"] = CHAT_MSG_INSTANCE_CHAT,
-        ["none"] = NONE,
-        ["party"] = CHAT_MSG_PARTY,
-        ["raid"] = CHAT_MSG_RAID,
-        ["say"] = CHAT_MSG_SAY,
-        ["whisper"] = CHAT_MSG_WHISPER_INFORM,
-        ["yell"] = CHAT_MSG_YELL,
-    }
-    return chatTypes
-end
-
 function module:GetOptions()
     self.db = addon.db:GetNamespace(module:GetName())
     local db = self.db.profile
@@ -66,7 +51,17 @@ function module:GetOptions()
                         desc = L["Tell other players their spells will not finish first."],
                         get = function() return db.notifyCollision end,
                         set = function(_, value) db.notifyCollision = value end,
-                        values = function() return ChatTypes() end
+                        values = {
+                            ["group"] = CHANNEL_CATEGORY_GROUP,
+                            ["guild"] = CHAT_MSG_GUILD,
+                            ["instance"] = CHAT_MSG_INSTANCE_CHAT,
+                            ["none"] = NONE,
+                            ["party"] = CHAT_MSG_PARTY,
+                            ["raid"] = CHAT_MSG_RAID,
+                            ["say"] = CHAT_MSG_SAY,
+                            ["whisper"] = CHAT_MSG_WHISPER_INFORM,
+                            ["yell"] = CHAT_MSG_YELL,
+                        }
                     }
                 }
             },
@@ -172,7 +167,17 @@ function module:GetOptions()
                         desc = L["Output channel for single res messages."],
                         get = function() return db.singleResOutput end,
                         set = function(_, value) db.singleResOutput = value end,
-                        values = function() return ChatTypes() end
+                        values = {
+                            ["group"] = CHANNEL_CATEGORY_GROUP,
+                            ["guild"] = CHAT_MSG_GUILD,
+                            ["instance"] = CHAT_MSG_INSTANCE_CHAT,
+                            ["none"] = NONE,
+                            ["party"] = CHAT_MSG_PARTY,
+                            ["raid"] = CHAT_MSG_RAID,
+                            ["say"] = CHAT_MSG_SAY,
+                            ["whisper"] = CHAT_MSG_WHISPER_INFORM,
+                            ["yell"] = CHAT_MSG_YELL,
+                        }
                     }
                 }
             },
@@ -278,7 +283,17 @@ function module:GetOptions()
                         desc = L["Output channel for mass res messages."],
                         get = function() return db.massResOutput end,
                         set = function(_, value) db.massResOutput = value end,
-                        values = function() return ChatTypes() end
+                        values = {
+                            ["group"] = CHANNEL_CATEGORY_GROUP,
+                            ["guild"] = CHAT_MSG_GUILD,
+                            ["instance"] = CHAT_MSG_INSTANCE_CHAT,
+                            ["none"] = NONE,
+                            ["party"] = CHAT_MSG_PARTY,
+                            ["raid"] = CHAT_MSG_RAID,
+                            ["say"] = CHAT_MSG_SAY,
+                            ["whisper"] = CHAT_MSG_WHISPER_INFORM,
+                            ["yell"] = CHAT_MSG_YELL,
+                        }
                     }
                 }
             }

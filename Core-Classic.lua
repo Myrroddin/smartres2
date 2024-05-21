@@ -28,7 +28,6 @@ local DBI = LibStub("LibDBIcon-1.0")
 local Dialog = LibStub("AceConfigDialog-3.0")
 
 -- variables that are file scope
-local _, knownResSpell
 local default_icon = "Interface\\Icons\\Spell_holy_resurrection"
 local player_class = UnitClassBase("player")
 local player_GUID = UnitGUID("player")
@@ -46,7 +45,6 @@ local db, options
 local defaults = {
 	profile = {
 		enabled = true,
-		enableFeedback = true,
 		minimap = {
 			hide = false,
 			lock = true,
@@ -82,6 +80,8 @@ function addon:OnInitialize()
 
 	-- we need character-baased key binds
 	self.db.profile[player_name] = self.db.profile[player_name] or {}
+	self.db.profile[player_name].resKey = self.db.profile[player_name].resKey or ""
+	self.db.profile[player_name].manualResKey = self.db.profile[player_name].manualResKey or ""
 
 	-- shortcut
 	db = self.db.profile
@@ -150,7 +150,6 @@ end
 function addon:OnEnable()
 	self:RegisterEvent("SPELLS_CHANGED", "GetUpdatedSpells")
 	self:GetUpdatedSpells()
-	self:BindResKeys()
 	local moduleOrder = 60
 	for moduleName, module in self:IterateModules() do
 		-- verify a module exists before messing with its settings
@@ -183,7 +182,10 @@ function addon:OnDisable()
 end
 
 function addon:RefreshConfig()
+	self.db:ResetProfile()
 	self.db.profile[player_name] = {}
+	self.db.profile[player_name].resKey = ""
+	self.db.profile[player_name].manualResKey = ""
 	db = self.db.profile
 	for moduleName, module in self:IterateModules() do
 		-- verify a module exists before messing with its settings
@@ -197,7 +199,7 @@ function addon:RefreshConfig()
 	local button = DBI:GetMinimapButton("SmartRes2")
 	local iconTexture = (db.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon
 	button.icon:SetTexture(iconTexture)
-	self:BindResKeys()
+	self:GetUpdatedSpells()
 end
 
 -- chat commands handler
@@ -257,52 +259,35 @@ function addon:GetUpdatedSpells()
 		-- we need the spell name to pass into IsUsableSpell()
 		-- there is no point in passing the spellID if the player can't cast the spell
 		-- (usually the player is in the wrong spec)
-		knownResSpell = GetSpellInfo(newSpellID)
+		self.knownResSpell = GetSpellInfo(newSpellID)
 	end
+
+	self:BindResKeys()
 end
 
 -- bind the single res keys
 function addon:BindResKeys()
-	-- clear the bindings if the player does not know a res spell
-	if not knownResSpell then
-		if db.enableFeedback then
-			self:Print(L["You do not know a single target res spell, cannot bind keys."])
+	if self.knownResSpell then
+		if db[player_name].resKey == "" then
+			-- the user cleared the res spell keybind
+			SetBinding(db[player_name].resKey)
+		else
+			-- there is a non-empty string to bind
+			SetBindingClick(db[player_name].resKey, resButton:GetName(), "LeftClick")
 		end
+
+		if db[player_name].manualResKey == "" then
+			-- the user cleared the manual res spell keybind
+			SetBinding(db[player_name].manualResKey)
+		else
+			-- there is a non-empty string to bind
+			SetBindingSpell(db[player_name].manualResKey, self.knownResSpell)
+		end
+	else
+		-- the character does not know a res spell
 		db[player_name].resKey, db[player_name].manualResKey = "", ""
-		-- if the API SetBinding() is not passed a second arg then it unbinds the key
 		SetBinding(db[player_name].resKey)
 		SetBinding(db[player_name].manualResKey)
-		SaveBindings(2)
-		return
-	end
-
-	-- the user cleared the res spell keybind
-	if db[player_name].resKey == "" then
-		SetBinding(db[player_name].resKey)
-		SaveBindings(2)
-		return
-	end
-
-	-- the user cleared the manual res spell keybind
-	if db[player_name].manualResKey == "" then
-		SetBinding(db[player_name].manualResKey)
-		SaveBindings(2)
-		return
-	end
-
-	-- the user is setting a non-empty string for the keybinds
-	local ok = SetBindingClick(db[player_name].resKey, resButton:GetName(), "LeftClick")
-	if ok then
-		if db.enableFeedback then
-			self:Print(L["Single target key bound."])
-		end
-	end
-
-	ok = SetBindingSpell(db[player_name].manualResKey, knownResSpell)
-	if ok then
-		if db.enableFeedback then
-			self:Print(L["Manual target key bound."])
-		end
 	end
 
 	-- save the bindings per character so they persist through logout

@@ -14,9 +14,11 @@ player_class = UnitClassBase("player")
 local player_name = UnitName("player") .. " - " .. GetRealmName()
 default_icon = "Interface\\Icons\\Spell_holy_resurrection"
 
-function addon:GetOptions()
-    -- we need character-baased key binds
+function addon:GetOptions()-- we need character-baased key binds
 	self.db.profile[player_name] = self.db.profile[player_name] or {}
+	self.db.profile[player_name].resKey = self.db.profile[player_name].resKey or ""
+	self.db.profile[player_name].manualResKey = self.db.profile[player_name].manualResKey or ""
+	self.db.profile[player_name].massResKey = self.db.profile[player_name].massResKey or ""
     -- shortcut
     db = self.db.profile
     -- create the user options
@@ -66,17 +68,8 @@ function addon:GetOptions()
                             end
                         end
                     },
-                    feedbackMessages = {
-                        order = 20,
-                        type = "toggle",
-                        disabled = function() return not db.enabled end,
-                        name = L["Status Messages"],
-                        desc = L["Toggle feedback for keybinding changes."],
-                        get = function() return db.enableFeedback end,
-                        set = function(_, value) db.enableFeedback = value end
-                    },
                     singleKey = {
-                        order = 30,
+                        order = 20,
                         type = "keybinding",
                         disabled = function() return not db.enabled end,
                         name = L["Single Target Res Key"],
@@ -87,10 +80,19 @@ function addon:GetOptions()
                             value = value:len() >= 1 and value or ""
                             db[player_name].resKey = value
                             self:BindResKeys()
+                        end,
+                        validate = function()
+                            if not self.knownResSpell then
+                                db[player_name].resKey = ""
+                                SetBinding(db[player_name].resKey)
+                                SaveBindings(2)
+                                return (L["%s does not know a res spell and cannot bind this key"]):format(player_name)
+                            end
+                            return true
                         end
                     },
                     manualResKey = {
-                        order = 40,
+                        order = 30,
                         type = "keybinding",
                         disabled = function() return not db.enabled end,
                         name = L["Manual Target Res"],
@@ -101,10 +103,19 @@ function addon:GetOptions()
                             value = value:len() >= 1 and value or ""
                             db[player_name].manualResKey = value
                             self:BindResKeys()
+                        end,
+                        validate = function()
+                            if not self.knownResSpell then
+                                db[player_name].manualResKey = ""
+                                SetBinding(db[player_name].manualResKey)
+                                SaveBindings(2)
+                                return (L["%s does not know a res spell and cannot bind this key"]):format(player_name)
+                            end
+                            return true
                         end
                     },
                     massKey = {
-                        order = 50,
+                        order = 40,
                         type = "keybinding",
                         disabled = function() return not db.enabled end,
                         name = L["Mass Res Key"],
@@ -113,8 +124,17 @@ function addon:GetOptions()
                         set = function(_, value)
                             value = value:trim()
                             value = value:len() >= 1 and value or ""
-                           db[player_name].massResKey = value
+                            db[player_name].massResKey = value
                             self:BindMassResKey()
+                        end,
+                        validate = function()
+                            if not self.knownMassResSpell then
+                                db[player_name].massResKey = ""
+                                SetBinding(db[player_name].massResKey)
+                                SaveBindings(2)
+                                return (L["%s does not know a mass res spell and cannot bind this key"]):format(player_name)
+                            end
+                            return true
                         end
                     }
                 }
