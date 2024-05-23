@@ -12,9 +12,9 @@ local db
 local defaults = {
     enabled = true,
     notifySelf = true,
-    notifyCollision = "whisper",
-    singleResOutput = "group",
-    massResOutput = "group",
+    notifyCollision = "WHISPER",
+    singleResOutput = "GROUP",
+    massResOutput = "GROUP",
     overrideSingleResMessage = nil,
     overrideMassResMessage = nil,
     randomSingleMessages = {

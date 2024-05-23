@@ -27,9 +27,13 @@ function module:GetOptions()
                         set = function(_, value)
                             db.enabled = value
                             if value then
-                                addon:EnableModule(module:GetName())
+                                if not module:IsEnabled() then
+                                    addon:EnableModule(module:GetName())
+                                end
                             else
-                                addon:DisableModule(module:GetName())
+                                if module:IsEnabled() then
+                                    addon:DisableModule(module:GetName())
+                                end
                             end
                         end
                     },
@@ -52,14 +56,14 @@ function module:GetOptions()
                         get = function() return db.notifyCollision end,
                         set = function(_, value) db.notifyCollision = value end,
                         values = {
-                            ["group"] = CHANNEL_CATEGORY_GROUP,
-                            ["guild"] = CHAT_MSG_GUILD,
-                            ["none"] = NONE,
-                            ["party"] = CHAT_MSG_PARTY,
-                            ["raid"] = CHAT_MSG_RAID,
-                            ["say"] = CHAT_MSG_SAY,
-                            ["whisper"] = CHAT_MSG_WHISPER_INFORM,
-                            ["yell"] = CHAT_MSG_YELL,
+                            ["GROUP"] = CHANNEL_CATEGORY_GROUP,
+                            ["GUILD"] = CHAT_MSG_GUILD,
+                            ["NONE"] = NONE,
+                            ["PARTY"] = CHAT_MSG_PARTY,
+                            ["RAID"] = CHAT_MSG_RAID,
+                            ["SAY"] = CHAT_MSG_SAY,
+                            ["WHISPER"] = CHAT_MSG_WHISPER_INFORM,
+                            ["YELL"] = CHAT_MSG_YELL,
                         }
                     }
                 }
@@ -167,14 +171,14 @@ function module:GetOptions()
                         get = function() return db.singleResOutput end,
                         set = function(_, value) db.singleResOutput = value end,
                         values = {
-                            ["group"] = CHANNEL_CATEGORY_GROUP,
-                            ["guild"] = CHAT_MSG_GUILD,
-                            ["none"] = NONE,
-                            ["party"] = CHAT_MSG_PARTY,
-                            ["raid"] = CHAT_MSG_RAID,
-                            ["say"] = CHAT_MSG_SAY,
-                            ["whisper"] = CHAT_MSG_WHISPER_INFORM,
-                            ["yell"] = CHAT_MSG_YELL,
+                            ["GROUP"] = CHANNEL_CATEGORY_GROUP,
+                            ["GUILD"] = CHAT_MSG_GUILD,
+                            ["NONE"] = NONE,
+                            ["PARTY"] = CHAT_MSG_PARTY,
+                            ["RAID"] = CHAT_MSG_RAID,
+                            ["SAY"] = CHAT_MSG_SAY,
+                            ["WHISPER"] = CHAT_MSG_WHISPER_INFORM,
+                            ["YELL"] = CHAT_MSG_YELL,
                         }
                     }
                 }
@@ -282,14 +286,14 @@ function module:GetOptions()
                         get = function() return db.massResOutput end,
                         set = function(_, value) db.massResOutput = value end,
                         values = {
-                            ["group"] = CHANNEL_CATEGORY_GROUP,
-                            ["guild"] = CHAT_MSG_GUILD,
-                            ["none"] = NONE,
-                            ["party"] = CHAT_MSG_PARTY,
-                            ["raid"] = CHAT_MSG_RAID,
-                            ["say"] = CHAT_MSG_SAY,
-                            ["whisper"] = CHAT_MSG_WHISPER_INFORM,
-                            ["yell"] = CHAT_MSG_YELL,
+                            ["GROUP"] = CHANNEL_CATEGORY_GROUP,
+                            ["GUILD"] = CHAT_MSG_GUILD,
+                            ["NONE"] = NONE,
+                            ["PARTY"] = CHAT_MSG_PARTY,
+                            ["RAID"] = CHAT_MSG_RAID,
+                            ["SAY"] = CHAT_MSG_SAY,
+                            ["WHISPER"] = CHAT_MSG_WHISPER_INFORM,
+                            ["YELL"] = CHAT_MSG_YELL,
                         }
                     }
                 }

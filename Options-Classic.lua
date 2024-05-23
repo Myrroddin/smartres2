@@ -14,10 +14,7 @@ player_class = UnitClassBase("player")
 local player_name = UnitName("player") .. " - " .. GetRealmName()
 default_icon = "Interface\\Icons\\Spell_holy_resurrection"
 
-function addon:GetOptions()-- we need character-baased key binds
-	self.db.profile[player_name] = self.db.profile[player_name] or {}
-	self.db.profile[player_name].resKey = self.db.profile[player_name].resKey or ""
-	self.db.profile[player_name].manualResKey = self.db.profile[player_name].manualResKey or ""
+function addon:GetOptions()
     -- shortcut
     db = self.db.profile
     -- create the user options

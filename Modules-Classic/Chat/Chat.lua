@@ -12,8 +12,8 @@ local db
 local defaults = {
     enabled = true,
     notifySelf = true,
-    notifyCollision = "whisper",
-    singleResOutput = "group",
+    notifyCollision = "WHISPER",
+    singleResOutput = "GROUP",
     overrideSingleResMessage = nil,
     randomSingleMessages = {
         ["I am resurrecting %s."] = true,

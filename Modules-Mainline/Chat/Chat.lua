@@ -12,11 +12,13 @@ local db
 local defaults = {
     enabled = true,
     notifySelf = true,
-    notifyCollision = "whisper",
-    singleResOutput = "group",
-    massResOutput = "group",
+    notifyCollision = "WHISPER",
+    singleResOutput = "GROUP",
+    massResOutput = "GROUP",
     overrideSingleResMessage = nil,
     overrideMassResMessage = nil,
+    deletedSingleMessages = {},
+    deletedMassMessages = {},
     randomSingleMessages = {
         ["I am resurrecting %s."] = true,
         ["Hey %s! Stop being dead, lazy bones!"] = true,

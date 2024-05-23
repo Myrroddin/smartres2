@@ -14,10 +14,9 @@ externals:
   Libs/AceConfig-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceConfig-3.0
   Libs/AceComm-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceComm-3.0
   Libs/AceSerializer-3.0: https://repos.curseforge.com/wow/ace3/trunk/AceComm-3.0/AceSerializer-3.0
-  Libs/LibDualSpec-1.0: https://repos.curseforge.com/wow/libdualspec-1-0
   Libs/LibCandyBar-3.0: https://repos.curseforge.com/wow/libcandybar-3-0/trunk/LibCandyBar-3.0
   Libs/LibSharedMedia-3.0: https://repos.curseforge.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0
-  Libs/AceGUI-3.0-SharedMediaWidgets: https://repos.curseforge.com/wow/ace-gui-3-0-shared-media-widgets/trunk/AceGUI-3.0-SharedMediaWidgets
+  Libs/SharedMediaWidgets: https://repos.curseforge.com/wow/ace-gui-3-0-shared-media-widgets/trunk/AceGUI-3.0-SharedMediaWidgets
   Libs/LibAboutPanel-2.0:
     url: https://github.com/Myrroddin/libaboutpanel-2.0/LibAboutPanel-2.0
     curse-slug: libaboutpanel-2-0
@@ -31,13 +30,11 @@ externals:
 
 ignore:
   - Libs/LibStub/tests
-  - Libs/*.toc
-  - Libs/*.txt
-  - Libs/*.textile
-  - Libs/LibDualSpec-1.0\LibStub.lua
+  - Libs/*/*.toc
+  - Libs/*/*.txt
+  - Libs/*/*.textile
   - Modules-Classic
   - Modules-Mainline
-  - SmartRes2_Classic.toc
   - Core-Mainline.lua
   - Core-Classic.lua
   - Options-Mainline.lua

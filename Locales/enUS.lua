@@ -93,3 +93,7 @@ L["You have about 10 more seconds of sleep time, %s."] = true
 L["You must include %s somewhere in the string for the target's name."] = true
 L["Res Bars Options"] = true
 L["Fonts"] = true
+L["Restore Deleted Messages"] = true
+L["Non-Collision Single Res"] = true
+L["Font"] = true
+L["Collision Single Res"] = true

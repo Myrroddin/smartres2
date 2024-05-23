@@ -1,4 +1,4 @@
-## Interface: 100207
+## Interface: 11502, 40400, 100207
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
 ## Notes-ruRU: @localization(locale="ruRU", key="Notes")@
@@ -33,7 +33,7 @@
 
 ## SavedVariables: SmartRes2DB
 
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibDualSpec-1.0, LibResInfo-2.0
+## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibResInfo-2.0, AceGUI-3.0-SharedMediaWidgets
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
@@ -47,7 +47,6 @@ Libs\AceGUI-3.0\AceGUI-3.0.xml
 Libs\AceConfig-3.0\AceConfig-3.0.xml
 Libs\AceComm-3.0\AceComm-3.0.xml
 Libs\AceSerializer-3.0\AceSerializer-3.0.xml
-Libs\LibDualSpec-1.0\LibDualSpec-1.0.lua
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Libs\LibDBIcon-1.0\lib.xml
 Libs\LibCandyBar-3.0\lib.xml
@@ -68,10 +67,27 @@ Locales\zhTW.lua
 Locales\ptBR.lua
 Locales\koKR.lua
 
+#@version-classic@
+Core-Classic.lua
+Options-Classic.lua
+Modules-Classic\Chat\Chat.lua
+Modules-Classic\Chat\ChatOptions.lua
+Modules-Classic\Bars\Bars.lua
+Modules-Classic\Bars\BarsOptions.lua
+#@end-version-classic@
+#@version-cata@
+Core-Cata.lua
+Options-Cata.lua
+Modules-Cata\Chat\Chat.lua
+Modules-Cata\Chat\ChatOptions.lua
+Modules-Cata\Bars\Bars.lua
+Modules-Cata\Bars\BarsOptions.lua
+#@end-version-cata@
+#@version-retail@
 Core-Mainline.lua
 Options-Mainline.lua
-
 Modules-Mainline\Chat\Chat.lua
 Modules-Mainline\Chat\ChatOptions.lua
 Modules-Mainline\Bars\Bars.lua
 Modules-Mainline\Bars\BarsOptions.lua
+#@end-version-retail@

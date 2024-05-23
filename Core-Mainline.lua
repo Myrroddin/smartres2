@@ -57,7 +57,13 @@ local defaults = {
 			showInCompartment = true,
 			useClassIconForBroker = true,
 			lockOnDegree = true,
-			minimapPos = 45
+			minimapPos = 60
+		},
+		-- ["Character - Realm"]
+		["*"] = {
+			resKey = "",
+			manualResKey = "",
+			massResKey = ""
 		}
 	}
 }
@@ -85,12 +91,6 @@ function addon:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
 
-	-- we need character-baased key binds
-	self.db.profile[player_name] = self.db.profile[player_name] or {}
-	self.db.profile[player_name].resKey = self.db.profile[player_name].resKey or ""
-	self.db.profile[player_name].manualResKey = self.db.profile[player_name].manualResKey or ""
-	self.db.profile[player_name].massResKey = self.db.profile[player_name].massResKey or ""
-
 	-- shortcut
 	db = self.db.profile
 
@@ -103,10 +103,6 @@ function addon:OnInitialize()
 	-- create Profiles
 	options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
 	options.args.profiles.order = 200
-
-	-- LibDualSpec enchancements
-	LibStub("LibDualSpec-1.0"):EnhanceDatabase(self.db, "SmartRes2")
-	LibStub("LibDualSpec-1.0"):EnhanceOptions(options.args.profiles, self.db)
 
 	-- add "About" panel from LibAboutPanel-2.0
 	options.args.aboutPanel = self:AboutOptionsTable("SmartRes2")
@@ -187,11 +183,7 @@ function addon:OnDisable()
 end
 
 function addon:RefreshConfig()
-	self.db:ResetProfile()
-	self.db.profile[player_name] = {}
-	self.db.profile[player_name].resKey = ""
-	self.db.profile[player_name].manualResKey = ""
-	self.db.profile[player_name].massResKey = ""
+	self.db:ResetProfile(false, true)
 	db = self.db.profile
 	for moduleName, module in self:IterateModules() do
 		-- verify a module exists before messing with its settings
@@ -375,7 +367,10 @@ end
 
 -- translate input table and return localizations
 function addon:TranslateTable(inputTable)
-	-- inputTable's index is a string, value is a Boolean; therefore, we localize the index
+	-- check inputTable for validity
+	if not inputTable or type(inputTable) ~= "table" then
+		error(":TranslateTable, 'inputTable' table expected, got %s", 2):format(type(inputTable))
+	end
     local outputTable = {}
     for index in pairs(inputTable) do
         outputTable[index] = L[index]

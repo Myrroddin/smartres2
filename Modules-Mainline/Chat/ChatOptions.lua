@@ -5,6 +5,21 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 -- we must remember to call addon:Print(..) to get SmartRes2:Print(...)
 -- if we call self:Print(...) we would get Chat:Print(...)
 
+local function GetChatTypes()
+    local types = {
+        ["GROUP"] = CHANNEL_CATEGORY_GROUP,
+        ["GUILD"] = CHAT_MSG_GUILD,
+        ["INSTANCE"] = CHAT_MSG_INSTANCE_CHAT,
+        ["NONE"] = NONE,
+        ["PARTY"] = CHAT_MSG_PARTY,
+        ["RAID"] = CHAT_MSG_RAID,
+        ["SAY"] = CHAT_MSG_SAY,
+        ["WHISPER"] = CHAT_MSG_WHISPER_INFORM,
+        ["YELL"] = CHAT_MSG_YELL,
+    }
+    return types
+end
+
 function module:GetOptions()
     self.db = addon.db:GetNamespace(module:GetName())
     local db = self.db.profile
@@ -27,9 +42,13 @@ function module:GetOptions()
                         set = function(_, value)
                             db.enabled = value
                             if value then
-                                addon:EnableModule(module:GetName())
+                                if not module:IsEnabled() then
+                                    addon:EnableModule(module:GetName())
+                                end
                             else
-                                addon:DisableModule(module:GetName())
+                                if module:IsEnabled() then
+                                    addon:DisableModule(module:GetName())
+                                end
                             end
                         end
                     },
@@ -51,17 +70,7 @@ function module:GetOptions()
                         desc = L["Tell other players their spells will not finish first."],
                         get = function() return db.notifyCollision end,
                         set = function(_, value) db.notifyCollision = value end,
-                        values = {
-                            ["group"] = CHANNEL_CATEGORY_GROUP,
-                            ["guild"] = CHAT_MSG_GUILD,
-                            ["instance"] = CHAT_MSG_INSTANCE_CHAT,
-                            ["none"] = NONE,
-                            ["party"] = CHAT_MSG_PARTY,
-                            ["raid"] = CHAT_MSG_RAID,
-                            ["say"] = CHAT_MSG_SAY,
-                            ["whisper"] = CHAT_MSG_WHISPER_INFORM,
-                            ["yell"] = CHAT_MSG_YELL,
-                        }
+                        values = function() return GetChatTypes() end
                     }
                 }
             },
@@ -154,6 +163,7 @@ function module:GetOptions()
                         get = function() return true end,
                         set = function(_, key)
 							-- the only possible value (not used) for "value" is false (because get always returns true), so we don't bother checking it and remove the entry from the table
+                            db.deletedSingleMessages[key] = true
                             db.randomSingleMessages[key] = nil
                             self.randomSingleMessages[key] = nil
                         end,
@@ -167,17 +177,22 @@ function module:GetOptions()
                         desc = L["Output channel for single res messages."],
                         get = function() return db.singleResOutput end,
                         set = function(_, value) db.singleResOutput = value end,
-                        values = {
-                            ["group"] = CHANNEL_CATEGORY_GROUP,
-                            ["guild"] = CHAT_MSG_GUILD,
-                            ["instance"] = CHAT_MSG_INSTANCE_CHAT,
-                            ["none"] = NONE,
-                            ["party"] = CHAT_MSG_PARTY,
-                            ["raid"] = CHAT_MSG_RAID,
-                            ["say"] = CHAT_MSG_SAY,
-                            ["whisper"] = CHAT_MSG_WHISPER_INFORM,
-                            ["yell"] = CHAT_MSG_YELL,
-                        }
+                        values = function() return GetChatTypes() end
+                    },
+                    restoreRandomSingleResMessages = {
+                        order = 60,
+                        type = "execute",
+                        image = "Interface\\AddOns\\SmartRes2\\Media\\Icons\\Undo.tga",
+                        name = L["Restore Deleted Messages"],
+                        imageHeight = 32,
+                        imageWidth = 32,
+                        func = function()
+                            for key in pairs(db.deletedSingleMessages) do
+                                db.randomSingleMessages[key] = true
+                                self.randomSingleMessages[key] = key
+                                db.deletedSingleMessages[key] = nil
+                            end
+                        end
                     }
                 }
             },
@@ -283,17 +298,7 @@ function module:GetOptions()
                         desc = L["Output channel for mass res messages."],
                         get = function() return db.massResOutput end,
                         set = function(_, value) db.massResOutput = value end,
-                        values = {
-                            ["group"] = CHANNEL_CATEGORY_GROUP,
-                            ["guild"] = CHAT_MSG_GUILD,
-                            ["instance"] = CHAT_MSG_INSTANCE_CHAT,
-                            ["none"] = NONE,
-                            ["party"] = CHAT_MSG_PARTY,
-                            ["raid"] = CHAT_MSG_RAID,
-                            ["say"] = CHAT_MSG_SAY,
-                            ["whisper"] = CHAT_MSG_WHISPER_INFORM,
-                            ["yell"] = CHAT_MSG_YELL,
-                        }
+                        values = function() return GetChatTypes() end
                     }
                 }
             }

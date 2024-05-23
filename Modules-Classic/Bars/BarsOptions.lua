@@ -27,9 +27,13 @@ function module:GetOptions()
                         set = function(_, value)
                             db.enabled = value
                             if value then
-                                addon:EnableModule(module:GetName())
+                                if not module:IsEnabled() then
+                                    addon:EnableModule(module:GetName())
+                                end
                             else
-                                addon:DisableModule(module:GetName())
+                                if module:IsEnabled() then
+                                    addon:DisableModule(module:GetName())
+                                end
                             end
                         end
                     },
