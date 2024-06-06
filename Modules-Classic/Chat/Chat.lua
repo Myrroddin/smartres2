@@ -15,6 +15,7 @@ local defaults = {
     notifyCollision = "WHISPER",
     singleResOutput = "GROUP",
     overrideSingleResMessage = nil,
+    deletedSingleMessages = {},
     randomSingleMessages = {
         ["I am resurrecting %s."] = true,
         ["Hey %s! Stop being dead, lazy bones!"] = true,
@@ -46,7 +47,17 @@ function module:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
     db = self.db.profile
     self:SetEnabledState(db.enabled)
-    addon.options.args[module:GetName()] = self:GetOptions()
+
+    local options = self:GetOptions()
+    addon:RegisterModuleOptions(module:GetName(), options)
+
+    -- populate random message table
+    wipe(self.randomSingleMessages)
+    for key, value in pairs(db.randomSingleMessages) do
+        if value then
+            GetOrCreateTableEntry(self.randomSingleMessages, key, key)
+        end
+    end
 end
 
 function module:OnEnable()
@@ -56,6 +67,12 @@ function module:OnDisable()
 end
 
 function module:RefreshConfig()
-    self.randomSingleMessages = {}
     db = self.db.profile
+    wipe(self.randomSingleMessages)
+    -- populate random message table
+    for key, value in pairs(db.randomSingleMessages) do
+        if value then
+            GetOrCreateTableEntry(self.randomSingleMessages, key, key)
+        end
+    end
 end

@@ -1,14 +1,10 @@
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 local module = addon:NewModule("Bars")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
+local LSM = addon.LSM
 
 -- we must remember to call addon:Print(..) to get SmartRes2:Print(...)
 -- if we call self:Print(...) we would get Bars:Print(...)
-
--- load LSM and register media
-local LSM = LibStub("LibSharedMedia-3.0")
-local MediaType_FONT = LSM.MediaType.FONT or "font"
-LSM:Register(MediaType_FONT, "Olde English", [[Interface\\AddOns\\SmartRes2\\Fonts\\OldeEnglish.ttf]])
 
 local db
 local defaults = {
@@ -30,7 +26,9 @@ function module:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
     db = self.db.profile
     self:SetEnabledState(db.enabled)
-    addon.options.args[module:GetName()] = self:GetOptions()
+
+    local options = self:GetOptions()
+    addon:RegisterModuleOptions(module:GetName(), options)
 end
 
 function module:OnEnable()

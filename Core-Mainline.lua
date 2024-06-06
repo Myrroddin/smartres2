@@ -1,8 +1,4 @@
---- SmartRes2
----@class file
--- @name SmartRes2.lua
--- @author Sygon_Paul of Lightbringer
--- File revision: @file-revision@
+---@class addon: AceAddon, AceConsole-3.0, AceEvent-3.0, AceComm-3.0, AceSerializer-3.0
 -- Project date: @project-date-iso@
 
 -- upvalue Lua and Blizzard APIs for faster lookups
@@ -26,6 +22,11 @@ end
 -- additional libraries
 local DBI = LibStub("LibDBIcon-1.0")
 local Dialog = LibStub("AceConfigDialog-3.0")
+addon.LSM = LibStub("LibSharedMedia-3.0")
+
+-- register media (fonts, borders, backgrounds, etc) with LibSharedMedia-3.0
+local MediaType_FONT = addon.LSM.MediaType.FONT or "font"
+addon.LSM:Register(MediaType_FONT, "Olde English", "Interface\\AddOns\\SmartRes2\\Media\\Fonts\\OldeEnglish.ttf")
 
 -- variables that are file scope
 local default_icon = "Interface\\Icons\\Spell_holy_resurrection"
@@ -68,22 +69,6 @@ local defaults = {
 	}
 }
 
--- local function to open/close the UX panel; saves writing the code multiple times
-local function OpenOrCloseUX()
-	if Dialog.OpenFrames["SmartRes2"] then
-		Dialog:Close("SmartRes2")
-	else
-		Dialog:Open("SmartRes2")
-	end
-end
-
--- local function to close UX panel when the player enters combat
-local function CombatCloseUX()
-	if Dialog.OpenFrames["SmartRes2"] then
-		Dialog:Close("SmartRes2")
-	end
-end
-
 -- Ace3 embedded functions
 function addon:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, true)
@@ -97,7 +82,7 @@ function addon:OnInitialize()
 	-- enable or disable the addon based on the profile
 	self:SetEnabledState(db.enabled)
 
-	-- get the options table from Options.lua
+	-- populate the options table
 	options = self:GetOptions()
 
 	-- create Profiles
@@ -108,16 +93,14 @@ function addon:OnInitialize()
 	options.args.aboutPanel = self:AboutOptionsTable("SmartRes2")
 	options.args.aboutPanel.order = -1 -- last tab in the options panel
 
-	-- need to add the options to the addon table so modules can add their options
-	self.options = options
-
 	-- register the options table with AceConfig and add the options table to the Blizzard Options UI
 	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
 	Dialog:AddToBlizOptions("SmartRes2")
 
 	-- create slash commands
-	addon:RegisterChatCommand("smartres", "ChatCommands")
-	addon:RegisterChatCommand("sr", "ChatCommands")
+	self:RegisterChatCommand("smartres2", "ChatCommands")
+	self:RegisterChatCommand("smartres", "ChatCommands")
+	self:RegisterChatCommand("sr", "ChatCommands")
 
 	-- Broker display
 	local launcher = LibStub("LibDataBroker-1.1"):NewDataObject("SmartRes2", {
@@ -127,12 +110,8 @@ function addon:OnInitialize()
 		text = "SmartRes2",
 		icon = (db.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon,
 		OnClick = function(_, button)
-			if UnitAffectingCombat("player") then
-				CombatCloseUX()
-				return
-			end
 			if button == "RightButton" then
-				OpenOrCloseUX()
+				self:OpenOrCloseUX()
 			end
 		end,
 		OnTooltipShow = function(tooltip)
@@ -142,27 +121,18 @@ function addon:OnInitialize()
 		end
 	})
 	DBI:Register("SmartRes2", launcher, db.minimap)
-
-	-- register events when player enters or leaves combat; these events are never unregistered
-	self:RegisterEvent("PLAYER_REGEN_DISABLED", "EnteringCombat")
-	self:RegisterEvent("PLAYER_REGEN_ENABLED", "EnteringCombat")
 end
 
 function addon:OnEnable()
 	self:RegisterEvent("SPELLS_CHANGED", "GetUpdatedSpells")
 	self:GetUpdatedSpells()
-	local moduleOrder = 60
 	for moduleName, module in self:IterateModules() do
 		-- verify a module exists before messing with its settings
 		if moduleName then
-			-- assign modules an incremented order in the main options table
-			self.options.args[moduleName].order = moduleOrder
-			moduleOrder = moduleOrder + 10
-			-- disable the module's tab if the core addon is disabled
-			self.options.args[moduleName].disabled = function() return not db.enabled end
 			-- check if a module should be enabled, and if so, enable it
-			local mdbe = module.db.profile.enabled
-			if mdbe then
+			local mns = self.db:GetNamespace(module:GetName(), true)
+			local enabledStatus = mns and mns.profile.enabled
+			if enabledStatus then
 				if not module:IsEnabled() then
 					self:EnableModule(moduleName)
 				end
@@ -202,11 +172,16 @@ end
 
 -- chat commands handler
 function addon:ChatCommands()
-	if UnitAffectingCombat("player") then
-		CombatCloseUX()
-		return
+	self:OpenOrCloseUX()
+end
+
+-- function to open/close the UX panel
+function addon:OpenOrCloseUX()
+	if Dialog.OpenFrames["SmartRes2"] then
+		Dialog:Close("SmartRes2")
+	else
+		Dialog:Open("SmartRes2")
 	end
-	OpenOrCloseUX()
 end
 
 -- function that returns the player's class resurrection spell icon or default_icon
@@ -313,7 +288,7 @@ function addon:BindResKeys()
 	end
 
 	-- save the bindings per character so they persist through logout
-	SaveBindings(2)
+	SaveBindings(Enum.BindingSet.Character)
 end
 
 -- bind the mass res key
@@ -336,7 +311,7 @@ function addon:BindMassResKey()
 	end
 
 	-- save the bindings per character so they persist through logout
-	SaveBindings(2)
+	SaveBindings(Enum.BindingSet.Character)
 end
 
 -- unbind all the keys
@@ -357,38 +332,12 @@ function addon:UnbindAllResAndMassResKeys()
 	SetBinding(db[player_name].resKey)
 	SetBinding(db[player_name].manualResKey)
 	SetBinding(db[player_name].massResKey)
-	SaveBindings(2)
+	SaveBindings(Enum.BindingSet.Character)
 
 	-- restore the user settings
 	db[player_name].resKey = tempResKey
 	db[player_name].manualResKey = tempManualResKey
 	db[player_name].massResKey = tempMassResKey
-end
-
--- translate input table and return localizations
-function addon:TranslateTable(inputTable)
-	-- check inputTable for validity
-	if not inputTable or type(inputTable) ~= "table" then
-		error(":TranslateTable, 'inputTable' table expected, got %s", 2):format(type(inputTable))
-	end
-    local outputTable = {}
-    for index in pairs(inputTable) do
-        outputTable[index] = L[index]
-    end
-    return outputTable
-end
-
--- round to N decimals
-function addon:Round(value, decimals)
-	local mult = 10 ^ (decimals or 0)
-	return floor(value * mult + 0.5) / mult
-end
-
--- handle events
-function addon:EnteringCombat()
-	if UnitAffectingCombat("player") then
-		CombatCloseUX()
-	end
 end
 
 -- smart res functions that pick dead targets intelligently
@@ -401,4 +350,54 @@ function addon:MassRessurection()
 		self:Print(L["You are not in a group."])
 		return
 	end
+end
+
+-------------------- Public APIs --------------------
+-- modules register their options table with this function
+function addon:RegisterModuleOptions(moduleName, moduleOptions)
+	options = options or self:GetOptions()
+	local errorText = ""
+	if type(moduleName) ~= "string" then
+		errorText = format("Arg 'moduleName' string expected, got type '%s'", type(moduleName))
+		error(errorText, 2)
+	end
+	if type(moduleOptions) ~= "table" then
+		errorText = format("Arg 'moduleOptions' table expected, got type '%s'", type(moduleOptions))
+		error(errorText, 2)
+	end
+	options.args[moduleName] = options.args[moduleName] or moduleOptions
+	LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
+end
+
+-- translate input table and return localizations for keys
+function addon:LocalizeTableKeys(inputTable)
+	local errorText, outputTable = "", {}
+	-- check inputTable for validity
+	if type(inputTable) ~= "table" then
+		errorText = format("Arg 'inputTable' table expected, got type '%s'", type(inputTable))
+		error(errorText, 2)
+	end
+
+    for key, value in pairs(inputTable) do
+		-- localize key if value is not nil
+		if value ~= nil then
+			GetOrCreateTableEntry(outputTable, key, L[key])
+		end
+    end
+    return outputTable
+end
+
+-- round to N decimals
+function addon:Round(value, decimals)
+	local errorText = ""
+	if type(value) ~= "number" then
+		errorText = format("Arg 'value' number expected, got type %s", type(value))
+		error(errorText, 2)
+	end
+	if decimals and type(decimals) ~= "number" then
+		errorText = format("Arg 'decimals' nil or number expected, got type %s", type(decimals))
+		error(errorText, 2)
+	end
+	local mult = 10 ^ (decimals or 0)
+	return floor(value * mult + 0.5) / mult
 end

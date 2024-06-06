@@ -5,12 +5,31 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 -- we must remember to call addon:Print(..) to get SmartRes2:Print(...)
 -- if we call self:Print(...) we would get Chat:Print(...)
 
+-- WoW has cool table functions, upvalue them: https://github.com/Gethe/wow-ui-source/blob/87c526a3ae979a7f5244d635bd8ae952b4313bd8/Interface/SharedXML/TableUtil.lua
+local GetOrCreateTableEntry, TableIsEmpty, tContains = GetOrCreateTableEntry, TableIsEmpty, tContains
+
+local function GetChatTypes()
+    local types = {
+        ["GROUP"] = CHANNEL_CATEGORY_GROUP,
+        ["GUILD"] = CHAT_MSG_GUILD,
+        ["NONE"] = NONE,
+        ["PARTY"] = CHAT_MSG_PARTY,
+        ["RAID"] = CHAT_MSG_RAID,
+        ["SAY"] = CHAT_MSG_SAY,
+        ["WHISPER"] = CHAT_MSG_WHISPER_INFORM,
+        ["YELL"] = CHAT_MSG_YELL,
+    }
+    return types
+end
+
 function module:GetOptions()
     self.db = addon.db:GetNamespace(module:GetName())
     local db = self.db.profile
     local options = {
+        order = 60,
         type = "group",
         childGroups = "tab",
+        disabled = function() return not addon.db.profile.enabled end,
         name = CHAT_OPTIONS_LABEL,
         args = {
             miscellaneous = {
@@ -55,16 +74,7 @@ function module:GetOptions()
                         desc = L["Tell other players their spells will not finish first."],
                         get = function() return db.notifyCollision end,
                         set = function(_, value) db.notifyCollision = value end,
-                        values = {
-                            ["GROUP"] = CHANNEL_CATEGORY_GROUP,
-                            ["GUILD"] = CHAT_MSG_GUILD,
-                            ["NONE"] = NONE,
-                            ["PARTY"] = CHAT_MSG_PARTY,
-                            ["RAID"] = CHAT_MSG_RAID,
-                            ["SAY"] = CHAT_MSG_SAY,
-                            ["WHISPER"] = CHAT_MSG_WHISPER_INFORM,
-                            ["YELL"] = CHAT_MSG_YELL,
-                        }
+                        values = function() return GetChatTypes() end
                     }
                 }
             },
@@ -109,8 +119,8 @@ function module:GetOptions()
                             value = value:trim()
                             value = value:len() >= 1 and value or nil
                             if value then
-                                db.randomSingleMessages[value] = true
-                                self.randomSingleMessages[value] = value
+                                GetOrCreateTableEntry(db.randomSingleMessages, value, true)
+                                GetOrCreateTableEntry(self.randomSingleMessages, value, value)
                             end
                         end,
                         usage = L["Example: Hey %s, I am resurrecting you!"],
@@ -123,7 +133,7 @@ function module:GetOptions()
                             if value and value:len() >= 256 then
                                 return (L["Message must be 255 characters or less. Currently %d characters."]):format(value:len())
                             end
-                            if value and db.randomSingleMessages[value] ~= nil then
+                            if value and tContains(db.randomSingleMessages, value) then
                                 return (L["The string %s already exists and cannot be added again."]):format(value)
                             end
                             return true
@@ -140,27 +150,28 @@ function module:GetOptions()
                         set = function(_, key, value)
                             db.randomSingleMessages[key] = value
                             if db.randomSingleMessages[key] then
-                                self.randomSingleMessages[key] = key
+                                GetOrCreateTableEntry(self.randomSingleMessages, key, key)
                             else
                                 self.randomSingleMessages[key] = nil
                             end
                         end,
-                        values = function() return addon:TranslateTable(db.randomSingleMessages) end
+                        values = function() return addon:LocalizeTableKeys(db.randomSingleMessages) end
                     },
                     deleteRandomSingleResMessages = {
                         order = 40,
                         type = "multiselect",
                         dialogControl = "Dropdown",
                         name = L["Delete Random Res Messages"],
-                        desc = L["Delete messages from the DB. Reset the profile to undo."],
+                        desc = L["Delete messages from the DB. Click the Recycle Bin to undo."],
                         width = "full",
-                        get = function() return true end,
+                        get = function() return TableIsEmpty(db.randomSingleMessages) and nil or true end,
                         set = function(_, key)
 							-- the only possible value (not used) for "value" is false (because get always returns true), so we don't bother checking it and remove the entry from the table
+                            GetOrCreateTableEntry(db.deletedSingleMessages, key, key)
                             db.randomSingleMessages[key] = nil
                             self.randomSingleMessages[key] = nil
                         end,
-                        values = function() return addon:TranslateTable(db.randomSingleMessages) end
+                        values = function() return addon:LocalizeTableKeys(db.randomSingleMessages) end
                     },
                     chatChannel = {
                         order = 50,
@@ -170,16 +181,24 @@ function module:GetOptions()
                         desc = L["Output channel for single res messages."],
                         get = function() return db.singleResOutput end,
                         set = function(_, value) db.singleResOutput = value end,
-                        values = {
-                            ["GROUP"] = CHANNEL_CATEGORY_GROUP,
-                            ["GUILD"] = CHAT_MSG_GUILD,
-                            ["NONE"] = NONE,
-                            ["PARTY"] = CHAT_MSG_PARTY,
-                            ["RAID"] = CHAT_MSG_RAID,
-                            ["SAY"] = CHAT_MSG_SAY,
-                            ["WHISPER"] = CHAT_MSG_WHISPER_INFORM,
-                            ["YELL"] = CHAT_MSG_YELL,
-                        }
+                        values = function() return GetChatTypes() end
+                    },
+                    restoreRandomSingleResMessages = {
+                        order = 60,
+                        type = "execute",
+                        disabled = function() return TableIsEmpty(db.deletedSingleMessages) end,
+                        image = "Interface\\AddOns\\SmartRes2\\Media\\Icons\\Undo.tga",
+                        name = L["Restore Deleted Messages"],
+                        imageHeight = 32,
+                        imageWidth = 32,
+                        func = function()
+                            for key in pairs(db.deletedSingleMessages) do
+                                GetOrCreateTableEntry(db.randomSingleMessages, key, true)
+                                GetOrCreateTableEntry(self.randomSingleMessages, key, key)
+                                db.deletedSingleMessages[key] = nil
+                                PlaySoundFile("Interface\\AddOns\\SmartRes2\\Media\\Sounds\\clickselect2.ogg", "Master")
+                            end
+                        end
                     }
                 }
             },
@@ -224,8 +243,8 @@ function module:GetOptions()
                             value = value:trim()
                             value = value:len() >= 1 and value or nil
                             if value then
-                                db.randomMassMessages[value] = true
-                                self.randomMassMessages[value] = value
+                                GetOrCreateTableEntry(db.randomMassMessages, value, true)
+                                GetOrCreateTableEntry(self.randomMassMessages, value, value)
                             end
                         end,
                         usage = L["Example: I am resurrecting everybody!"],
@@ -238,7 +257,7 @@ function module:GetOptions()
                             if value and value:len() >= 256 then
                                 return (L["Message must be 255 characters or less. Currently %d characters."]):format(value:len())
                             end
-                            if value and db.randomMassMessages[value] ~= nil then
+                            if value and tContains(db.randomMassMessages, value) then
                                 return (L["The string %s already exists and cannot be added again."]):format(value)
                             end
                             return true
@@ -260,22 +279,23 @@ function module:GetOptions()
                                 self.randomMassMessages[key] = nil
                             end
                         end,
-                        values = function() return addon:TranslateTable(db.randomMassMessages) end
+                        values = function() return addon:LocalizeTableKeys(db.randomMassMessages) end
                     },
                     deleteRandomMassResMessages = {
                         order = 40,
                         type = "multiselect",
                         dialogControl = "Dropdown",
                         name = L["Delete Random Res Messages"],
-                        desc = L["Delete messages from the DB. Reset the profile to undo."],
+                        desc = L["Delete messages from the DB. Click the Recycle Bin to undo."],
                         width = "full",
-                        get = function() return true end,
+                        get = function() return TableIsEmpty(db.randomMassMessages) and nil or true end,
                         set = function(_, key)
 							-- the only possible value (not used) for "value" is false (because get always returns true), so we don't bother checking it and remove the entry from the table
+                            GetOrCreateTableEntry(db.deletedMassMessages, key, key)
                             db.randomMassMessages[key] = nil
                             self.randomMassMessages[key] = nil
                         end,
-                        values = function() return addon:TranslateTable(db.randomMassMessages) end
+                        values = function() return addon:LocalizeTableKeys(db.randomMassMessages) end
                     },
                     chatChannel = {
                         order = 50,
@@ -285,16 +305,24 @@ function module:GetOptions()
                         desc = L["Output channel for mass res messages."],
                         get = function() return db.massResOutput end,
                         set = function(_, value) db.massResOutput = value end,
-                        values = {
-                            ["GROUP"] = CHANNEL_CATEGORY_GROUP,
-                            ["GUILD"] = CHAT_MSG_GUILD,
-                            ["NONE"] = NONE,
-                            ["PARTY"] = CHAT_MSG_PARTY,
-                            ["RAID"] = CHAT_MSG_RAID,
-                            ["SAY"] = CHAT_MSG_SAY,
-                            ["WHISPER"] = CHAT_MSG_WHISPER_INFORM,
-                            ["YELL"] = CHAT_MSG_YELL,
-                        }
+                        values = function() return GetChatTypes() end
+                    },
+                    restoreRandomSingleResMessages = {
+                        order = 60,
+                        type = "execute",
+                        disabled = function() return TableIsEmpty(db.deletedMassMessages) end,
+                        image = "Interface\\AddOns\\SmartRes2\\Media\\Icons\\Undo.tga",
+                        name = L["Restore Deleted Messages"],
+                        imageHeight = 32,
+                        imageWidth = 32,
+                        func = function()
+                            for key in pairs(db.deletedMassMessages) do
+                                GetOrCreateTableEntry(db.randomMassMessages, key, true)
+                                GetOrCreateTableEntry(self.randomMassMessages, key, key)
+                                db.deletedMassMessages[key] = nil
+                                PlaySoundFile("Interface\\AddOns\\SmartRes2\\Media\\Sounds\\clickselect2.ogg", "Master")
+                            end
+                        end
                     }
                 }
             }

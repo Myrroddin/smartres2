@@ -1,4 +1,4 @@
--- File revision: @file-revision@
+---@class addon: AceAddon, AceConsole-3.0, AceEvent-3.0, AceComm-3.0, AceSerializer-3.0
 -- Project date: @project-date-iso@
 
 -- get addon reference and localization
@@ -81,7 +81,7 @@ function addon:GetOptions()
                             if not self.knownResSpell then
                                 db[player_name].resKey = ""
                                 SetBinding(db[player_name].resKey)
-                                SaveBindings(2)
+                                SaveBindings(Enum.BindingSet.Character)
                                 return (L["%s does not know a res spell and cannot bind this key"]):format(player_name)
                             end
                             return true
@@ -104,7 +104,7 @@ function addon:GetOptions()
                             if not self.knownResSpell then
                                 db[player_name].manualResKey = ""
                                 SetBinding(db[player_name].manualResKey)
-                                SaveBindings(2)
+                                SaveBindings(Enum.BindingSet.Character)
                                 return (L["%s does not know a res spell and cannot bind this key"]):format(player_name)
                             end
                             return true

@@ -17,6 +17,8 @@ local defaults = {
     massResOutput = "GROUP",
     overrideSingleResMessage = nil,
     overrideMassResMessage = nil,
+    deletedSingleMessages = {},
+    deletedMassMessages = {},
     randomSingleMessages = {
         ["I am resurrecting %s."] = true,
         ["Hey %s! Stop being dead, lazy bones!"] = true,
@@ -60,7 +62,23 @@ function module:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
     db = self.db.profile
     self:SetEnabledState(db.enabled)
-    addon.options.args[module:GetName()] = self:GetOptions()
+
+    local options = self:GetOptions()
+    addon:RegisterModuleOptions(module:GetName(), options)
+
+    -- populate random message tables
+    wipe(self.randomSingleMessages)
+    for key, value in pairs(db.randomSingleMessages) do
+        if value then
+            GetOrCreateTableEntry(self.randomSingleMessages, key, key)
+        end
+    end
+    wipe(self.randomMassMessages)
+    for key, value in pairs(db.randomMassMessages) do
+        if value then
+            GetOrCreateTableEntry(self.randomMassMessages, key, key)
+        end
+    end
 end
 
 function module:OnEnable()
@@ -70,6 +88,18 @@ function module:OnDisable()
 end
 
 function module:RefreshConfig()
-    self.randomSingleMessages, self.randomMassMessages = {}, {}
     db = self.db.profile
+    -- populate random message tables
+    wipe(self.randomSingleMessages)
+    for key, value in pairs(db.randomSingleMessages) do
+        if value then
+            GetOrCreateTableEntry(self.randomSingleMessages, key, key)
+        end
+    end
+    wipe(self.randomMassMessages)
+    for key, value in pairs(db.randomMassMessages) do
+        if value then
+            GetOrCreateTableEntry(self.randomMassMessages, key, key)
+        end
+    end
 end

@@ -5,14 +5,14 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 -- we must remember to call addon:Print(..) to get SmartRes2:Print(...)
 -- if we call self:Print(...) we would get Bars:Print(...)
 
-local LSM = LibStub("LibSharedMedia-3.0")
-
 function module:GetOptions()
     self.db = addon.db:GetNamespace(module:GetName())
     local db = self.db.profile
     local options = {
+        order = 70,
         type = "group",
         childGroups = "tab",
+        disabled = function() return not addon.db.profile.enabled end,
         name = L["Res Bars Options"],
         args = {
             miscellaneous = {
@@ -76,6 +76,36 @@ function module:GetOptions()
                             local c = db.collisionSingleRes
                             c.r, c.g, c.b, c.a = r, g, b, a
                         end
+                    },
+                    goodMassRes = {
+                        order = 30,
+                        type = "color",
+                        hasAlpha = true,
+                        width = 1.25,
+                        name = L["Non-Collision Mass Res"],
+                        get = function()
+                            local c = db.goodMassRes
+                            return c.r, c.g, c.b, c.a
+                        end,
+                        set = function(_, r, g, b, a)
+                            local c = db.goodMassRes
+                            c.r, c.g, c.b, c.a = r, g, b, a
+                        end
+                    },
+                    collisionMassRes = {
+                        order = 40,
+                        type = "color",
+                        hasAlpha = true,
+                        width = 1.25,
+                        name = L["Collision Mass Res"],
+                        get = function()
+                            local c = db.collisionMassRes
+                            return c.r, c.g, c.b, c.a
+                        end,
+                        set = function(_, r, g, b, a)
+                            local c = db.collisionMassRes
+                            c.r, c.g, c.b, c.a = r, g, b, a
+                        end
                     }
                 }
             },
@@ -88,11 +118,23 @@ function module:GetOptions()
                     fontType = {
                         order = 10,
                         type = "select",
-                        dialogControl = "LSM30_FONT",
+						dialogControl = "LSM30_Font",
                         name = L["Font"],
+                        width = 1.75,
                         get = function() return db.fontType end,
                         set = function(_, value) db.fontType = value end,
-                        values = AceGUIWidgetLSMlists and AceGUIWidgetLSMlists.font or {}
+                        values = AceGUIWidgetLSMlists.font
+                    },
+                    fontSize = {
+                        order = 20,
+                        type = "range",
+                        name = FONT_SIZE,
+                        get = function() return db.fontSize end,
+                        set = function(_, value) db.fontSize = value end,
+                        min = 6,
+                        max = 18,
+                        step = 1,
+                        bigStep = 2
                     }
                 }
             },
