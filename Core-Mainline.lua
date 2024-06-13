@@ -26,7 +26,7 @@ addon.LSM = LibStub("LibSharedMedia-3.0")
 
 -- register media (fonts, borders, backgrounds, etc) with LibSharedMedia-3.0
 local MediaType_FONT = addon.LSM.MediaType.FONT or "font"
-addon.LSM:Register(MediaType_FONT, "Olde English", "Interface\\AddOns\\SmartRes2\\Media\\Fonts\\OldeEnglish.ttf")
+addon.LSM:Register(MediaType_FONT, "Olde English", [[Interface\AddOns\SmartRes2\Media\Fonts\OldeEnglish.ttf]])
 
 -- variables that are file scope
 local default_icon = "Interface\\Icons\\Spell_holy_resurrection"
@@ -52,6 +52,7 @@ local db, options
 local defaults = {
 	profile = {
 		enabled = true,
+		switchToCombatRes = true,
 		minimap = {
 			hide = false,
 			lock = true,
@@ -108,7 +109,7 @@ function addon:OnInitialize()
 		tocname = "SmartRes2",
 		label = "SmartRes2",
 		text = "SmartRes2",
-		icon = (db.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon,
+		icon = (db.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay()) or default_icon,
 		OnClick = function(_, button)
 			if button == "RightButton" then
 				self:OpenOrCloseUX()
@@ -125,6 +126,8 @@ end
 
 function addon:OnEnable()
 	self:RegisterEvent("SPELLS_CHANGED", "GetUpdatedSpells")
+	self:RegisterEvent("PLAYER_REGEN_DISABLED", "EnteringCombat")
+	self:RegisterEvent("PLAYER_REGEN_ENABLED", "LeavingCombat")
 	self:GetUpdatedSpells()
 	for moduleName, module in self:IterateModules() do
 		-- verify a module exists before messing with its settings
@@ -142,7 +145,7 @@ function addon:OnEnable()
 end
 
 function addon:OnDisable()
-	self:UnregisterEvent("SPELLS_CHANGED")
+	self:UnregisterAllEvents()
 	self:UnbindAllResAndMassResKeys()
 	for moduleName in self:IterateModules() do
 		-- verify a module exists before disabling it
@@ -165,7 +168,7 @@ function addon:RefreshConfig()
 	end
 	DBI:Refresh("SmartRes2", db.minimap)
 	local button = DBI:GetMinimapButton("SmartRes2")
-	local iconTexture = (db.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay(player_class)) or default_icon
+	local iconTexture = (db.minimap.useClassIconForBroker and self:GetIconForBrokerDisplay()) or default_icon
 	button.icon:SetTexture(iconTexture)
 	self:GetUpdatedSpells()
 end
@@ -184,35 +187,36 @@ function addon:OpenOrCloseUX()
 	end
 end
 
+-- combat status checks to swap between combat res spell and regular res spell
+function addon:EnteringCombat()
+	if not db.switchToCombatRes then return end
+	self:BindManualResKey(self.knownCombatResSpell)
+end
+
+function addon:LeavingCombat()
+	if not db.switchToCombatRes then return end
+	self:BindManualResKey(self.knownResSpell)
+end
+
 -- function that returns the player's class resurrection spell icon or default_icon
 local res_spells_by_class = {
-	["DRUID"] = GetSpellInfo(50769),		-- Revive
-	["EVOKER"] = GetSpellInfo(361227),		-- Return
-	["MONK"] = GetSpellInfo(115178),		-- Resuscitate
-	["PALADIN"] = GetSpellInfo(7328),		-- Redemption
-	["PRIEST"] = GetSpellInfo(2006),		-- Resurrection
-	["SHAMAN"] = GetSpellInfo(2008),		-- Ancestral Spirit
+	["PRIEST"]					= GetSpellInfo(2006),	-- Resurrection
+	["SHAMAN"]					= GetSpellInfo(2008),	-- Ancestral Spirit
+	["PALADIN"]					= GetSpellInfo(7328),	-- Redemption
+	["DRUID"]					= GetSpellInfo(50769),	-- Revive
+	["MONK"]					= GetSpellInfo(115178),	-- Resuscitate
+	["EVOKER"]					= GetSpellInfo(361227),	-- Return
 }
 
-function addon:GetIconForBrokerDisplay(playerClass)
-	local player_spell = res_spells_by_class[playerClass]
+function addon:GetIconForBrokerDisplay()
+	local player_spell = res_spells_by_class[player_class]
 	local player_spell_icon = select(3, GetSpellInfo(player_spell))
 
 	local icon = (player_spell and player_spell_icon) or default_icon
 	return icon
 end
 
--- used to determine if the player knows a mass res spell
-local mass_res_spells_by_class = {
-	["DRUID"] = GetSpellInfo(212040),		-- Revitalize
-	["EVOKER"] = GetSpellInfo(361178),		-- Mass Return
-	["MONK"] = GetSpellInfo(212051),		-- Reawaken
-	["PALADIN"] = GetSpellInfo(212056),		-- Absolution
-	["PRIEST"] = GetSpellInfo(212036),		-- Mass Resurrection
-	["SHAMAN"] = GetSpellInfo(212048),		-- Ancestral Vision
-}
-
--- function to learn which res spell the player knows
+-- table of res spells the player might know
 local single_res_spells_by_name = {
 	[GetSpellInfo(2006)]		= true, -- Resurrection
 	[GetSpellInfo(2008)]		= true, -- Ancestral Spirit
@@ -222,48 +226,80 @@ local single_res_spells_by_name = {
 	[GetSpellInfo(212051)]		= true, -- Reawaken
 }
 
-function addon:GetUpdatedSpells()
-	local newSpellName, newSpellID
-	local i = 1
+-- table of combat res spells the player might know
+local combat_res_spells_by_name = {
+	[GetSpellInfo(20484)]		= true, -- Rebirth (Druid)
+	[GetSpellInfo(20707)]		= true, -- Soulstone (Warlock)
+	[GetSpellInfo(61999)]		= true, -- Raise Ally (Death Knight)
+	[GetSpellInfo(391054)]		= true, -- Intercession (Paladin)
+	[GetSpellInfo(159931)]		= true, -- Gift of Chi-Ji (Hunter's crane pet)
+	[GetSpellInfo(159956)]		= true, -- Dust of Life (Hunter's moth pet)
+}
 
-	-- first, determine if res spells are in the player's spellbook
-	while true do
+-- table of mass res spells the player might know
+local mass_res_spells_by_name = {
+	[GetSpellInfo(212036)]		= true, -- Mass Resurrection
+	[GetSpellInfo(212040)]		= true, -- Revitalize
+	[GetSpellInfo(212048)]		= true, -- Ancestral Vision
+	[GetSpellInfo(212051)]		= true, -- Reawaken
+	[GetSpellInfo(212056)]		= true, -- Absolution
+	[GetSpellInfo(361178)]		= true, -- Mass Return
+}
+
+function addon:GetUpdatedSpells()
+	self.knownResSpell, self.knownCombatResSpell, self.knownMassResSpell = nil, nil, nil
+	local newSpellName
+
+	local i = 1
+	-- determine if res spells are in the player's spellbook
+	while GetSpellBookItemName(i, BOOKTYPE_SPELL) do
 		newSpellName = GetSpellBookItemName(i, BOOKTYPE_SPELL)
-		if not newSpellName then
-			-- end of the spellbook; break the while loop
-			break
-		end
 
 		if single_res_spells_by_name[newSpellName] then
-			-- get the spellID here, where there is a table match
-			newSpellID = select(7, GetSpellInfo(newSpellName))
-			-- mainline has no spell ranks; break the while loop when we match
-			break
+			self.knownResSpell = newSpellName
 		end
-		-- loop through the spellbook until the end or there is a match, whichever happens first
+
+		if combat_res_spells_by_name[newSpellName] then
+			self.knownCombatResSpell = newSpellName
+		end
+
+		if mass_res_spells_by_name[newSpellName] then
+			self.knownMassResSpell = newSpellName
+		end
+
+		-- loop through the spellbook until the end
 		i = i + 1
 	end
 
-	-- now determine if the player actualy knows the res spell, IE: the player can cast it
-	if newSpellID and IsSpellKnown(newSpellID) then
-		-- we need the spell name to pass into IsUsableSpell()
-		-- there is no point in passing the spellID if the player can't cast the spell
-		-- (usually the player is in the wrong spec)
-		self.knownResSpell = GetSpellInfo(newSpellID)
+	-- check for Hunter pets
+	local numSpells = HasPetSpells()
+	if numSpells then
+		for index = 1, numSpells do
+			newSpellName = GetSpellBookItemName(index, BOOKTYPE_PET)
+			if combat_res_spells_by_name[newSpellName] then
+				self.knownCombatResSpell = newSpellName
+			end
+		end
 	end
 
-	-- known mass res spell
-	local newMassResName, newMassResSpellID
-	newMassResName = mass_res_spells_by_class[player_class]
-	newMassResSpellID = newMassResName and select(7, GetSpellInfo(newMassResName))
-	self.knownMassResSpell = newMassResSpellID and IsSpellKnown(newMassResSpellID) and newMassResName
+	-- remind the player that keys can be found as we found spells
+	if self.knownResSpell and db[player_name].resKey == "" then
+		self:Print(L["Regular res spell known. You should bind the single target key."])
+	end
+	if self.knownCombatResSpell and db[player_name].manualResKey == "" then
+		self:Print(L["Regular or combat res spell known. You should bind the manual target key."])
+	end
+	if self.knownMassResSpell and db[player_name].massResKey = "" then
+		self:Print(L["Mass res spell known. You should bind the mass res key."])
+	end
 
-	self:BindResKeys()
+	self:BindAutoResKey()
+	self:BindManualResKey()
 	self:BindMassResKey()
 end
 
--- bind the single res keys
-function addon:BindResKeys()
+-- bind the single auto res key
+function addon:BindAutoResKey()
 	if self.knownResSpell then
 		if db[player_name].resKey == "" then
 			-- the user cleared the res spell keybind
@@ -272,23 +308,40 @@ function addon:BindResKeys()
 			-- there is a non-empty string to bind
 			SetBindingClick(db[player_name].resKey, resButton:GetName(), "LeftClick")
 		end
+	else
+		-- the character does not know a res spell
+		db[player_name].resKey = ""
+		SetBinding(db[player_name].resKey)
+	end
 
+	if not UnitAffectingCombat("player") then
+		-- save the bindings per character so they persist through logout
+		SaveBindings(Enum.BindingSet.Character)
+	end
+end
+
+-- bind the manual res key
+function addon:BindManualResKey(regularOrCombatResSpell)
+	regularOrCombatResSpell = regularOrCombatResSpell or self.knownResSpell
+
+	if regularOrCombatResSpell then
 		if db[player_name].manualResKey == "" then
 			-- the user cleared the manual res spell keybind
 			SetBinding(db[player_name].manualResKey)
 		else
 			-- there is a non-empty string to bind
-			SetBindingSpell(db[player_name].manualResKey, self.knownResSpell)
+			SetBindingSpell(db[player_name].manualResKey, regularOrCombatResSpell)
 		end
 	else
 		-- the character does not know a res spell
-		db[player_name].resKey, db[player_name].manualResKey = "", ""
-		SetBinding(db[player_name].resKey)
+		db[player_name].manualResKey = ""
 		SetBinding(db[player_name].manualResKey)
 	end
 
-	-- save the bindings per character so they persist through logout
-	SaveBindings(Enum.BindingSet.Character)
+	if not UnitAffectingCombat("player") then
+		-- save the bindings per character so they persist through logout
+		SaveBindings(Enum.BindingSet.Character)
+	end
 end
 
 -- bind the mass res key
@@ -310,8 +363,10 @@ function addon:BindMassResKey()
 		db[player_name].massResKey = tempMassResKey
 	end
 
-	-- save the bindings per character so they persist through logout
-	SaveBindings(Enum.BindingSet.Character)
+	if not UnitAffectingCombat("player") then
+		-- save the bindings per character so they persist through logout
+		SaveBindings(Enum.BindingSet.Character)
+	end
 end
 
 -- unbind all the keys
@@ -332,7 +387,11 @@ function addon:UnbindAllResAndMassResKeys()
 	SetBinding(db[player_name].resKey)
 	SetBinding(db[player_name].manualResKey)
 	SetBinding(db[player_name].massResKey)
-	SaveBindings(Enum.BindingSet.Character)
+
+	if not UnitAffectingCombat("player") then
+		-- save the bindings per character so they persist through logout
+		SaveBindings(Enum.BindingSet.Character)
+	end
 
 	-- restore the user settings
 	db[player_name].resKey = tempResKey
@@ -366,11 +425,13 @@ function addon:RegisterModuleOptions(moduleName, moduleOptions)
 		error(errorText, 2)
 	end
 	options.args[moduleName] = options.args[moduleName] or moduleOptions
+	options.args[moduleName].disabled = moduleOptions.disabled or function() return not addon.db.profile.enabled end
 	LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
 end
 
 -- translate input table and return localizations for keys
-function addon:LocalizeTableKeys(inputTable)
+function addon:LocalizeTableKeys(inputTable, myL)
+	myL = myL or L
 	local errorText, outputTable = "", {}
 	-- check inputTable for validity
 	if type(inputTable) ~= "table" then
@@ -381,7 +442,7 @@ function addon:LocalizeTableKeys(inputTable)
     for key, value in pairs(inputTable) do
 		-- localize key if value is not nil
 		if value ~= nil then
-			GetOrCreateTableEntry(outputTable, key, L[key])
+			GetOrCreateTableEntry(outputTable, key, myL[key])
 		end
     end
     return outputTable

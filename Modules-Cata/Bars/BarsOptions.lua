@@ -12,7 +12,6 @@ function module:GetOptions()
         order = 70,
         type = "group",
         childGroups = "tab",
-        disabled = function() return not addon.db.profile.enabled end,
         name = L["Res Bars Options"],
         args = {
             miscellaneous = {

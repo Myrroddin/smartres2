@@ -29,7 +29,6 @@ function module:GetOptions()
         order = 60,
         type = "group",
         childGroups = "tab",
-        disabled = function() return not addon.db.profile.enabled end,
         name = CHAT_OPTIONS_LABEL,
         args = {
             miscellaneous = {

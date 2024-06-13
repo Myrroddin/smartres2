@@ -10,7 +10,6 @@ local DBI = LibStub("LibDBIcon-1.0")
 
 -- variables that are file scope
 local db, player_class, default_icon
-player_class = UnitClassBase("player")
 local player_name = UnitName("player") .. " - " .. GetRealmName()
 default_icon = "Interface\\Icons\\Spell_holy_resurrection"
 
@@ -64,8 +63,18 @@ function addon:GetOptions()
                             end
                         end
                     },
-                    singleKey = {
+                    switchToCombatRes = {
                         order = 20,
+                        type = "toggle",
+                        name = L["Swap Manual Target Spells"],
+                        desc = L["During combat, switch to your combat res spell, and your regular res spell out of combat."],
+                        get = function() return db.switchToCombatRes end,
+                        set = function(_, value)
+                            db.switchToCombatRes = value
+                        end
+                    },
+                    singleKey = {
+                        order = 30,
                         type = "keybinding",
                         disabled = function() return not db.enabled end,
                         name = L["Single Target Res Key"],
@@ -75,20 +84,23 @@ function addon:GetOptions()
                             value = value:trim()
                             value = value:len() >= 1 and value or ""
                             db[player_name].resKey = value
-                            self:BindResKeys()
+                            self:BindAutoResKey()
                         end,
                         validate = function()
                             if not self.knownResSpell then
                                 db[player_name].resKey = ""
                                 SetBinding(db[player_name].resKey)
-                                SaveBindings(Enum.BindingSet.Character)
+                                if not UnitAffectingCombat("player") then
+                                    -- save the bindings per character so they persist through logout
+                                    SaveBindings(Enum.BindingSet.Character)
+                                end
                                 return (L["%s does not know a res spell and cannot bind this key"]):format(player_name)
                             end
                             return true
                         end
                     },
                     manualResKey = {
-                        order = 30,
+                        order = 40,
                         type = "keybinding",
                         disabled = function() return not db.enabled end,
                         name = L["Manual Target Res"],
@@ -98,20 +110,23 @@ function addon:GetOptions()
                             value = value:trim()
                             value = value:len() >= 1 and value or ""
                             db[player_name].manualResKey = value
-                            self:BindResKeys()
+                            self:BindManualResKey()
                         end,
                         validate = function()
-                            if not self.knownResSpell then
+                            if not self.knownResSpell or not self.knownCombatResSpell then
                                 db[player_name].manualResKey = ""
                                 SetBinding(db[player_name].manualResKey)
-                                SaveBindings(Enum.BindingSet.Character)
+                                if not UnitAffectingCombat("player") then
+                                    -- save the bindings per character so they persist through logout
+                                    SaveBindings(Enum.BindingSet.Character)
+                                end
                                 return (L["%s does not know a res spell and cannot bind this key"]):format(player_name)
                             end
                             return true
                         end
                     },
                     massKey = {
-                        order = 40,
+                        order = 50,
                         type = "keybinding",
                         disabled = function() return not db.enabled end,
                         name = L["Mass Res Key"],
@@ -127,7 +142,10 @@ function addon:GetOptions()
                             if not self.knownMassResSpell then
                                 db[player_name].massResKey = ""
                                 SetBinding(db[player_name].massResKey)
-                                SaveBindings(Enum.BindingSet.Character)
+                                if not UnitAffectingCombat("player") then
+                                    -- save the bindings per character so they persist through logout
+                                    SaveBindings(Enum.BindingSet.Character)
+                                end
                                 return (L["%s does not know a mass res spell and cannot bind this key"]):format(player_name)
                             end
                             return true
@@ -206,7 +224,7 @@ function addon:GetOptions()
                         set = function(_, value)
                             db.minimap.useClassIconForBroker = value
                             local button = DBI:GetMinimapButton("SmartRes2")
-                            local iconTexture = (value and self:GetIconForBrokerDisplay(player_class)) or default_icon
+                            local iconTexture = (value and self:GetIconForBrokerDisplay()) or default_icon
                             button.icon:SetTexture(iconTexture)
                         end
                     },

@@ -1,4 +1,6 @@
-## Interface: 11502, 40400, 100207
+## Interface: 100207
+## Interface-Classic: 11502
+## Interface-Cata: 40400
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
 ## Notes-ruRU: @localization(locale="ruRU", key="Notes")@
