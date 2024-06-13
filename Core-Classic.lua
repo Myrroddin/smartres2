@@ -232,7 +232,6 @@ function addon:GetUpdatedSpells()
 		end
 
 		if combat_res_spells_by_name[newSpellName] then
-			-- replace the ghoulish Raise Ally with the true combat res spell
 			self.knownCombatResSpell = newSpellName
 		end
 
@@ -244,7 +243,7 @@ function addon:GetUpdatedSpells()
 	if self.knownResSpell and db[player_name].resKey == "" then
 		self:Print(L["Regular res spell known. You should bind the single target key."])
 	end
-	if self.knownCombatResSpell and db[player_name].manualResKey == "" then
+	if self.knownCombatResSpell or self.knownResSpell and db[player_name].manualResKey == "" then
 		self:Print(L["Regular or combat res spell known. You should bind the manual target key."])
 	end
 
