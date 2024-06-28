@@ -1,3 +1,4 @@
+---@diagnostic disable: duplicate-set-field
 ---@class addon: AceAddon, AceConsole-3.0, AceEvent-3.0, AceComm-3.0, AceSerializer-3.0
 -- Project date: @project-date-iso@
 
@@ -22,6 +23,7 @@ end
 -- additional libraries
 local DBI = LibStub("LibDBIcon-1.0")
 local Dialog = LibStub("AceConfigDialog-3.0")
+local Registry = LibStub("AceConfigRegistry-3.0")
 addon.LSM = LibStub("LibSharedMedia-3.0")
 
 -- register media (fonts, borders, backgrounds, etc) with LibSharedMedia-3.0
@@ -189,12 +191,20 @@ end
 -- combat status checks to swap between combat res spell and regular res spell
 function addon:EnteringCombat()
 	if not db.switchToCombatRes then return end
-	self:BindManualResKey(self.knownCombatResSpell)
+	if db[player_name].manualResKey == "" then return end
+	if self.knownCombatResSpell then
+		self:Print(L["Manual res key set to %s"], self.knownCombatResSpell)
+		SetBindingSpell(db[player_name].manualResKey, self.knownCombatResSpell)
+	end
 end
 
 function addon:LeavingCombat()
 	if not db.switchToCombatRes then return end
-	self:BindManualResKey(self.knownResSpell)
+	if db[player_name].manualResKey == "" then return end
+	if self.knownResSpell then
+		self:Print(L["Manual res key set to %s"], self.knownResSpell)
+		SetBindingSpell(db[player_name].manualResKey, self.knownResSpell)
+	end
 end
 
 -- function that returns the player's class resurrection spell icon or default_icon
@@ -295,16 +305,14 @@ function addon:BindAutoResKey()
 end
 
 -- bind the manual res key
-function addon:BindManualResKey(regularOrCombatResSpell)
-	regularOrCombatResSpell = regularOrCombatResSpell or self.knownResSpell
-
-	if regularOrCombatResSpell then
+function addon:BindManualResKey()
+	if self.knownResSpell then
 		if db[player_name].manualResKey == "" then
 			-- the user cleared the manual res spell keybind
 			SetBinding(db[player_name].manualResKey)
 		else
 			-- there is a non-empty string to bind
-			SetBindingSpell(db[player_name].manualResKey, regularOrCombatResSpell)
+			SetBindingSpell(db[player_name].manualResKey, self.knownResSpell)
 		end
 	else
 		-- the character does not know a res spell
@@ -400,7 +408,7 @@ function addon:RegisterModuleOptions(moduleName, moduleOptions)
 	end
 	options.args[moduleName] = options.args[moduleName] or moduleOptions
 	options.args[moduleName].disabled = moduleOptions.disabled or function() return not addon.db.profile.enabled end
-	LibStub("AceConfigRegistry-3.0"):NotifyChange("SmartRes2")
+	Registry:NotifyChange("SmartRes2")
 end
 
 -- translate input table and return localizations for keys

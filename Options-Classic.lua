@@ -22,15 +22,10 @@ function addon:GetOptions()
         handler = adddon,
         type = "group",
         childGroups = "tab",
-        name = "",
+        name = "SmartRes2 " .. addon.version,
         args = {
-            addonTitle = {
-                order = 10,
-                type = "header",
-                name = "SmartRes2 " .. addon.version
-            },
             addonDescription = {
-                order = 20,
+                order = 10,
                 type = "description",
                 name = L["Notes"],
                 fontSize = "large",
@@ -39,12 +34,12 @@ function addon:GetOptions()
                 imageHeight = 32
             },
             breakLine = {
-                order = 30,
+                order = 20,
                 type = "header",
                 name = ""
             },
             generalOptions = {
-                order = 40,
+                order = 30,
                 type = "group",
                 name = COMPACT_UNIT_FRAME_PROFILE_SUBTYPE_ALL,
                 args = {
@@ -66,6 +61,7 @@ function addon:GetOptions()
                     switchToCombatRes = {
                         order = 20,
                         type = "toggle",
+                        disabled = function() return not db.enabled end,
                         name = L["Swap Manual Target Spells"],
                         desc = L["During combat, switch to your combat res spell, and your regular res spell out of combat."],
                         get = function() return db.switchToCombatRes end,
@@ -128,7 +124,7 @@ function addon:GetOptions()
                 }
             },
             minimap = {
-                order = 50,
+                order = 40,
                 type = "group",
                 disabled = function() return not db.enabled end,
                 name = MINIMAP_LABEL,
@@ -205,6 +201,7 @@ function addon:GetOptions()
                     minimapPos = {
                         order = 50,
                         type = "range",
+                        disabled = function() return db.minimap.lock end,
                         name = L["Rotate Button"],
                         desc = L["Rotate the icon around the minimap."],
                         get = function() return db.minimap.minimapPos end,

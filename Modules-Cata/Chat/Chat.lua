@@ -63,6 +63,8 @@ function module:OnInitialize()
     db = self.db.profile
     self:SetEnabledState(db.enabled)
 
+    addon:RegisterModuleDefaults(module:GetName(), defaults)
+
     local options = self:GetOptions()
     addon:RegisterModuleOptions(module:GetName(), options)
 

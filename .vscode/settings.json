@@ -293,7 +293,14 @@
         "LARGE_NUMBER_SEPERATOR",
         "DECIMAL_SEPERATOR",
         "EquipmentManager_UnpackLocation",
-        "BOOKTYPE_PET"
+        "BOOKTYPE_PET",
+        "NO",
+        "ANTIALIASING",
+        "OPTION_TOOLTIP_ANTIALIASING",
+        "EMBLEM_BORDER",
+        "QUEST_LOGIC_AND",
+        "EMBLEM_BACKGROUND",
+        "ChatFrame1"
     ],
     "Lua.diagnostics.disable": [
         "discard-returns"

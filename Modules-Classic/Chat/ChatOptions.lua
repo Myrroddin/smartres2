@@ -12,7 +12,7 @@ function module:GetOptions()
     self.db = addon.db:GetNamespace(module:GetName())
     local db = self.db.profile
     local options = {
-        order = 60,
+        order = 50,
         type = "group",
         childGroups = "tab",
         name = CHAT_OPTIONS_LABEL,
