@@ -1,14 +1,25 @@
+---@diagnostic disable: duplicate-set-field, undefined-field
+-- File Date: @file-date-iso@
+---@class addon: AceAddon
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
+---@class module: AceModule
 local module = addon:GetModule("Bars", false)
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
-local AceGUIWidgetLSMlists = LibStub("AceGUISharedMediaWidgets-1.0") and AceGUIWidgetLSMlists
 
--- we must remember to call addon:Print(..) to get SmartRes2:Print(...)
--- if we call self:Print(...) we would get Bars:Print(...)
+-- additional libraries
+local AceGUIWidgetLSMlists = LibStub("AceGUISharedMediaWidgets-1.0") and AceGUIWidgetLSMlists
+local masque = module.masque
+
+-- we must remember to call addon:Print(.) to get SmartRes2:Print(..)
+-- if we call self:Print(..) we would get Bars:Print(..)
 
 function module:GetOptions()
     self.db = addon.db:GetNamespace(module:GetName())
     local db = self.db.profile
+    if not self.resFrame then
+        self:CreateResFrame()
+        self:GetResFramePosition()
+    end
     local options = {
         order = 60,
         type = "group",
@@ -39,6 +50,149 @@ function module:GetOptions()
                             end
                         end
                     },
+                    clampToScreen = {
+                        order = 20,
+                        type = "toggle",
+                        disabled = function() return not db.enabled end,
+                        name = L["Clamp to Screen"],
+                        desc = L["Prevent the bar frame from moving off your screen."],
+                        get = function() return db.clampToScreen end,
+                        set = function(_, value) db.clampToScreen = value end
+                    },
+                    lockFrame = {
+                        order = 30,
+                        type = "toggle",
+                        disabled = function() return not db.enabled end,
+                        name = L["Lock Frame"],
+                        desc = L["Prevents dragging the frame."],
+                        get = function() return db.lockFrame end,
+                        set = function(_, value) db.lockFrame = value end
+                    },
+                    supportMasque = {
+                        order = 40,
+                        type = "toggle",
+                        disabled = function() return not db.enabled end,
+                        hidden = function() return not masque end,
+                        name = L["Skin Icon with Masque"],
+                        get = function() return db.supportMasque end,
+                        set = function(_, value) db.supportMasque = value end
+                    },
+                    iconPosition = {
+                        order = 50,
+                        type = "select",
+                        style = "dropdown",
+                        disabled = function() return not db.enabled end,
+                        name = L["Icon Position"],
+                        get = function() return db.iconPosition end,
+                        set = function(_, value) db.iconPosition = value == "" and nil or value end,
+                        values = {
+                            [""] = NONE,
+                            ["LEFT"] = L["Left"],
+                            ["RIGHT"] = L["Right"]
+                        }
+                    },
+                    framePoint = {
+                        order = 60,
+                        type = "select",
+                        style = "dropdown",
+                        disabled = function() return not db.enabled or db.lockFrame end,
+                        name = L["Anchor Point"],
+                        desc = L["This automatically updates when the frame is locked."],
+                        get = function() return db.point end,
+                        set = function(_, value)
+                            db.point = value
+                            self:SetResFramePosition()
+                        end,
+                        values = {
+                            ["TOPLEFT"] = L["Top Left"],
+                            ["TOP"] = L["Top"],
+                            ["TOPRIGHT"] = L["Top Right"],
+                            ["LEFT"] = L["Left"],
+                            ["CENTER"] = L["Center"],
+                            ["RIGHT"] = L["Right"],
+                            ["BOTTOMLEFT"] = L["Bottom Left"],
+                            ["BOTTOM"] = L["Bottom"],
+                            ["BOTTOMRIGHT"] = L["Bottom Right"]
+                        }
+                    },
+                    frameX = {
+                        order = 70,
+                        type = "range",
+                        disabled = function() return not db.enabled or db.lockFrame end,
+                        name = L["Horizontal Offset"],
+                        desc = L["The offset may change within bounds of the anchor point."],
+                        get = function() return db.x end,
+                        set = function(_, value)
+                            db.x = value
+                            self:SetResFramePosition()
+                        end,
+                        min = -960,
+                        max = 960,
+                        step = 1,
+                        bigStep = 40
+                    },
+                    frameY = {
+                        order = 80,
+                        type = "range",
+                        disabled = function() return not db.enabled or db.lockFrame end,
+                        name = L["Vertical Offset"],
+                        desc = L["The offset may change within bounds of the anchor point."],
+                        get = function() return db.y end,
+                        set = function(_, value)
+                            db.y = value
+                            self:SetResFramePosition()
+                        end,
+                        min = -540,
+                        max = 540,
+                        step = 1,
+                        bigStep = 20
+                    },
+                    frameScale = {
+                        order = 90,
+                        type = "range",
+                        disabled = function() return not db.enabled end,
+                        name = L["Frame Scale"],
+                        get = function() return db.scale end,
+                        set = function(_, value)
+                            db.scale = value
+                            self:SetResFramePosition()
+                        end,
+                        isPercent = true,
+                        min = 0.50,
+                        max = 5.00,
+                        step = 0.01,
+                        bigStep = 0.25
+                    },
+                    frameWidth = {
+                        order = 100,
+                        type = "range",
+                        disabled = function() return not db.enabled end,
+                        name = L["Frame Width"],
+                        get = function() return db.width end,
+                        set = function(_, value)
+                            db.width = value
+                            self:SetResFramePosition()
+                        end,
+                        min = 100,
+                        max = 400,
+                        step = 1,
+                        bigStep = 10
+                    },
+                    frameHeight = {
+                        order = 110,
+                        type = "range",
+                        disabled = function() return not db.enabled end,
+                        name = L["Frame Height"],
+                        get = function() return db.height end,
+                        set = function(_, value)
+                            db.height = value
+                            self:SetResFramePosition()
+                        end,
+                        min = 200,
+                        max = 800,
+                        step = 1,
+                        bigStep = 20
+                    }
                 }
             },
             barColours = {
@@ -74,6 +228,22 @@ function module:GetOptions()
                         end,
                         set = function(_, r, g, b, a)
                             local c = db.collisionSingleRes
+                            c.r, c.g, c.b, c.a = r, g, b, a
+                        end
+                    },
+                    waitingToAccept = {
+                        order = 30,
+                        type = "color",
+                        hasAlpha = true,
+                        width = 1.25,
+                        name = L["Waiting to Accept"],
+                        desc = L["The character has been resurrected but the player has not clicked 'Accept'."],
+                        get = function()
+                            local c = db.waitingToAccept
+                            return c.r, c.g, c.b, c.a
+                        end,
+                        set = function(_, r, g, b, a)
+                            local c = db.waitingToAccept
                             c.r, c.g, c.b, c.a = r, g, b, a
                         end
                     }

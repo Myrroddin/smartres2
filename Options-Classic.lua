@@ -1,7 +1,8 @@
----@class addon: AceAddon, AceConsole-3.0, AceEvent-3.0, AceComm-3.0, AceSerializer-3.0
--- Project date: @project-date-iso@
+-- File Date: @file-date-iso@
+---@diagnostic disable: duplicate-set-field, undefined-field
 
 -- get addon reference and localization
+---@class addon: AceAddon
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 

@@ -1,6 +1,6 @@
----@diagnostic disable: duplicate-set-field
+---@diagnostic disable: duplicate-set-field, undefined-field
 ---@class addon: AceAddon, AceConsole-3.0, AceEvent-3.0, AceComm-3.0, AceSerializer-3.0
--- Project date: @project-date-iso@
+-- File Date: @file-date-iso@
 
 -- upvalue Lua and Blizzard APIs for faster lookups
 local GetAddOnMetadata = C_AddOns and C_AddOns.GetAddOnMetadata
@@ -24,11 +24,6 @@ end
 local DBI = LibStub("LibDBIcon-1.0")
 local Dialog = LibStub("AceConfigDialog-3.0")
 local Registry = LibStub("AceConfigRegistry-3.0")
-addon.LSM = LibStub("LibSharedMedia-3.0")
-
--- register media (fonts, borders, backgrounds, etc) with LibSharedMedia-3.0
-local MediaType_FONT = addon.LSM.MediaType.FONT or "font"
-addon.LSM:Register(MediaType_FONT, "Olde English", [[Interface\AddOns\SmartRes2\Media\Fonts\OldeEnglish.ttf]])
 
 -- variables that are file scope
 local default_icon = "Interface\\Icons\\Spell_holy_resurrection"

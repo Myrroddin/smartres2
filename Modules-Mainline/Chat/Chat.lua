@@ -1,4 +1,9 @@
+---@diagnostic disable: duplicate-set-field, undefined-field
+-- File Date: @file-date-iso@
+---@class addon: AceAddon
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
+
+---@class module: AceModule
 local module = addon:NewModule("Chat")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 
