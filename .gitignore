@@ -1,0 +1,76 @@
+# ------------------------------
+# Operating system clutter
+# ------------------------------
+.DS_Store
+.DS_Store?
+Thumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.Spotlight-V100/
+.Trashes/
+._*
+
+# ------------------------------
+# Editor / IDE settings
+# ------------------------------
+.vscode/
+.idea/
+*.code-workspace
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+*.tmp
+
+# ------------------------------
+# Logs and temporary files
+# ------------------------------
+*.log
+*.temp
+*.bak
+*.orig
+*.rej
+
+# ------------------------------
+# Lua / tooling caches
+# ------------------------------
+.luacheckcache
+.luarc.json
+
+# ------------------------------
+# Build / packaging artifacts
+# ------------------------------
+release/
+.releases/
+.release/
+dist/
+build/
+out/
+*.zip
+
+# BigWigs packager artifacts (defensive)
+.pkgmeta.bak
+
+# ------------------------------
+# WoW-specific generated files (rare but safe)
+# ------------------------------
+*.toc.bak
+
+# ------------------------------
+# Local WoW client checkout paths
+# Keep these out of shared .gitignore to avoid masking real project folders.
+# If you clone directly into an AddOns path, prefer .git/info/exclude locally.
+# ------------------------------
+# _world_of_warcraft_/
+# World of Warcraft/
+# Interface/
+# WTF/
+# Cache/
+
+# ------------------------------
+# Environment and local overrides
+# ------------------------------
+.env
+.env.*
+*.local

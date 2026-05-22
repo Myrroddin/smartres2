@@ -1,18 +1,16 @@
-## Interface: 100207
-## Interface-Classic: 11502
-## Interface-Cata: 40400
+## Interface: 120005, 50503, 38001, 20505, 11508
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
-## Notes-ruRU: @localization(locale="ruRU", key="Notes")@
 ## Notes-deDE: @localization(locale="deDE", key="Notes")@
-## Notes-koKR: @localization(locale="koKR", key="Notes")@
-## Notes-esMX: @localization(locale="esMX", key="Notes")@
 ## Notes-esES: @localization(locale="esES", key="Notes")@
+## Notes-esMX: @localization(locale="esMX", key="Notes")@
+## Notes-frFR: @localization(locale="frFR", key="Notes")@
+## Notes-itIT: @localization(locale="itIT", key="Notes")@
+## Notes-koKR: @localization(locale="koKR", key="Notes")@
 ## Notes-ptBR: @localization(locale="ptBR", key="Notes")@
+## Notes-ruRU: @localization(locale="ruRU", key="Notes")@
 ## Notes-zhCN: @localization(locale="zhCN", key="Notes")@
 ## Notes-zhTW: @localization(locale="zhTW", key="Notes")@
-## Notes-itIT: @localization(locale="itIT", key="Notes")@
-## Notes-frFR: @localization(locale="frFR", key="Notes")@
 ## Version: @project-version@
 ## X-Project-Revision: @project-revision@
 ## X-Project-Date: @project-date-iso@
@@ -22,7 +20,17 @@
 ## X-Author-Server: Lightbringer
 ## X-Author-Faction: Alliance
 ## X-Email: psvander@gmail.com
-## X-Category: Raid, Party, Healer
+## Category: Dungeons & Raids
+## Category-deDE: Dungeons & Schlachtzüge
+## Category-esES: Mazmorras y bandas
+## Category-esMX: Calabozos y bandas
+## Category-frFR: Donjons et raids
+## Category-itIT: Spedizioni e incursioni
+## Category-koKR: 던전 및 공격대
+## Category-ptBR: Masmorras e Raides
+## Category-ruRU: Подземелья и рейды
+## Category-zhCN: 地下城和团队副本
+## Category-zhTW: 地城與團隊
 ## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, zhTW, ptBR, itIT, koKR
 
 ## X-Curse-Project-ID: 19988
@@ -32,11 +40,12 @@
 
 ## X-Website: https://www.curseforge.com/wow/addons/smartres2
 ## X-Credits: Jerry, Onaforeignshore, Morgalm, Torhal, and the original SmartRes team!
-## X-License: Copyright (c) 2024, Paul Vandersypen. All Rights Reserved
+## X-License: Copyright (c) 2009 - 2026, Paul Vandersypen. All Rights Reserved
 
 ## SavedVariables: SmartRes2DB
 
-## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibResInfo-2.0, AceGUI-3.0-SharedMediaWidgets, Masque
+## RequiredDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibResInfo-2.0, AceGUI-3.0-SharedMediaWidgets, LibDualSpec-1.0
+## OptionalDeps: Masque
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
@@ -48,8 +57,6 @@ Libs\AceLocale-3.0\AceLocale-3.0.xml
 Libs\AceConsole-3.0\AceConsole-3.0.xml
 Libs\AceGUI-3.0\AceGUI-3.0.xml
 Libs\AceConfig-3.0\AceConfig-3.0.xml
-Libs\AceComm-3.0\AceComm-3.0.xml
-Libs\AceSerializer-3.0\AceSerializer-3.0.xml
 Libs\LibDataBroker-1.1\LibDataBroker-1.1.lua
 Libs\LibDBIcon-1.0\lib.xml
 Libs\LibCandyBar-3.0\lib.xml
@@ -57,40 +64,23 @@ Libs\LibAboutPanel-2.0\lib.xml
 Libs\LibSharedMedia-3.0\lib.xml
 Libs\AceGUI-3.0-SharedMediaWidgets\widget.xml
 Libs\LibResInfo-2.0\lib.xml
+Libs\LibDualSpec-1.0\LibDualSpec-1.0.lua
 
 Locales\enUS.lua
-Locales\itIT.lua
-Locales\frFR.lua
-Locales\ruRU.lua
 Locales\deDE.lua
 Locales\esES.lua
 Locales\esMX.lua
+Locales\frFR.lua
+Locales\itIT.lua
+Locales\koKR.lua
+Locales\ptBR.lua
+Locales\ruRU.lua
 Locales\zhCN.lua
 Locales\zhTW.lua
-Locales\ptBR.lua
-Locales\koKR.lua
 
-#@version-classic@
-Core-Classic.lua
-Options-Classic.lua
-Modules-Classic\Chat\Chat.lua
-Modules-Classic\Chat\ChatOptions.lua
-Modules-Classic\Bars\Bars.lua
-Modules-Classic\Bars\BarsOptions.lua
-#@end-version-classic@
-#@version-cata@
-Core-Cata.lua
-Options-Cata.lua
-Modules-Cata\Chat\Chat.lua
-Modules-Cata\Chat\ChatOptions.lua
-Modules-Cata\Bars\Bars.lua
-Modules-Cata\Bars\BarsOptions.lua
-#@end-version-cata@
-#@version-retail@
-Core-Mainline.lua
-Options-Mainline.lua
-Modules-Mainline\Chat\Chat.lua
-Modules-Mainline\Chat\ChatOptions.lua
-Modules-Mainline\Bars\Bars.lua
-Modules-Mainline\Bars\BarsOptions.lua
-#@end-version-retail@
+Core.lua
+Options.lua
+Modules\Chat\Chat.lua
+Modules\Chat\ChatOptions.lua
+Modules\Bars\Bars.lua
+Modules\Bars\BarsOptions.lua

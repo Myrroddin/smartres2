@@ -6,9 +6,11 @@ name: Package and release
 # this part can be heavily customized to your liking, like targeting only tags that match a certain word,
 # other branches or even pullrequests.
 on:
-  push:
-    tags:
-      - '**'
+    push:
+      # branches: # uncomment this line to make alpha builds
+      # - master # uncomment this line to make alpha builds
+      tags:
+        - '**'
 
 # a workflow is built up as jobs, and within these jobs are steps
 jobs:
@@ -32,24 +34,10 @@ jobs:
 
       # we first have to clone the AddOn project, this is a required step
       - name: Clone project
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # gets entire git history, needed for automatic changelogs
 
       # once cloned, we just run the GitHub Action for the packager project
-      - name: Package and release
+      - name: Package and release for retail
         uses: BigWigsMods/packager@v2
-        with:
-          args: -g retail -m pkgmeta-mainline.yml
-
-      # Classic Era and Hardcore do not support dual talent specializations, thus LibDualSpec-1.0 is not needed
-      - name: Package and release for Classic Era, hardcore, and seasons
-        uses: BigWigsMods/packager@v2
-        with:
-          args: -g classic -m pkgmeta-classic.yml
-      
-      # Cataclysm Classic package and release
-      - name: Package and release for Cataclysm Classic
-        uses: BigWigsMods/packager@v2
-        with:
-          args: -g cata -m pkgmeta-cata.yml
