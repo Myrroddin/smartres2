@@ -1,58 +1,133 @@
 --[[
-LibAboutPanel-2.0: WoW Lua library for displaying addon metadata in Blizzard's Options and AceConfig-3.0 tables.
-This file contains the core implementation and helper functions.
+LibAboutPanel-2.0: WoW Lua library for displaying addon metadata in Blizzard's Options and AceConfig-3.0-compatible tables.
+This file contains the core implementation, inline localization table, and public API annotations.
 --]]
 
-local MAJOR, MINOR = "LibAboutPanel-2.0", 117 -- Library name and version; bump MINOR for each revision
+local MAJOR, MINOR = "LibAboutPanel-2.0", 118 -- Library name and version; bump MINOR for each revision
 assert(LibStub, MAJOR .. " requires LibStub") -- LibStub is a lightweight lib loader
-local AboutPanel, oldMinor = LibStub:NewLibrary(MAJOR, MINOR)
-if not AboutPanel then return end -- skip if an equal/newer version is already loaded
-local _, localizations = ... -- get the vaarg table
-local L = localizations.L -- reference to localization table
 
--- Persistent tables: preserve state across UI reloads and allow caching for performance
-AboutPanel.embeds		= AboutPanel.embeds or {} -- Tracks addons this library has been embedded into
-AboutPanel.aboutTable	= AboutPanel.aboutTable or {} -- Caches AceConfig options tables per addon
-AboutPanel.aboutFrame	= AboutPanel.aboutFrame or {} -- Caches Blizzard Settings frames per addon
+---@class LibAboutPanel20.AceOption
+---@field order integer
+---@field name string
+---@field type "description"|"input"|"group"
+---@field desc string?
+---@field fontSize "small"|"medium"|"large"?
+---@field width "full"|number?
+---@field get fun(): string?
 
--- Localize frequently used Lua and WoW API functions for performance
-local pairs, strmatch, GetLocale, CreateFrame = pairs, strmatch, GetLocale, CreateFrame
+---@class LibAboutPanel20.AceOptionsTable
+---@field name string
+---@field type "group"
+---@field args table<string, LibAboutPanel20.AceOption>
+
+---@class LibAboutPanel20 : table
+---@field embeds table<table, true> Tracks addon tables this library has been embedded into.
+---@field aboutTable table<string, LibAboutPanel20.AceOptionsTable> Cached AceConfig-compatible options tables, keyed by addon name.
+---@field aboutFrame table<string, Frame> Cached Blizzard Settings frames, keyed by addon name.
+---@field editbox EditBox Shared editbox used by clickable copy fields.
+---@field CreateAboutPanel fun(self: LibAboutPanel20, addon: string, parent: string?): Frame Creates and caches a Blizzard Settings about panel.
+---@field AboutOptionsTable fun(self: LibAboutPanel20, addon: string): LibAboutPanel20.AceOptionsTable Creates and caches an AceConfig-3.0-compatible options table.
+---@field Embed fun(self: LibAboutPanel20, target: table): table Embeds the public API methods into a target addon table.
+
+---@type LibAboutPanel20?
+local AboutPanel = LibStub:NewLibrary(MAJOR, MINOR)
+if not AboutPanel then return end
+---@cast AboutPanel LibAboutPanel20
+
+-- Localize frequently used Lua and WoW API functions for performance.
+local pairs, strmatch = pairs, strmatch
+local format, gsub, tostring, upper, lower = string.format, string.gsub, tostring, string.upper, string.lower
+local GetLocale, CreateFrame = GetLocale, CreateFrame
 local GetAddOnMetadata = C_AddOns.GetAddOnMetadata -- retrieves .toc metadata like Title, Notes, Author, etc.
-local format, gsub, upper, lower = string.format, string.gsub, string.upper, string.lower
 
--- -----------------------------------------------------
--- Helper functions to standardize metadata lookups and parsing from .toc files
--- -----------------------------------------------------
+-- Localization shim: returns the key itself if no translation exists.
+---@type table<string, string>
+local L = setmetatable({}, {
+	---@param t table<string, string>
+	---@param k string
+	---@return string
+	__index = function(t, k)
+		local v = tostring(k)
+		rawset(t, k, v)
+		return v
+	end
+})
 
 local locale = GetLocale() -- current game client locale
--- Converts a string to title case (e.g., "john DOE" -> "John Doe")
-local function TitleCase(str)
-	return str and gsub(str, "(%a)(%a+)", function(a, b) return upper(a) .. lower(b) end)
+
+-- Inline localization blocks.
+-- These packager tokens intentionally live in this file so the library can ship as a single Lua file.
+if locale == "deDE" then
+--@localization(locale="deDE", format="lua_additive_table")@
+elseif locale == "esES" then
+--@localization(locale="esES", format="lua_additive_table")@
+elseif locale == "esMX" then
+--@localization(locale="esMX", format="lua_additive_table")@
+elseif locale == "frFR" then
+--@localization(locale="frFR", format="lua_additive_table")@
+elseif locale == "itIT" then
+--@localization(locale="itIT", format="lua_additive_table")@
+elseif locale == "koKR" then
+--@localization(locale="koKR", format="lua_additive_table")@
+elseif locale == "ptBR" then
+--@localization(locale="ptBR", format="lua_additive_table")@
+elseif locale == "ruRU" then
+--@localization(locale="ruRU", format="lua_additive_table")@
+elseif locale == "zhCN" then
+--@localization(locale="zhCN", format="lua_additive_table")@
+elseif locale == "zhTW" then
+--@localization(locale="zhTW", format="lua_additive_table")@
 end
 
--- Removes leading and trailing whitespace
+-- Persistent tables: preserve state across library upgrades and allow caching for performance.
+AboutPanel.embeds		= AboutPanel.embeds or {}
+AboutPanel.aboutTable	= AboutPanel.aboutTable or {}
+AboutPanel.aboutFrame	= AboutPanel.aboutFrame or {}
+
+-- -----------------------------------------------------
+-- Helper functions to standardize metadata lookups and parsing from .toc files.
+-- -----------------------------------------------------
+
+-- Converts a string to title case (e.g., "john DOE" -> "John Doe").
+---@param str string
+---@return string
+local function TitleCase(str)
+	return gsub(str, "(%a)(%a+)", function(a, b)
+		return upper(a) .. lower(b)
+	end)
+end
+
+-- Removes leading and trailing whitespace.
+---@param text string?
+---@return string?
 local function Trim(text)
 	if not text then return end
 	return text:gsub("^%s+", ""):gsub("%s+$", "")
 end
 
--- Normalizes whitespace and removes hidden newline characters
+-- Normalizes whitespace and removes hidden newline characters.
+---@param text string?
+---@return string?
 local function NormalizeWhitespace(text)
 	if not text then return end
 
-	-- Remove CR/LF from .toc metadata
+	-- Remove CR/LF from .toc metadata.
 	text = text:gsub("[\r\n]", "")
 
-	-- Trim edges
+	-- Trim edges.
 	text = Trim(text)
 
-	-- Collapse internal whitespace
+	-- Collapse internal whitespace.
 	text = text and text:gsub("%s+", " ")
 
 	return text
 end
 
--- Fetches metadata from the addon .toc, using localized fields if available
+-- Fetches metadata from the addon .toc, using localized fields if available.
+---@param addon string
+---@param field string
+---@param localized boolean?
+---@return string?
 local function GetMeta(addon, field, localized)
 	if localized and locale ~= "enUS" then
 		local v = GetAddOnMetadata(addon, field .. "-" .. locale)
@@ -61,22 +136,30 @@ local function GetMeta(addon, field, localized)
 	return GetAddOnMetadata(addon, field)
 end
 
+---@param addon string
+---@return string?
 local function GetTitle(addon)
 	local title = GetMeta(addon, "Title", true)
 	return NormalizeWhitespace(title)
 end
 
+---@param addon string
+---@return string?
 local function GetNotes(addon)
 	local notes = GetMeta(addon, "Notes", true)
 	return NormalizeWhitespace(notes)
 end
 
+---@param addon string
+---@return string?
 local function GetCredits(addon)
 	local credits = GetAddOnMetadata(addon, "X-Credits")
 	return NormalizeWhitespace(credits)
 end
 
--- Retrieves category field from .toc
+-- Retrieves category field from .toc.
+---@param addon string
+---@return string?
 local function GetCategory(addon)
 	local category = GetMeta(addon, "Category", true)
 
@@ -87,7 +170,9 @@ local function GetCategory(addon)
 	return NormalizeWhitespace(category)
 end
 
--- Parses and normalizes date fields from .toc, handling repo keyword expansion
+-- Parses and normalizes date fields from .toc, handling repo keyword expansion.
+---@param addon string
+---@return string?
 local function GetAddOnDate(addon)
 	local date = GetAddOnMetadata(addon, "X-Date") or GetAddOnMetadata(addon, "X-ReleaseDate")
 	if not date then return end
@@ -98,7 +183,9 @@ local function GetAddOnDate(addon)
 	return NormalizeWhitespace(date)
 end
 
--- Formats author field, appending guild/server/faction info if present
+-- Formats author field, appending guild/server/faction info if present.
+---@param addon string
+---@return string?
 local function GetAuthor(addon)
 	local author = GetAddOnMetadata(addon, "Author")
 	if not author then return end
@@ -124,7 +211,9 @@ local function GetAuthor(addon)
 	return NormalizeWhitespace(author)
 end
 
--- Parses version field, handling repo keywords and developer build tags
+-- Parses version field, handling repo keywords and developer build tags.
+---@param addon string
+---@return string?
 local function GetVersion(addon)
 	local version = GetAddOnMetadata(addon, "Version")
 	if not version then return end
@@ -142,35 +231,38 @@ local function GetVersion(addon)
 	return NormalizeWhitespace(version)
 end
 
--- Normalizes and translates license/copyright fields
+-- Normalizes and translates license/copyright fields.
+---@param addon string
+---@return string?
 local function GetLicense(addon)
 	local license = GetAddOnMetadata(addon, "X-License") or GetAddOnMetadata(addon, "X-Copyright")
 	if not license then return end
 
-	-- Preserve known license identifiers
+	-- Preserve known license identifiers.
 	if not (strmatch(license, "^MIT%f[%A]") or strmatch(license, "^GNU%f[%A]")) then
 		license = TitleCase(license)
 	end
 
-	-- Normalize copyright keyword
+	-- Normalize copyright keyword.
 	license = gsub(license, "[cC]opyright", L["Copyright"] .. " ©")
 
-	-- Normalize (c) markers
+	-- Normalize (c) markers.
 	license = gsub(license, "%([cC]%)", "©")
 
-	-- Remove duplicate symbols
+	-- Remove duplicate symbols.
 	license = gsub(license, "©%s*©", "©")
 
-	-- Normalize spacing
+	-- Normalize spacing.
 	license = gsub(license, "%s+", " ")
 
-	-- Normalize "All Rights Reserved"
+	-- Normalize "All Rights Reserved".
 	license = gsub(license, "[aA]ll%s+[rR]ights%s+[rR]eserved", L["All Rights Reserved"])
 
 	return NormalizeWhitespace(license)
 end
 
--- Maps locale abbreviations to Blizzard's global language constants
+-- Maps locale abbreviations to Blizzard's global language constants.
+---@type table<string, string>
 local localeMap = {
 	["enUS"] = LFG_LIST_LANGUAGE_ENUS, ["deDE"] = LFG_LIST_LANGUAGE_DEDE,
 	["esES"] = LFG_LIST_LANGUAGE_ESES, ["esMX"] = LFG_LIST_LANGUAGE_ESMX,
@@ -179,6 +271,9 @@ local localeMap = {
 	["ruRU"] = LFG_LIST_LANGUAGE_RURU, ["zhCN"] = LFG_LIST_LANGUAGE_ZHCN,
 	["zhTW"] = LFG_LIST_LANGUAGE_ZHTW
 }
+
+---@param addon string
+---@return string?
 local function GetLocalizations(addon)
 	local translations = GetAddOnMetadata(addon, "X-Localizations")
 	if translations then
@@ -189,7 +284,9 @@ local function GetLocalizations(addon)
 	return NormalizeWhitespace(translations)
 end
 
--- Retrieves website and email fields, formatting for display/copy
+-- Retrieves website and email fields, formatting for display/copy.
+---@param addon string
+---@return string?
 local function GetWebsite(addon)
 	local site = GetAddOnMetadata(addon, "X-Website")
 	if not site then return end
@@ -200,6 +297,8 @@ local function GetWebsite(addon)
 	return "|cff77ccff" .. gsub(normalizedSite, "https?://", "")
 end
 
+---@param addon string
+---@return string?
 local function GetEmail(addon)
 	local email = GetAddOnMetadata(addon, "X-Email") or GetAddOnMetadata(addon, "Email") or GetAddOnMetadata(addon, "eMail")
 	if not email then return end
@@ -211,9 +310,14 @@ local function GetEmail(addon)
 end
 
 -- -----------------------------------------------------
--- Shared editbox UI for copying fields (email, website) in About panel
+-- Shared editbox UI for copying fields (email, website) in About panel.
 -- -----------------------------------------------------
-local editbox = CreateFrame("EditBox", nil, nil, "InputBoxTemplate") -- WoW API: creates an input box UI element
+
+---@class LibAboutPanel-2.0.CopyButton : Button
+---@field value string
+
+---@type EditBox
+local editbox = CreateFrame("EditBox", nil, nil, "InputBoxTemplate")
 editbox:Hide()
 editbox:SetFontObject("GameFontHighlightSmall")
 editbox:SetScript("OnEscapePressed", editbox.Hide)
@@ -226,6 +330,7 @@ editbox:SetScript("OnTextChanged", function(self)
 end)
 AboutPanel.editbox = editbox
 
+---@param self LibAboutPanel-2.0.CopyButton
 local function OpenEditbox(self)
 	editbox:SetParent(self)
 	editbox:SetAllPoints(self)
@@ -233,15 +338,27 @@ local function OpenEditbox(self)
 	editbox:Show()
 end
 
+---@param self Frame
 local function ShowTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
 	GameTooltip:SetText(L["Click and press Ctrl-C to copy"])
 end
-local function HideTooltip() GameTooltip:Hide() end
+
+local function HideTooltip()
+	GameTooltip:Hide()
+end
 
 -- -----------------------------------------------------
--- Creates the About panel in Blizzard's Interface Options (Settings UI)
+-- Creates the About panel in Blizzard's Interface Options / Settings UI.
 -- -----------------------------------------------------
+
+---Creates and caches a Blizzard Settings about panel for an addon.
+---
+---The addon parameter should be the addon's folder/.toc name. If parent is provided,
+---the panel is registered as a child "About" panel under that parent addon.
+---@param addon string Addon folder/.toc name.
+---@param parent string? Parent addon name for child panels.
+---@return Frame frame The created or cached about panel frame.
 function AboutPanel:CreateAboutPanel(addon, parent)
 	addon = addon:gsub(" ", "") -- some APIs don't like spaces in addon name
 	addon = parent or addon
@@ -254,7 +371,7 @@ function AboutPanel:CreateAboutPanel(addon, parent)
 	title_str:SetPoint("TOPLEFT", 16, -16)
 	title_str:SetText((parent and GetTitle(addon) or addon) .. " - " .. L["About"])
 
-	-- Add notes paragraph if present
+	-- Add notes paragraph if present.
 	local notes = GetNotes(addon)
 	local notes_str
 	if notes then
@@ -267,9 +384,13 @@ function AboutPanel:CreateAboutPanel(addon, parent)
 		notes_str:SetText(notes)
 	end
 
-	-- Dynamically stack info fields
+	-- Dynamically stack info fields.
 	local i = 0
 	local prev_label = nil
+
+	---@param field string
+	---@param text string?
+	---@param editable boolean?
 	local function SetAboutInfo(field, text, editable)
 		if not text then return end
 		i = i + 1
@@ -287,6 +408,7 @@ function AboutPanel:CreateAboutPanel(addon, parent)
 		detail:SetText(text)
 
 		if editable then
+			---@type LibAboutPanel-2.0.CopyButton
 			local button = CreateFrame("Button", nil, frame)
 			button:SetAllPoints(detail)
 			button.value = text
@@ -296,7 +418,7 @@ function AboutPanel:CreateAboutPanel(addon, parent)
 		end
 	end
 
-	-- Add fields (conditionally if metadata exists)
+	-- Add fields conditionally if metadata exists.
 	SetAboutInfo(GAME_VERSION_LABEL,	GetVersion(addon))
 	SetAboutInfo(L["Author"],			GetAuthor(addon))
 	SetAboutInfo(L["Email"],			GetEmail(addon), true)
@@ -307,7 +429,7 @@ function AboutPanel:CreateAboutPanel(addon, parent)
 	SetAboutInfo(L["Website"],			GetWebsite(addon), true)
 	SetAboutInfo(L["Localizations"],	GetLocalizations(addon))
 
-	-- Register with Blizzard's modern Settings system (Dragonflight+)
+	-- Register with Blizzard's modern Settings system.
 	frame.name = not parent and addon or L["About"]
 	frame.parent = parent
 	Settings.RegisterCanvasLayoutCategory(frame)
@@ -317,10 +439,16 @@ function AboutPanel:CreateAboutPanel(addon, parent)
 end
 
 -- -----------------------------------------------------
--- Creates an AceConfig-3.0 options table for About info (alternative UI)
+-- Creates an AceConfig-3.0-compatible options table for About info.
 -- -----------------------------------------------------
+
+---Creates and caches an AceConfig-3.0-compatible options table for an addon.
+---
+---This function only constructs the options table. The caller is responsible for
+---registering it with AceConfig-3.0 and displaying it with AceConfigDialog-3.0.
+---@param addon string Addon folder/.toc name.
+---@return LibAboutPanel20.AceOptionsTable optionsTable The created or cached options table.
 function AboutPanel:AboutOptionsTable(addon)
-	assert(LibStub("AceConfig-3.0"), "LibAboutPanel-2.0: API 'AboutOptionsTable' requires AceConfig-3.0", 2)
 	addon = addon:gsub(" ", "")
 
 	local Table = AboutPanel.aboutTable[addon]
@@ -339,7 +467,11 @@ function AboutPanel:AboutOptionsTable(addon)
 		}
 	}
 
-	-- helper to add fields
+	-- Helper to add fields.
+	---@param order integer
+	---@param label string
+	---@param text string?
+	---@param asInput boolean?
 	local function addField(order, label, text, asInput)
 		if not text then return end
 		if asInput then
@@ -360,7 +492,7 @@ function AboutPanel:AboutOptionsTable(addon)
 		end
 	end
 
-	-- Add optional fields
+	-- Add optional fields.
 	local notes = GetNotes(addon)
 	if notes then
 		Table.args.blank = { order = 2, name = "", type = "description" }
@@ -382,9 +514,16 @@ function AboutPanel:AboutOptionsTable(addon)
 end
 
 -- -----------------------------------------------------
--- Embeds AboutPanel API into target addon object for easy usage
+-- Embeds AboutPanel API into target addon object for easy usage.
 -- -----------------------------------------------------
+
+---@type string[]
 local mixins = { "CreateAboutPanel", "AboutOptionsTable" }
+
+---Embeds LibAboutPanel-2.0's public API methods into a target addon table.
+---@generic T: table
+---@param target T Target addon object.
+---@return T target The same target table, with LibAboutPanel-2.0 methods attached.
 function AboutPanel:Embed(target)
 	for _, name in pairs(mixins) do
 		target[name] = self[name]
@@ -393,7 +532,7 @@ function AboutPanel:Embed(target)
 	return target
 end
 
--- Upgrades previously embedded addons if a new version of the library is loaded
+-- Upgrades previously embedded addons if a new version of the library is loaded.
 for target, _ in pairs(AboutPanel.embeds) do
 	AboutPanel:Embed(target)
 end
