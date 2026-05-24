@@ -1,5 +1,3 @@
----@diagnostic disable: undefined-field
----@class SmartRes2: AceAddon, AceConsole-3.0, AceEvent-3.0, LibAboutPanel20, LibResInfo20
 -- File Date: @file-date-iso@
 
 -- --------------------------------------------------------------------
@@ -9,38 +7,43 @@
 -- - Create the addon object.
 -- - Initialize saved variables and profile callbacks.
 -- - Register options, profiles, About panel, slash commands, and Broker.
--- - Manage module enable states.
--- - Expose the public data-only theme API.
+-- - Provide shared addon services used by later files.
 --
 -- Core does not:
 -- - Track resurrection casts directly.
 -- - Expose resurrection/cast-state APIs.
 -- - Bind keys dynamically.
 -- - Scan the full spellbook.
+-- - Manage Bars or Chat module behavior yet.
 --
 -- LibResInfo-2.0 owns resurrection state. SmartRes2 embeds it so Core
--- and modules can consume its APIs/callbacks.
+-- and later files can consume its APIs/callbacks.
 -- --------------------------------------------------------------------
 
 -- --------------------------------------------------------------------
 -- Lua / Blizzard API upvalues
 -- --------------------------------------------------------------------
 
-local _G = _G
-local error = error
-local format = string.format
-local pairs = pairs
-local type = type
-
-local LibStub = LibStub
-
 local HIGHLIGHT_FONT_COLOR = HIGHLIGHT_FONT_COLOR
 local NORMAL_FONT_COLOR = NORMAL_FONT_COLOR
+
+local C_Spell = C_Spell
+local LibStub = LibStub
+local UnitClassBase = UnitClassBase
 
 -- --------------------------------------------------------------------
 -- Libraries
 -- --------------------------------------------------------------------
 
+local LibDataBroker = LibStub("LibDataBroker-1.1")
+local LibDBIcon = LibStub("LibDBIcon-1.0")
+local AceConfigDialog = LibStub("AceConfigDialog-3.0")
+local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
+local AceDB = LibStub("AceDB-3.0")
+
+---@class SmartRes2: AceAddon, AceConsole-3.0, AceEvent-3.0, LibAboutPanel-2.0, LibResInfo-2.0
+---@field db table
+---@field GetOptions fun(self: SmartRes2): table
 local addon = LibStub("AceAddon-3.0"):NewAddon(
 	"SmartRes2",
 	"AceEvent-3.0",
@@ -49,7 +52,7 @@ local addon = LibStub("AceAddon-3.0"):NewAddon(
 	"LibResInfo-2.0"
 )
 
-_G.SmartRes2 = addon
+SmartRes2 = addon
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 
@@ -59,21 +62,21 @@ addon:SetDefaultModuleLibraries(
 	"LibResInfo-2.0"
 )
 
-local AceConfig = LibStub("AceConfig-3.0")
-local AceConfigDialog = LibStub("AceConfigDialog-3.0")
-local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
-local AceDB = LibStub("AceDB-3.0")
-local AceDBOptions = LibStub("AceDBOptions-3.0")
-local LibDataBroker = LibStub("LibDataBroker-1.1")
-local LibDBIcon = LibStub("LibDBIcon-1.0")
-
 -- --------------------------------------------------------------------
 -- Constants
 -- --------------------------------------------------------------------
 
-local ADDON_NAME = "SmartRes2"
-local DEFAULT_THEME_KEY = "default"
-local DEFAULT_ICON = "Interface\\Icons\\Spell_holy_resurrection"
+local DEFAULT_ICON_SPELL_ID = 2006 -- Priest: Resurrection
+
+local classResIconSpellIDs = {
+	DRUID	= 50769,	-- Revive
+	EVOKER	= 361227,	-- Return
+	HUNTER	= 982,		-- Revive Pet
+	MONK	= 115178,	-- Resuscitate
+	PALADIN	= 7328,		-- Redemption
+	PRIEST	= 2006,		-- Resurrection
+	SHAMAN	= 2008,		-- Ancestral Spirit
+}
 
 -- --------------------------------------------------------------------
 -- Saved variable defaults
@@ -81,26 +84,17 @@ local DEFAULT_ICON = "Interface\\Icons\\Spell_holy_resurrection"
 
 local defaults = {
 	global = {
+		useClassIconForBroker = true,
 		minimap = {
 			hide = false,
 			lock = true,
 			showInCompartment = true,
-			useClassIconForBroker = true,
 			lockOnDegree = true,
 			minimapPos = 60,
 		},
 	},
 	profile = {
 		enabled = true,
-		activeTheme = DEFAULT_THEME_KEY,
-		modules = {
-			Chat = {
-				enabled = true,
-			},
-			Bars = {
-				enabled = true,
-			},
-		},
 	},
 }
 
@@ -108,70 +102,23 @@ local defaults = {
 -- File-scope state
 -- --------------------------------------------------------------------
 
----@type AceDBObject|nil
+---@type table|nil
 local db
 
 ---@type table|nil
+local global
+
+---@type table|nil
 local options
-
----@type table<string, table>
-local registeredThemes = {}
-
----@type string[]
-local registeredThemeKeys = {}
 
 -- --------------------------------------------------------------------
 -- Local helpers
 -- --------------------------------------------------------------------
 
-local function ThemeKeyExists(themeKey)
-	return registeredThemes[themeKey] ~= nil
-end
-
-local function AddThemeKey(themeKey)
-	for _, registeredThemeKey in pairs(registeredThemeKeys) do
-		if registeredThemeKey == themeKey then
-			return
-		end
-	end
-
-	registeredThemeKeys[#registeredThemeKeys + 1] = themeKey
-end
-
-local function RemoveThemeKey(themeKey)
-	for index, registeredThemeKey in pairs(registeredThemeKeys) do
-		if registeredThemeKey == themeKey then
-			registeredThemeKeys[index] = nil
-			return
-		end
-	end
-end
-
-local function ValidateThemeKey(themeKey, argumentIndex)
-	if type(themeKey) ~= "string" or themeKey == "" then
-		error(format("bad argument #%d, expected non-empty string themeKey", argumentIndex), 3)
-	end
-end
-
-local function ValidateThemeTable(themeTable, argumentIndex)
-	if type(themeTable) ~= "table" then
-		error(format("bad argument #%d, expected table themeTable", argumentIndex), 3)
-	end
-
-	if themeTable.name == nil then
-		error(format("bad argument #%d, themeTable.name is required", argumentIndex), 3)
-	end
-end
-
-local function GetModuleProfileEnabled(moduleName)
-	local profile = db and db.profile
-	local moduleSettings = profile and profile.modules and profile.modules[moduleName]
-
-	if moduleSettings and moduleSettings.enabled ~= nil then
-		return moduleSettings.enabled
-	end
-
-	return true
+---@param spellID number
+---@return number|string|nil icon
+local function GetSpellIcon(spellID)
+	return C_Spell.GetSpellTexture(spellID)
 end
 
 -- --------------------------------------------------------------------
@@ -180,23 +127,31 @@ end
 
 function addon:OnInitialize()
 	self.db = AceDB:New("SmartRes2DB", defaults, true)
-	db = self.db
 
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
 
-	self:SetEnabledState(self.db.profile.enabled)
+	db = self.db.profile
+	global = self.db.global
+
+	self:SetEnabledState(db.enabled)
 
 	options = self:GetOptions()
-	options.args.profiles = AceDBOptions:GetOptionsTable(self.db)
+	options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
 	options.args.profiles.order = 900
 
-	options.args.aboutPanel = self:AboutOptionsTable(ADDON_NAME)
+	local DualSpec = LibStub:GetLibrary("LibDualSpec-1.0", true)
+	if DualSpec then
+		DualSpec:EnhanceDatabase(self.db, "SmartRes2")
+		DualSpec:EnhanceOptions(options.args.profiles, self.db)
+	end
+
+	options.args.aboutPanel = self:AboutOptionsTable("SmartRes2")
 	options.args.aboutPanel.order = 1000
 
-	AceConfig:RegisterOptionsTable(ADDON_NAME, options)
-	AceConfigDialog:AddToBlizOptions(ADDON_NAME)
+	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
+	AceConfigDialog:AddToBlizOptions("SmartRes2")
 
 	self:RegisterChatCommand("smartres2", "ChatCommand")
 	self:RegisterChatCommand("smartres", "ChatCommand")
@@ -206,94 +161,50 @@ function addon:OnInitialize()
 end
 
 function addon:OnEnable()
-	self:RefreshModules()
 end
 
 function addon:OnDisable()
-	self:DisableAllModules()
 end
 
 function addon:RefreshConfig()
-	db = self.db
+	db = self.db.profile
+	global = self.db.global
 
-	self:SetEnabledState(self.db.profile.enabled)
+	self:SetEnabledState(db.enabled)
 
-	if self.db.profile.enabled and not self:IsEnabled() then
-		self:Enable()
-	elseif not self.db.profile.enabled and self:IsEnabled() then
-		self:Disable()
-	end
-
-	self:RefreshModules()
-	self:RefreshBroker()
-
-	for _, module in self:IterateModules() do
-		if type(module.RefreshConfig) == "function" then
-			module:RefreshConfig()
-		end
-	end
-
-	AceConfigRegistry:NotifyChange(ADDON_NAME)
+	AceConfigRegistry:NotifyChange("SmartRes2")
 end
 
 -- --------------------------------------------------------------------
--- Modules
+-- Options
 -- --------------------------------------------------------------------
 
-function addon:RefreshModules()
-	if not self:IsEnabled() then return end
-
-	for moduleName, module in self:IterateModules() do
-		local moduleEnabled = GetModuleProfileEnabled(moduleName)
-
-		if moduleEnabled and not module:IsEnabled() then
-			self:EnableModule(moduleName)
-		elseif not moduleEnabled and module:IsEnabled() then
-			self:DisableModule(moduleName)
-		end
-	end
-end
-
-function addon:RegisterModuleOptions(moduleName, moduleOptions)
-	if type(moduleName) ~= "string" then
-		error(format("bad argument #1, expected string moduleName, got %s", type(moduleName)), 2)
+---@param optionsName string
+---@param moduleOptions table
+function addon:RegisterModuleOptions(optionsName, moduleOptions)
+	if type(optionsName) ~= "string" then
+		error(("bad argument #1, expected string optionsName, got %s"):format(type(optionsName)), 2)
 	end
 
 	if type(moduleOptions) ~= "table" then
-		error(format("bad argument #2, expected table moduleOptions, got %s", type(moduleOptions)), 2)
+		error(("bad argument #2, expected table moduleOptions, got %s"):format(type(moduleOptions)), 2)
 	end
 
 	options = options or self:GetOptions()
-	options.args[moduleName] = moduleOptions
-	options.args[moduleName].disabled = moduleOptions.disabled or function()
+	options.args[optionsName] = moduleOptions
+	options.args[optionsName].disabled = moduleOptions.disabled or function()
 		return not self.db.profile.enabled
 	end
 
-	AceConfigRegistry:NotifyChange(ADDON_NAME)
+	AceConfigRegistry:NotifyChange("SmartRes2")
 end
 
 -- --------------------------------------------------------------------
--- Slash commands / options
+-- Slash commands
 -- --------------------------------------------------------------------
 
 function addon:ChatCommand()
-	self:ToggleOptions()
-end
-
-function addon:OpenOptions()
-	AceConfigDialog:Open(ADDON_NAME)
-end
-
-function addon:CloseOptions()
-	AceConfigDialog:Close(ADDON_NAME)
-end
-
-function addon:ToggleOptions()
-	if AceConfigDialog.OpenFrames[ADDON_NAME] then
-		self:CloseOptions()
-	else
-		self:OpenOptions()
-	end
+	AceConfigDialog:Open("SmartRes2")
 end
 
 -- --------------------------------------------------------------------
@@ -301,124 +212,46 @@ end
 -- --------------------------------------------------------------------
 
 function addon:InitializeBroker()
-	local brokerObject = LibDataBroker:NewDataObject(ADDON_NAME, {
-		type = "launcher",
-		tocname = ADDON_NAME,
-		label = ADDON_NAME,
-		text = ADDON_NAME,
-		icon = self:GetBrokerIcon(),
+	---@type LibDataBroker.QuickLauncher
+	local brokerObjectData = {
+		type = "launcher" --[[@as "launcher"]],
+		tocname = "SmartRes2",
+		label = "SmartRes2",
+		icon = (self:GetBrokerIcon() or "") --[[@as string]],
 		OnClick = function(_, button)
 			if button == "RightButton" then
-				self:ToggleOptions()
-			else
-				self:OpenOptions()
+				AceConfigDialog:Open("SmartRes2")
 			end
 		end,
 		OnTooltipShow = function(tooltip)
-			tooltip:AddLine(ADDON_NAME, HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
+			tooltip:AddLine("SmartRes2", HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
 			tooltip:AddLine(L["Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 			tooltip:Show()
 		end,
-	})
+	}
 
-	LibDBIcon:Register(ADDON_NAME, brokerObject, self.db.global.minimap)
+	local brokerObject = LibDataBroker:NewDataObject("SmartRes2", brokerObjectData)
+
+	LibDBIcon:Register("SmartRes2", brokerObject, self.db.global.minimap)
 end
 
-function addon:RefreshBroker()
-	if not self.db then return end
+---@return number|string|nil icon
+function addon:GetBrokerIcon()
+	if global and global.useClassIconForBroker then
+		local classFilename = UnitClassBase("player")
+		local spellID = classResIconSpellIDs[classFilename]
 
-	LibDBIcon:Refresh(ADDON_NAME, self.db.global.minimap)
+		return GetSpellIcon(spellID or DEFAULT_ICON_SPELL_ID)
+	end
 
-	local button = LibDBIcon:GetMinimapButton(ADDON_NAME)
+	return GetSpellIcon(DEFAULT_ICON_SPELL_ID)
+end
+
+function addon:RefreshBrokerIcon()
+	local button = LibDBIcon:GetMinimapButton("SmartRes2")
 	if button and button.icon then
 		button.icon:SetTexture(self:GetBrokerIcon())
 	end
-end
-
-function addon:GetBrokerIcon()
-	return DEFAULT_ICON
-end
-
--- --------------------------------------------------------------------
--- Public theme API
--- --------------------------------------------------------------------
-
-function addon:RegisterTheme(themeKey, themeTable)
-	ValidateThemeKey(themeKey, 1)
-	ValidateThemeTable(themeTable, 2)
-
-	if ThemeKeyExists(themeKey) then
-		error(format("theme %q is already registered", themeKey), 2)
-	end
-
-	registeredThemes[themeKey] = themeTable
-	AddThemeKey(themeKey)
-
-	AceConfigRegistry:NotifyChange(ADDON_NAME)
-
-	local barsModule = self:GetModule("Bars", true)
-	if barsModule and type(barsModule.OnThemeRegistered) == "function" then
-		barsModule:OnThemeRegistered(themeKey, themeTable)
-	end
-end
-
-function addon:UnregisterTheme(themeKey)
-	ValidateThemeKey(themeKey, 1)
-
-	if not ThemeKeyExists(themeKey) then
-		return
-	end
-
-	if self.db and self.db.profile.activeTheme == themeKey then
-		self.db.profile.activeTheme = DEFAULT_THEME_KEY
-	end
-
-	registeredThemes[themeKey] = nil
-	RemoveThemeKey(themeKey)
-
-	AceConfigRegistry:NotifyChange(ADDON_NAME)
-
-	local barsModule = self:GetModule("Bars", true)
-	if barsModule and type(barsModule.OnThemeUnregistered) == "function" then
-		barsModule:OnThemeUnregistered(themeKey)
-	end
-end
-
-function addon:GetTheme(themeKey)
-	ValidateThemeKey(themeKey, 1)
-
-	return registeredThemes[themeKey]
-end
-
-function addon:GetRegisteredThemes()
-	return registeredThemes
-end
-
-function addon:GetRegisteredThemeKeys()
-	return registeredThemeKeys
-end
-
-function addon:SetActiveTheme(themeKey)
-	ValidateThemeKey(themeKey, 1)
-
-	if not ThemeKeyExists(themeKey) then
-		error(format("theme %q is not registered", themeKey), 2)
-	end
-
-	self.db.profile.activeTheme = themeKey
-
-	AceConfigRegistry:NotifyChange(ADDON_NAME)
-
-	local barsModule = self:GetModule("Bars", true)
-	if barsModule and type(barsModule.ApplyTheme) == "function" then
-		barsModule:ApplyTheme(themeKey)
-	end
-end
-
-function addon:GetActiveTheme()
-	local themeKey = self.db and self.db.profile.activeTheme or DEFAULT_THEME_KEY
-
-	return themeKey, registeredThemes[themeKey]
 end
 
 -- --------------------------------------------------------------------

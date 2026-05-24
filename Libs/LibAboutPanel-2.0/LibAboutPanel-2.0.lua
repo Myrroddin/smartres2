@@ -3,36 +3,36 @@ LibAboutPanel-2.0: WoW Lua library for displaying addon metadata in Blizzard's O
 This file contains the core implementation, inline localization table, and public API annotations.
 --]]
 
-local MAJOR, MINOR = "LibAboutPanel-2.0", 118 -- Library name and version; bump MINOR for each revision
-assert(LibStub, MAJOR .. " requires LibStub") -- LibStub is a lightweight lib loader
+assert(LibStub, "LibAboutPanel-2.0 requires LibStub")
 
----@class LibAboutPanel20.AceOption
+---@class LibAboutPanel-2.0.AceOption
 ---@field order integer
 ---@field name string
----@field type "description"|"input"|"group"
+---@field type "description"|"input"
 ---@field desc string?
 ---@field fontSize "small"|"medium"|"large"?
 ---@field width "full"|number?
 ---@field get fun(): string?
 
----@class LibAboutPanel20.AceOptionsTable
+---@class LibAboutPanel-2.0.AceOptionsTable
 ---@field name string
 ---@field type "group"
----@field args table<string, LibAboutPanel20.AceOption>
+---@field args table<string, LibAboutPanel-2.0.AceOption>
 
----@class LibAboutPanel20 : table
+---@class LibAboutPanel-2.0.AboutFrame : Frame
+---@field name string
+---@field parent string?
+
+---@class LibAboutPanel-2.0: table
 ---@field embeds table<table, true> Tracks addon tables this library has been embedded into.
----@field aboutTable table<string, LibAboutPanel20.AceOptionsTable> Cached AceConfig-compatible options tables, keyed by addon name.
----@field aboutFrame table<string, Frame> Cached Blizzard Settings frames, keyed by addon name.
+---@field aboutTable table<string, LibAboutPanel-2.0.AceOptionsTable> Cached AceConfig-compatible options tables, keyed by addon name.
+---@field aboutFrame table<string, LibAboutPanel-2.0.AboutFrame> Cached Blizzard Settings frames, keyed by addon name.
 ---@field editbox EditBox Shared editbox used by clickable copy fields.
----@field CreateAboutPanel fun(self: LibAboutPanel20, addon: string, parent: string?): Frame Creates and caches a Blizzard Settings about panel.
----@field AboutOptionsTable fun(self: LibAboutPanel20, addon: string): LibAboutPanel20.AceOptionsTable Creates and caches an AceConfig-3.0-compatible options table.
----@field Embed fun(self: LibAboutPanel20, target: table): table Embeds the public API methods into a target addon table.
-
----@type LibAboutPanel20?
-local AboutPanel = LibStub:NewLibrary(MAJOR, MINOR)
-if not AboutPanel then return end
----@cast AboutPanel LibAboutPanel20
+---@field CreateAboutPanel fun(self: LibAboutPanel-2.0, addon: string, parent?: string): Frame
+---@field AboutOptionsTable fun(self: LibAboutPanel-2.0, addon: string): LibAboutPanel-2.0.AceOptionsTable
+---@field Embed fun(self: LibAboutPanel-2.0, target: table): table
+local lib = LibStub:NewLibrary("LibAboutPanel-2.0", 118)
+if not lib then return end
 
 -- Localize frequently used Lua and WoW API functions for performance.
 local pairs, strmatch = pairs, strmatch
@@ -80,9 +80,9 @@ elseif locale == "zhTW" then
 end
 
 -- Persistent tables: preserve state across library upgrades and allow caching for performance.
-AboutPanel.embeds		= AboutPanel.embeds or {}
-AboutPanel.aboutTable	= AboutPanel.aboutTable or {}
-AboutPanel.aboutFrame	= AboutPanel.aboutFrame or {}
+lib.embeds		= lib.embeds or {}
+lib.aboutTable	= lib.aboutTable or {}
+lib.aboutFrame	= lib.aboutFrame or {}
 
 -- -----------------------------------------------------
 -- Helper functions to standardize metadata lookups and parsing from .toc files.
@@ -328,7 +328,7 @@ editbox:SetScript("OnTextChanged", function(self)
 	self:SetText(self:GetParent().value) -- always reset to original
 	self:HighlightText() -- auto-select text for copy
 end)
-AboutPanel.editbox = editbox
+lib.editbox = editbox
 
 ---@param self LibAboutPanel-2.0.CopyButton
 local function OpenEditbox(self)
@@ -359,13 +359,18 @@ end
 ---@param addon string Addon folder/.toc name.
 ---@param parent string? Parent addon name for child panels.
 ---@return Frame frame The created or cached about panel frame.
-function AboutPanel:CreateAboutPanel(addon, parent)
+function lib:CreateAboutPanel(addon, parent)
+	if addon == self then
+		error("LibAboutPanel-2.0: 'addon' must be the addon's folder/.toc name, not self.", 2)
+	end
+
 	addon = addon:gsub(" ", "") -- some APIs don't like spaces in addon name
 	addon = parent or addon
 
-	local frame = AboutPanel.aboutFrame[addon]
+	local frame = lib.aboutFrame[addon]
 	if frame then return frame end -- reuse cached
 
+	---@type LibAboutPanel-2.0.AboutFrame
 	frame = CreateFrame("Frame", addon.."AboutPanel", UIParent) -- UIParent makes this a global frame
 	local title_str = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 	title_str:SetPoint("TOPLEFT", 16, -16)
@@ -434,7 +439,7 @@ function AboutPanel:CreateAboutPanel(addon, parent)
 	frame.parent = parent
 	Settings.RegisterCanvasLayoutCategory(frame)
 
-	AboutPanel.aboutFrame[addon] = frame
+	lib.aboutFrame[addon] = frame
 	return frame
 end
 
@@ -447,13 +452,18 @@ end
 ---This function only constructs the options table. The caller is responsible for
 ---registering it with AceConfig-3.0 and displaying it with AceConfigDialog-3.0.
 ---@param addon string Addon folder/.toc name.
----@return LibAboutPanel20.AceOptionsTable optionsTable The created or cached options table.
-function AboutPanel:AboutOptionsTable(addon)
-	addon = addon:gsub(" ", "")
+---@return LibAboutPanel-2.0.AceOptionsTable optionsTable The created or cached options table.
+function lib:AboutOptionsTable(addon)
+	if addon == self then
+		error("LibAboutPanel-2.0: 'addon' must be the addon's folder/.toc name, not self.", 2)
+	end
 
-	local Table = AboutPanel.aboutTable[addon]
+	addon = addon:gsub(" ", "") -- some APIs don't like spaces in addon name
+
+	local Table = lib.aboutTable[addon]
 	if Table then return Table end
 
+	---@type LibAboutPanel-2.0.AceOptionsTable
 	Table = {
 		name = L["About"],
 		type = "group",
@@ -509,22 +519,26 @@ function AboutPanel:AboutOptionsTable(addon)
 	addField(12,	"Website",			GetWebsite(addon), true)
 	addField(13,	"Localizations",	GetLocalizations(addon))
 
-	AboutPanel.aboutTable[addon] = Table
+	lib.aboutTable[addon] = Table
 	return Table
 end
 
 -- -----------------------------------------------------
--- Embeds AboutPanel API into target addon object for easy usage.
+-- Embeds LibAboutPanel-2.0 API into target addon object for easy usage.
 -- -----------------------------------------------------
 
----@type string[]
+---@alias LibAboutPanelMixin
+---| "CreateAboutPanel"
+---| "AboutOptionsTable"
+
+---@type LibAboutPanelMixin[]
 local mixins = { "CreateAboutPanel", "AboutOptionsTable" }
 
----Embeds LibAboutPanel-2.0's public API methods into a target addon table.
+---Embeds LibAboutPanel-2.0's public API methods into a target addon object.
 ---@generic T: table
 ---@param target T Target addon object.
 ---@return T target The same target table, with LibAboutPanel-2.0 methods attached.
-function AboutPanel:Embed(target)
+function lib:Embed(target)
 	for _, name in pairs(mixins) do
 		target[name] = self[name]
 	end
@@ -533,6 +547,6 @@ function AboutPanel:Embed(target)
 end
 
 -- Upgrades previously embedded addons if a new version of the library is loaded.
-for target, _ in pairs(AboutPanel.embeds) do
-	AboutPanel:Embed(target)
+for target, _ in pairs(lib.embeds) do
+	lib:Embed(target)
 end

@@ -17,17 +17,16 @@ Core rules:
 - Spell and aura logic is ID-based; names are not used for logic.
 ----------------------------------------------------------------------]]
 
-local MAJOR, MINOR = "LibResInfo-2.0", 1
-assert(LibStub, MAJOR .. " requires LibStub")
+assert(LibStub, "LibResInfo-2.0 requires LibStub")
+assert(LibStub("CallbackHandler-1.0", true), "LibResInfo-2.0 requires CallbackHandler-1.0")
 
----@class LibResInfo20: table
-
-local lib = LibStub:NewLibrary(MAJOR, MINOR)
+---@class LibResInfo-2.0: table
+local lib = LibStub:NewLibrary("LibResInfo-2.0", 1)
 if not lib then return end
 
----@cast lib LibResInfo20
-
 ---@alias ResType "SINGLE"|"MASS"
+---@alias SelfResOptionTable table<string, SelfResOptionInfo>
+---@alias ResCasterTable table<string, ResType>
 
 -- Callback names accepted by RegisterCallback and UnregisterCallback.
 ---@alias LibResInfoCallback
@@ -79,7 +78,7 @@ if not lib then return end
 ---@field expirationTime? number
 
 ---@type CallbackHandlerRegistry
-lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib --[[@as table]],
+lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib,
 	"RegisterCallback",
 	"UnregisterCallback",
 	"UnregisterAllResInfoCallbacks"
@@ -1164,7 +1163,7 @@ end
 -- -------------------------------------------------------------------
 
 ---@param unit string unitID, GUID, unit name, or name-realm
----@return string|false casterGUID
+---@return string|false casterGUID Returns false if no active resurrection exists.
 ---@return ResType|nil resType
 function lib:GetFastestCasterForUnit(unit)
 	local targetGUID = ResolvePublicUnitArg(unit)
@@ -1201,7 +1200,7 @@ end
 
 ---@param unit string unitID, GUID, unit name, or name-realm
 ---@return boolean canSelfRes
----@return SelfResOptionInfo|table|nil optionInfo
+---@return SelfResOptionInfo|SelfResOptionTable|nil optionInfo
 function lib:UnitCanSelfResurrect(unit)
 	local unitGUID = ResolvePublicUnitArg(unit)
 	if not unitGUID then
@@ -1282,7 +1281,7 @@ function lib:GetTargetInfo(unit)
 end
 
 ---@param unit string unitID, GUID, unit name, or name-realm
----@return table<string, ResType>|nil casters
+---@return ResCasterTable|nil casters
 function lib:GetAllCastersForUnit(unit)
 	local targetGUID = ResolvePublicUnitArg(unit)
 	if not targetGUID then
