@@ -7,6 +7,7 @@
 -- - Create the addon object.
 -- - Initialize saved variables and profile callbacks.
 -- - Register options, profiles, About panel, slash commands, and Broker.
+-- - Manage module lifecycle once modules exist.
 -- - Provide shared addon services used by later files.
 --
 -- Core does not:
@@ -14,10 +15,9 @@
 -- - Expose resurrection/cast-state APIs.
 -- - Bind keys dynamically.
 -- - Scan the full spellbook.
--- - Manage Bars or Chat module behavior yet.
 --
 -- LibResInfo-2.0 owns resurrection state. SmartRes2 embeds it so Core
--- and later files can consume its APIs/callbacks.
+-- and later files/modules can consume its APIs/callbacks.
 -- --------------------------------------------------------------------
 
 -- --------------------------------------------------------------------
@@ -42,7 +42,7 @@ local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 local AceDB = LibStub("AceDB-3.0")
 
 ---@class SmartRes2: AceAddon, AceConsole-3.0, AceEvent-3.0, LibAboutPanel-2.0, LibResInfo-2.0
----@field db table
+---@field db SmartRes2DB
 ---@field GetOptions fun(self: SmartRes2): table
 local addon = LibStub("AceAddon-3.0"):NewAddon(
 	"SmartRes2",
@@ -52,10 +52,11 @@ local addon = LibStub("AceAddon-3.0"):NewAddon(
 	"LibResInfo-2.0"
 )
 
-SmartRes2 = addon
-
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 
+-- All modules should have AceEvent, AceConsole, and LibResInfo mixed in by
+-- default. LibAboutPanel intentionally remains Core-only because modules do
+-- not create About panels.
 addon:SetDefaultModuleLibraries(
 	"AceEvent-3.0",
 	"AceConsole-3.0",
@@ -68,6 +69,9 @@ addon:SetDefaultModuleLibraries(
 
 local DEFAULT_ICON_SPELL_ID = 2006 -- Priest: Resurrection
 
+-- Broker/minimap icon spellIDs are intentionally non-combat resurrection
+-- spell icons. Combat resurrection priority is situational and should not
+-- influence the default launcher identity.
 local classResIconSpellIDs = {
 	DRUID	= 50769,	-- Revive
 	EVOKER	= 361227,	-- Return
@@ -121,12 +125,27 @@ local function GetSpellIcon(spellID)
 	return C_Spell.GetSpellTexture(spellID)
 end
 
+-- AceDB namespaces are created by modules when those modules are written.
+-- Until then, modules without namespaces are treated as enabled. Once Chat
+-- and Bars exist, their own namespace defaults should include profile.enabled.
+---@param moduleName string
+---@return boolean enabled
+local function IsModuleProfileEnabled(moduleName)
+	local moduleDB = addon.db:GetNamespace(moduleName, true)
+
+	if moduleDB and moduleDB.profile and moduleDB.profile.enabled ~= nil then
+		return moduleDB.profile.enabled
+	end
+
+	return true
+end
+
 -- --------------------------------------------------------------------
 -- Addon lifecycle
 -- --------------------------------------------------------------------
 
 function addon:OnInitialize()
-	self.db = AceDB:New("SmartRes2DB", defaults, true)
+	self.db = AceDB:New("SmartRes2DB", defaults, true) --[[@as SmartRes2DB]]
 
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
@@ -138,9 +157,14 @@ function addon:OnInitialize()
 	self:SetEnabledState(db.enabled)
 
 	options = self:GetOptions()
+	options.args = options.args or {}
+
 	options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
 	options.args.profiles.order = 900
 
+	-- LibDualSpec augments the AceDB profile UI. Do not force-enable or
+	-- force-disable dual spec here; users expect manual control over their
+	-- profile behavior.
 	local DualSpec = LibStub:GetLibrary("LibDualSpec-1.0", true)
 	if DualSpec then
 		DualSpec:EnhanceDatabase(self.db, "SmartRes2")
@@ -161,24 +185,72 @@ function addon:OnInitialize()
 end
 
 function addon:OnEnable()
+	self:RefreshModules()
 end
 
 function addon:OnDisable()
+	self:DisableModules()
 end
 
 function addon:RefreshConfig()
 	db = self.db.profile
 	global = self.db.global
 
-	self:SetEnabledState(db.enabled)
+	self:RefreshModules()
+	self:RefreshModuleConfigs()
 
 	AceConfigRegistry:NotifyChange("SmartRes2")
 end
 
 -- --------------------------------------------------------------------
--- Options
+-- Modules
 -- --------------------------------------------------------------------
 
+-- Enable or disable loaded modules from their AceDB namespace state.
+-- This is safe before modules exist: IterateModules() simply has nothing
+-- useful to process.
+function addon:RefreshModules()
+	if not self:IsEnabled() then return end
+
+	for moduleName, module in self:IterateModules() do
+		local moduleEnabled = IsModuleProfileEnabled(moduleName)
+
+		if moduleEnabled and not module:IsEnabled() then
+			self:EnableModule(moduleName)
+		elseif not moduleEnabled and module:IsEnabled() then
+			self:DisableModule(moduleName)
+		end
+	end
+end
+
+-- Disable every loaded module when SmartRes2 itself is disabled. This keeps
+-- module event handlers and callbacks from running while the parent addon is
+-- disabled.
+function addon:DisableModules()
+	for moduleName, module in self:IterateModules() do
+		if module:IsEnabled() then
+			self:DisableModule(moduleName)
+		end
+	end
+end
+
+-- Give modules a chance to re-read their profile/global settings after
+-- profile changes, copies, or resets. Modules can ignore this by not defining
+-- :RefreshConfig().
+function addon:RefreshModuleConfigs()
+	for _, module in self:IterateModules() do
+		local moduleObject = module --[[@as table]]
+		local refreshConfig = moduleObject["RefreshConfig"]
+
+		if type(refreshConfig) == "function" then
+			refreshConfig(moduleObject)
+		end
+	end
+end
+
+-- Modules call this to add their AceConfig option tables to SmartRes2's main
+-- options table. The module name is used as the options key, but the module
+-- itself still owns its own defaults and DB namespace.
 ---@param optionsName string
 ---@param moduleOptions table
 function addon:RegisterModuleOptions(optionsName, moduleOptions)
@@ -192,8 +264,11 @@ function addon:RegisterModuleOptions(optionsName, moduleOptions)
 
 	options = options or self:GetOptions()
 	options.args[optionsName] = moduleOptions
-	options.args[optionsName].disabled = moduleOptions.disabled or function()
-		return not self.db.profile.enabled
+
+	if moduleOptions.disabled == nil then
+		options.args[optionsName].disabled = function()
+			return not self.db.profile.enabled
+		end
 	end
 
 	AceConfigRegistry:NotifyChange("SmartRes2")

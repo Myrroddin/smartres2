@@ -19,6 +19,7 @@ local DISABLE = DISABLE
 local HIDE = HIDE
 local LOCK = LOCK
 local MINIMAP_LABEL = MINIMAP_LABEL
+local GENERAL_LABEL = GENERAL_LABEL
 
 local math_floor = math.floor
 local LibStub = LibStub
@@ -47,7 +48,7 @@ local LibStub = LibStub
 ---@class SmartRes2ProfileDB
 ---@field enabled boolean
 
----@class SmartRes2DB
+---@class SmartRes2DB: AceDBObject-3.0
 ---@field profile SmartRes2ProfileDB
 ---@field global SmartRes2GlobalDB
 
@@ -140,7 +141,7 @@ function addon:GetOptions()
 			generalOptions = {
 				order = 30,
 				type = "group",
-				name = L["General"],
+				name = GENERAL_LABEL,
 				args = {
 					enabled = {
 						order = 10,

@@ -140,7 +140,7 @@ local type = type
 -- -------------------------------------------------------------------
 
 local UNKNOWN_TARGET_GUID = "UNKNOWN"
-local RES_PENDING_TIMEOUT = 60
+local UNKNOWN_TARGET_CLEANUP_TIMEOUT = 10
 
 local PLAYER_GUID
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
@@ -159,6 +159,8 @@ local resCasterInfo = {}
 local massResCasterInfo = {}
 
 -- Active single-target resurrection casts, keyed by target GUID, then caster GUID.
+-- The UNKNOWN key is a temporary staging area for unresolved casts and is not
+-- treated as a real target for fastest-caster calculations.
 ---@type table<string, ResTargetInfo>
 local resTargetInfo = {}
 
@@ -167,7 +169,7 @@ local resTargetInfo = {}
 local ressedTargetGUIDs = {}
 
 -- Self-resurrection options, keyed by unit GUID, then option key.
----@type table<string, table<string, SelfResOptionInfo>>
+---@type table<string, SelfResOptionTable>
 local selfResInfo = {}
 
 -- -------------------------------------------------------------------
@@ -313,6 +315,9 @@ local events = {
 -- Shared helpers
 -- -------------------------------------------------------------------
 
+-- Callback payload tables are built from mutable internal state.
+-- Return nil for empty tables so consumers do not receive meaningless
+-- placeholders after cleanup or defensive normalization.
 local function NormalizeCallbackTable(info)
 	if info and not next(info) then
 		return nil
@@ -321,18 +326,24 @@ local function NormalizeCallbackTable(info)
 	return info
 end
 
+-- Merge partial spellcast data without overwriting better information that
+-- may have arrived from an earlier event.
 local function SetIfMissing(info, key, value)
 	if info[key] == nil then
 		info[key] = value
 	end
 end
 
+-- Copy optional Blizzard fields only when they are present. This keeps
+-- public info tables sparse and avoids false "field exists but is nil" noise.
 local function SetIfPresent(info, key, value)
 	if value ~= nil then
 		info[key] = value
 	end
 end
 
+-- UnitCastingInfo returns cast times in milliseconds. LibResInfo exposes
+-- seconds, with endTime comparable to GetTime().
 local function GetCastTimes(startTimeMs, endTimeMs)
 	local castTime = (startTimeMs and endTimeMs) and ((endTimeMs - startTimeMs) / 1000) or 0
 	local endTime = endTimeMs and (endTimeMs / 1000) or GetTime()
@@ -340,6 +351,8 @@ local function GetCastTimes(startTimeMs, endTimeMs)
 	return castTime, endTime
 end
 
+-- ResTargetInfo tables also store metadata fields such as targetGUID and
+-- fastestCasterGUID. Only nested caster tables count as active entries.
 local function HasTableEntries(info)
 	if not info then return end
 
@@ -350,13 +363,47 @@ local function HasTableEntries(info)
 	end
 end
 
+-- A known target is a real GUID. UNKNOWN is useful for callback reporting and
+-- temporary staging, but must not be treated as a valid unit identity.
+local function IsKnownTargetGUID(targetGUID)
+	return targetGUID and targetGUID ~= UNKNOWN_TARGET_GUID
+end
+
+-- Build a callback-safe target table for UNKNOWN casts.
+--
+-- UNKNOWN is a staging marker, not a real target identity. Multiple casters
+-- can have UNKNOWN targets at the same time, but those casts may belong to
+-- different actual targets. For callbacks, expose only the caster's own
+-- unresolved target entry instead of the whole shared UNKNOWN staging table.
+local function GetCallbackTargetInfo(targetGUID, casterGUID)
+	local targetInfo = resTargetInfo[targetGUID]
+	if not targetInfo then return end
+
+	if targetGUID ~= UNKNOWN_TARGET_GUID then
+		return NormalizeCallbackTable(targetInfo)
+	end
+
+	local casterInfo = casterGUID and targetInfo[casterGUID]
+	if not casterInfo then return end
+
+	return {
+		targetGUID = UNKNOWN_TARGET_GUID,
+		[casterGUID] = casterInfo,
+	}
+end
+
 -- -------------------------------------------------------------------
 -- Fastest-caster helpers
 -- -------------------------------------------------------------------
 
--- Recalculate the fastest active resurrection for one target.
+-- Recalculate the fastest active resurrection for one known target.
+--
+-- UNKNOWN targets are deliberately excluded. UNKNOWN means "this caster has
+-- an unresolved target"; it does not mean all UNKNOWN casts share one target.
+-- Fastest-res calculations only make sense after the target resolves to a
+-- real GUID.
 local function UpdateFastestCasterGUID(targetGUID)
-	if not targetGUID or not resTargetInfo[targetGUID] then return end
+	if not IsKnownTargetGUID(targetGUID) or not resTargetInfo[targetGUID] then return end
 
 	local fastestCasterGUID
 	local fastestResType
@@ -396,6 +443,9 @@ local function UpdateFastestCasterGUID(targetGUID)
 end
 
 -- Recalculate fastest resurrection for every known target.
+--
+-- This is used after mass-res state changes, because one mass-res cast can
+-- affect the fastest result for many dead group members at once.
 local function UpdateAllFastestCasterGUIDs()
 	local changedTargetInfo
 
@@ -411,6 +461,8 @@ local function UpdateAllFastestCasterGUIDs()
 	return changedTargetInfo
 end
 
+-- Used by public target queries when the queried unit is dead and mass-res
+-- casts are active. Mass-res casts do not attach to individual targets.
 local function GetFastestMassResCasterGUID()
 	local fastestCasterGUID
 	local fastestEndTime
@@ -427,10 +479,19 @@ local function GetFastestMassResCasterGUID()
 	return fastestCasterGUID
 end
 
+-- Lightweight GUID-shape check for public APIs. This intentionally avoids
+-- validating every possible GUID form; it only distinguishes GUID-like input
+-- from unresolved unit names.
 local function IsUnitGUID(value)
 	return type(value) == "string" and value:find("^%a+%-%d") ~= nil
 end
 
+-- Normalize public unit arguments to GUIDs.
+--
+-- Public APIs accept unitIDs, GUIDs, unit names, and name-realm strings. Names
+-- are valid input even when Blizzard cannot currently resolve them; in that
+-- case callers receive the API's normal "not found" result instead of an
+-- argument error.
 local function ResolvePublicUnitArg(unit)
 	local unitType = type(unit)
 
@@ -459,6 +520,11 @@ end
 -- Active resurrection state
 -- -------------------------------------------------------------------
 
+-- Mirror a single-target cast onto both lookup directions:
+-- casterGUID -> ResCastInfo and targetGUID -> casterGUID -> ResCastInfo.
+--
+-- Keeping both tables in sync makes public caster queries and target queries
+-- cheap, while SetIfMissing preserves earlier, more precise event data.
 local function ApplySingleCastInfo(casterInfo, targetInfo, casterGUID, targetGUID, castInfo)
 	SetIfMissing(casterInfo, "castGUID", castInfo.castGUID)
 	SetIfMissing(casterInfo, "casterGUID", casterGUID)
@@ -477,6 +543,8 @@ local function ApplySingleCastInfo(casterInfo, targetInfo, casterGUID, targetGUI
 	SetIfMissing(targetInfo, "endTime", castInfo.endTime)
 end
 
+-- Mass-res casts are caster-only because Blizzard does not expose per-target
+-- data for the cast. Target relevance is inferred later for known dead units.
 local function ApplyMassCastInfo(casterInfo, casterGUID, castInfo)
 	SetIfMissing(casterInfo, "castGUID", castInfo.castGUID)
 	SetIfMissing(casterInfo, "casterGUID", casterGUID)
@@ -486,6 +554,9 @@ local function ApplyMassCastInfo(casterInfo, casterGUID, castInfo)
 	SetIfMissing(casterInfo, "endTime", castInfo.endTime)
 end
 
+-- Read the currently visible cast from a unit token and normalize its timing.
+-- This only succeeds while Blizzard still exposes the cast through
+-- UnitCastingInfo, so callers treat nil as "nothing useful to track."
 local function GetCurrentCastInfo(unitID)
 	local spellName, _, textureID, startTimeMs, endTimeMs, _, castGUID, _, spellID = UnitCastingInfo(unitID)
 	if not spellName or not spellID then return end
@@ -501,6 +572,12 @@ local function GetCurrentCastInfo(unitID)
 	}
 end
 
+-- Populate single-target cast state from whatever Blizzard currently exposes.
+--
+-- UNIT_SPELLCAST_SENT can know the player's target before UNIT_SPELLCAST_START
+-- has full cast timing, while observed casts may only expose a target name or
+-- no target at all. This function merges partial data without overwriting
+-- better data gathered from earlier events.
 local function PopulateSingleResInfo(unitID, casterGUID, castInfo)
 	local existingCasterInfo = resCasterInfo[casterGUID]
 	local existingTargetGUID = existingCasterInfo and existingCasterInfo.targetGUID
@@ -518,6 +595,11 @@ local function PopulateSingleResInfo(unitID, casterGUID, castInfo)
 	return targetGUID, UpdateFastestCasterGUID(targetGUID)
 end
 
+-- Populate mass-res cast state.
+--
+-- Mass resurrection spells do not expose individual target GUIDs, so the cast
+-- is tracked only by caster. Known dead group members are considered when
+-- callers ask for the fastest caster for a specific dead unit.
 local function PopulateMassResInfo(casterGUID, castInfo)
 	massResCasterInfo[casterGUID] = massResCasterInfo[casterGUID] or {}
 
@@ -526,6 +608,9 @@ local function PopulateMassResInfo(casterGUID, castInfo)
 	return UpdateAllFastestCasterGUIDs()
 end
 
+-- Identify whether the current visible cast is a resurrection spell and
+-- populate the matching state tables. Returns enough context for event
+-- handlers to fire the correct callbacks without re-reading state.
 local function PopulateResInfoTables(unitID)
 	local casterGUID = UnitGUID(unitID)
 	if not casterGUID then return end
@@ -542,7 +627,37 @@ local function PopulateResInfoTables(unitID)
 	end
 end
 
--- Move an unresolved target entry to its resolved GUID.
+-- Build cast info for the player's UNIT_SPELLCAST_SENT path.
+--
+-- UNIT_SPELLCAST_SENT is authoritative for the player target, cast GUID, and
+-- spell ID. UnitCastingInfo supplies the accurate timing and icon when the cast
+-- is visible, including hasted cast times. If Blizzard has not exposed timing
+-- yet, fall back to the event values so instant casts and odd event ordering
+-- still produce a complete, minimal cast table.
+local function GetPlayerSentCastInfo(unitID, castGUID, spellID)
+	local castInfo = GetCurrentCastInfo(unitID)
+
+	if not castInfo or castInfo.spellID ~= spellID then
+		return {
+			castGUID = castGUID,
+			castTime = 0,
+			endTime = GetTime(),
+			spellID = spellID,
+		}
+	end
+
+	-- Prefer the event values for identity, while keeping UnitCastingInfo timing.
+	castInfo.castGUID = castGUID or castInfo.castGUID
+	castInfo.spellID = spellID
+
+	return castInfo
+end
+
+-- Move one caster's unresolved target entry to its resolved GUID.
+--
+-- The UNKNOWN staging table is keyed by caster GUID. When Blizzard later
+-- exposes the target through INCOMING_RESURRECT_CHANGED, only that caster's
+-- entry is moved into the real target GUID table.
 local function ReplaceUnknownTargetGUID(targetGUID, casterGUID)
 	if not targetGUID or not casterGUID then return end
 	if not resTargetInfo[UNKNOWN_TARGET_GUID] then return end
@@ -568,6 +683,12 @@ local function ReplaceUnknownTargetGUID(targetGUID, casterGUID)
 	end
 end
 
+-- Remove a single-target cast from caster and target state.
+--
+-- Callers decide whether fastest-caster state should be recalculated and
+-- whether the entire target table should be removed. This keeps callback
+-- timing explicit: terminal callbacks can fire before cleanup, while fastest
+-- change callbacks can fire after cleanup.
 local function RemoveSingleResCast(casterGUID, targetGUID, updateFastest, removeTargetInfo)
 	if not casterGUID then return end
 
@@ -603,6 +724,8 @@ local function RemoveSingleResCast(casterGUID, targetGUID, updateFastest, remove
 	return NormalizeCallbackTable(removedCasterInfo), NormalizeCallbackTable(targetInfo), changedTargetInfo
 end
 
+-- Remove a mass-res cast and optionally recalculate fastest state for every
+-- known target. One mass-res cast can affect many targets at once.
 local function RemoveMassResCast(casterGUID, updateFastest)
 	if not casterGUID then return end
 
@@ -618,6 +741,8 @@ local function RemoveMassResCast(casterGUID, updateFastest)
 	return NormalizeCallbackTable(removedCasterInfo), changedTargetInfo
 end
 
+-- Remove all single-target resurrection state attached to one target.
+-- Called after a completed known target is observed alive.
 local function RemoveTargetResInfo(targetGUID)
 	if not targetGUID or not resTargetInfo[targetGUID] then return end
 
@@ -632,6 +757,13 @@ local function RemoveTargetResInfo(targetGUID)
 	return true
 end
 
+-- Defensive stale-state cleanup for unresolved target entries.
+--
+-- Normal stopped/finished paths remove UNKNOWN entries immediately after their
+-- terminal callbacks fire. This fallback exists for missed or unusual event
+-- ordering where an unresolved cast never receives a terminal spellcast event.
+-- The timeout is measured from the tracked endTime. If endTime came only from
+-- UNIT_SPELLCAST_SENT, ten seconds still covers the longest known res cast.
 local function RemoveExpiredUnknownTargetInfo()
 	local targetInfo = resTargetInfo[UNKNOWN_TARGET_GUID]
 	if not targetInfo then return end
@@ -640,7 +772,7 @@ local function RemoveExpiredUnknownTargetInfo()
 	local removed
 
 	for casterGUID, info in pairs(targetInfo) do
-		if type(info) == "table" and info.endTime and (now - info.endTime) >= RES_PENDING_TIMEOUT then
+		if type(info) == "table" and info.endTime and (now - info.endTime) >= UNKNOWN_TARGET_CLEANUP_TIMEOUT then
 			resCasterInfo[casterGUID] = nil
 			targetInfo[casterGUID] = nil
 			removed = true
@@ -658,12 +790,19 @@ end
 -- Completed resurrection state
 -- -------------------------------------------------------------------
 
+-- Watch a completed resurrection target until UNIT_HEALTH confirms life.
+--
+-- Only real GUIDs are tracked here. UNKNOWN is intentionally ignored because
+-- UNIT_HEALTH / PLAYER_ALIVE can only validate real units.
 local function MarkRessedTargetGUID(targetGUID)
-	if targetGUID and targetGUID ~= UNKNOWN_TARGET_GUID then
+	if IsKnownTargetGUID(targetGUID) then
 		ressedTargetGUIDs[targetGUID] = true
 	end
 end
 
+-- A finished mass resurrection may affect any dead group member, but Blizzard
+-- does not report the chosen targets. Watch all currently dead group members
+-- and let UNIT_HEALTH confirm who actually becomes alive.
 local function MarkMassResTargets()
 	local playerGUID = UnitGUID("player")
 
@@ -690,6 +829,9 @@ end
 -- Self-resurrection state
 -- -------------------------------------------------------------------
 
+-- Build a stable key for one self-res option. Different self-res sources can
+-- coexist, so spell, item, and aura-backed options must not overwrite each
+-- other accidentally.
 local function GetSelfResOptionKey(optionInfo)
 	if optionInfo.spellID then
 		return "spell:" .. optionInfo.spellID
@@ -700,6 +842,9 @@ local function GetSelfResOptionKey(optionInfo)
 	end
 end
 
+-- Add or refresh a self-res option. The Available callback only fires for new
+-- option keys; refreshing an existing key keeps state current without spamming
+-- consumers.
 local function AddSelfResOption(unitGUID, optionInfo)
 	if not unitGUID or not optionInfo then return end
 
@@ -718,6 +863,8 @@ local function AddSelfResOption(unitGUID, optionInfo)
 	return optionKey
 end
 
+-- Remove one self-res option and report what remains. Consumers can use
+-- remainingInfo to decide whether the unit still has another self-res path.
 local function RemoveSelfResOption(unitGUID, optionKey)
 	if not unitGUID or not optionKey then return end
 	if not selfResInfo[unitGUID] then return end
@@ -736,6 +883,9 @@ local function RemoveSelfResOption(unitGUID, optionKey)
 	lib.callbacks:Fire("UnitSelfRes_Consumed", unitGUID, consumedOptionInfo, remainingInfo)
 end
 
+-- C_DeathInfo exposes player self-res choices such as soulstone, reincarnation,
+-- and item-based options. This is authoritative for the player, so reconcile
+-- the full option list each time it may have changed.
 local function UpdatePlayerSelfResOptions()
 	if not GetSelfResurrectOptions then return end
 
@@ -777,6 +927,8 @@ local function UpdatePlayerSelfResOptions()
 	end
 end
 
+-- Non-player self-res detection is aura-based. Scan only known self-res aura
+-- spellIDs and remove aura-backed options that disappeared from the unit.
 local function UpdateUnitSelfResAuras(unitID)
 	if not unitID then return end
 
@@ -820,6 +972,9 @@ end
 -- External resurrection request helpers
 -- -------------------------------------------------------------------
 
+-- RESURRECT_REQUEST gives an inviter name, not a GUID. Match that name against
+-- visible nameplates so an external resurrection request can be attributed to
+-- a real caster when possible.
 local function UnitMatchesName(unitID, name)
 	if not unitID or not name then return end
 
@@ -835,17 +990,20 @@ local function UnitMatchesName(unitID, name)
 	end
 end
 
+-- RESURRECT_REQUEST is not paired with the normal target lifecycle. Once the
+-- observed caster's cast timer ends, synthesize the same finished callback path
+-- used by normal single-target resurrection casts.
 local function FinishExternalResCast(casterGUID, targetGUID)
 	local casterInfo = resCasterInfo[casterGUID]
 	if not casterInfo then return end
 	if casterInfo.targetGUID ~= targetGUID then return end
 
 	local finishedCasterInfo = resCasterInfo[casterGUID]
-	local finishedTargetInfo = resTargetInfo[targetGUID]
+	local finishedTargetInfo = GetCallbackTargetInfo(targetGUID, casterGUID)
 
 	MarkRessedTargetGUID(targetGUID)
 
-	lib.callbacks:Fire("ResCast_Finished", casterGUID, targetGUID, NormalizeCallbackTable(finishedCasterInfo), NormalizeCallbackTable(finishedTargetInfo))
+	lib.callbacks:Fire("ResCast_Finished", casterGUID, targetGUID, NormalizeCallbackTable(finishedCasterInfo), finishedTargetInfo)
 
 	RemoveSingleResCast(casterGUID, targetGUID, false, false)
 end
@@ -854,6 +1012,8 @@ end
 -- Event aliases and registration
 -- -------------------------------------------------------------------
 
+-- Register runtime events after PLAYER_LOGIN so player GUID and client state
+-- are initialized. Some events are aliases that share one handler.
 local function RegisterEvents()
 	lib.UNIT_SPELLCAST_FAILED		= lib.UNIT_SPELLCAST_STOP
 	lib.UNIT_SPELLCAST_FAILED_QUIET	= lib.UNIT_SPELLCAST_STOP
@@ -891,6 +1051,8 @@ function lib:PLAYER_LOGIN()
 	UpdatePlayerSelfResOptions()
 end
 
+-- Neutral Pandaren can change faction after login. Refresh PLAYER_GUID after
+-- faction selection because later player-cast tracking depends on it.
 function lib:NEUTRAL_FACTION_SELECT_RESULT(_, success)
 	if success then
 		local factionGroup = UnitFactionGroup("player")
@@ -903,45 +1065,39 @@ function lib:NEUTRAL_FACTION_SELECT_RESULT(_, success)
 end
 
 -- Player spell targeting is available before the cast starts.
+--
+-- For the player, UNIT_SPELLCAST_SENT is the authoritative path: it gives the
+-- target token, cast GUID, and spell ID. UnitCastingInfo is read immediately to
+-- fill accurate timing/icon data when available, so player casts do not depend
+-- on a later UNIT_SPELLCAST_START.
 function lib:UNIT_SPELLCAST_SENT(_, unitID, targetID, castGUID, spellID)
-	local endTime = GetTime()
+	local castInfo = GetPlayerSentCastInfo(unitID, castGUID, spellID)
 
 	if SINGLE_TARGET_RES_SPELLS[spellID] then
 		local targetGUID = UnitGUID(targetID) or UNKNOWN_TARGET_GUID
 
 		resCasterInfo[PLAYER_GUID] = resCasterInfo[PLAYER_GUID] or {}
-		resCasterInfo[PLAYER_GUID].castGUID = castGUID
-		resCasterInfo[PLAYER_GUID].casterGUID = PLAYER_GUID
-		resCasterInfo[PLAYER_GUID].spellID = spellID
-		resCasterInfo[PLAYER_GUID].targetGUID = targetGUID
-		resCasterInfo[PLAYER_GUID].endTime = endTime
-
 		resTargetInfo[targetGUID] = resTargetInfo[targetGUID] or {}
-		resTargetInfo[targetGUID].targetGUID = targetGUID
+		resTargetInfo[targetGUID].targetGUID = resTargetInfo[targetGUID].targetGUID or targetGUID
 		resTargetInfo[targetGUID][PLAYER_GUID] = resTargetInfo[targetGUID][PLAYER_GUID] or {}
-		resTargetInfo[targetGUID][PLAYER_GUID].castGUID = castGUID
-		resTargetInfo[targetGUID][PLAYER_GUID].casterGUID = PLAYER_GUID
-		resTargetInfo[targetGUID][PLAYER_GUID].spellID = spellID
-		resTargetInfo[targetGUID][PLAYER_GUID].targetGUID = targetGUID
-		resTargetInfo[targetGUID][PLAYER_GUID].endTime = endTime
-	elseif MASS_RES_SPELLS[spellID] then
-		massResCasterInfo[PLAYER_GUID] = massResCasterInfo[PLAYER_GUID] or {}
-		massResCasterInfo[PLAYER_GUID].castGUID = castGUID
-		massResCasterInfo[PLAYER_GUID].casterGUID = PLAYER_GUID
-		massResCasterInfo[PLAYER_GUID].spellID = spellID
-		massResCasterInfo[PLAYER_GUID].endTime = endTime
-	end
 
-	local resType, casterGUID, targetGUID, fastestTargetInfo = PopulateResInfoTables(unitID)
+		ApplySingleCastInfo(resCasterInfo[PLAYER_GUID], resTargetInfo[targetGUID][PLAYER_GUID], PLAYER_GUID, targetGUID, castInfo)
 
-	if resType == "SINGLE" then
-		lib.callbacks:Fire("ResCast_Started", casterGUID, targetGUID, resCasterInfo[casterGUID], resTargetInfo[targetGUID])
+		local fastestTargetInfo = UpdateFastestCasterGUID(targetGUID)
+
+		lib.callbacks:Fire("ResCast_Started", PLAYER_GUID, targetGUID, resCasterInfo[PLAYER_GUID], GetCallbackTargetInfo(targetGUID, PLAYER_GUID))
 
 		if fastestTargetInfo then
 			lib.callbacks:Fire("FastestRes_Changed", fastestTargetInfo.targetGUID, fastestTargetInfo)
 		end
-	elseif resType == "MASS" then
-		lib.callbacks:Fire("MassResCast_Started", casterGUID, massResCasterInfo[casterGUID])
+	elseif MASS_RES_SPELLS[spellID] then
+		massResCasterInfo[PLAYER_GUID] = massResCasterInfo[PLAYER_GUID] or {}
+
+		ApplyMassCastInfo(massResCasterInfo[PLAYER_GUID], PLAYER_GUID, castInfo)
+
+		local fastestTargetInfo = UpdateAllFastestCasterGUIDs()
+
+		lib.callbacks:Fire("MassResCast_Started", PLAYER_GUID, massResCasterInfo[PLAYER_GUID])
 
 		if fastestTargetInfo then
 			for _, targetInfo in pairs(fastestTargetInfo) do
@@ -951,11 +1107,19 @@ function lib:UNIT_SPELLCAST_SENT(_, unitID, targetID, castGUID, spellID)
 	end
 end
 
+-- Observed units usually enter tracking here.
+--
+-- For non-player casters, this is often the first event where we can see the
+-- caster GUID, spell ID, cast GUID, timing, icon, and sometimes target name.
+-- Player casts are handled by UNIT_SPELLCAST_SENT to avoid duplicate started
+-- callbacks and to trust the player-specific target data from that event.
 function lib:UNIT_SPELLCAST_START(_, unitID)
+	if unitID == "player" then return end
+
 	local resType, casterGUID, targetGUID, fastestTargetInfo = PopulateResInfoTables(unitID)
 
-	if resType == "SINGLE" then
-		lib.callbacks:Fire("ResCast_Started", casterGUID, targetGUID, resCasterInfo[casterGUID], resTargetInfo[targetGUID])
+	if resType == "SINGLE" and targetGUID then
+		lib.callbacks:Fire("ResCast_Started", casterGUID, targetGUID, resCasterInfo[casterGUID], GetCallbackTargetInfo(targetGUID, casterGUID))
 
 		if fastestTargetInfo then
 			lib.callbacks:Fire("FastestRes_Changed", fastestTargetInfo.targetGUID, fastestTargetInfo)
@@ -972,6 +1136,9 @@ function lib:UNIT_SPELLCAST_START(_, unitID)
 end
 
 -- Fill in an UNKNOWN target when Blizzard later exposes incoming-res data.
+-- Blizzard sometimes reveals incoming-res target information after a cast was
+-- first observed as UNKNOWN. When that happens, move only the matching caster's
+-- staged entry to the real target GUID and notify consumers.
 function lib:INCOMING_RESURRECT_CHANGED(_, targetID)
 	local targetGUID = UnitGUID(targetID)
 	if not targetGUID then return end
@@ -998,6 +1165,9 @@ function lib:INCOMING_RESURRECT_CHANGED(_, targetID)
 end
 
 -- External resurrection requests only target the player.
+-- External resurrection requests are special:
+-- they target the player, may come from a visible nearby caster, and do not
+-- necessarily give the same event sequence as group spellcast tracking.
 function lib:RESURRECT_REQUEST(_, inviterName)
 	if IsInInstance() then return end
 	if InCombatLockdown() or UnitAffectingCombat("player") then return end
@@ -1023,7 +1193,7 @@ function lib:RESURRECT_REQUEST(_, inviterName)
 
 			local targetInfo = UpdateFastestCasterGUID(targetGUID)
 
-			lib.callbacks:Fire("ResCast_Started", casterGUID, targetGUID, resCasterInfo[casterGUID], resTargetInfo[targetGUID])
+			lib.callbacks:Fire("ResCast_Started", casterGUID, targetGUID, resCasterInfo[casterGUID], GetCallbackTargetInfo(targetGUID, casterGUID))
 
 			if targetInfo then
 				lib.callbacks:Fire("FastestRes_Changed", targetInfo.targetGUID, targetInfo)
@@ -1045,6 +1215,10 @@ function lib:RESURRECT_REQUEST(_, inviterName)
 end
 
 -- A resurrection cast is interrupted, fails, or is otherwise stopped before completion.
+--
+-- Terminal callbacks fire before cleanup so consumers can still inspect the
+-- cast that just ended. Cleanup happens immediately afterward; any resulting
+-- fastest-caster changes are then reported separately.
 function lib:UNIT_SPELLCAST_STOP(_, unitID, castGUID, spellID)
 	local casterGUID = UnitGUID(unitID)
 	if not casterGUID then return end
@@ -1055,9 +1229,12 @@ function lib:UNIT_SPELLCAST_STOP(_, unitID, castGUID, spellID)
 		if casterInfo.castGUID and castGUID and casterInfo.castGUID ~= castGUID then return end
 
 		local targetGUID = casterInfo.targetGUID or UNKNOWN_TARGET_GUID
-		local removedCasterInfo, targetInfo, changedTargetInfo = RemoveSingleResCast(casterGUID, targetGUID, true, false)
+		local callbackCasterInfo = NormalizeCallbackTable(casterInfo)
+		local callbackTargetInfo = GetCallbackTargetInfo(targetGUID, casterGUID)
 
-		lib.callbacks:Fire("ResCast_Stopped", casterGUID, targetGUID, removedCasterInfo, targetInfo)
+		lib.callbacks:Fire("ResCast_Stopped", casterGUID, targetGUID, callbackCasterInfo, callbackTargetInfo)
+
+		local _, _, changedTargetInfo = RemoveSingleResCast(casterGUID, targetGUID, true, false)
 
 		if changedTargetInfo then
 			lib.callbacks:Fire("FastestRes_Changed", changedTargetInfo.targetGUID, changedTargetInfo)
@@ -1067,9 +1244,9 @@ function lib:UNIT_SPELLCAST_STOP(_, unitID, castGUID, spellID)
 		if not casterInfo then return end
 		if casterInfo.castGUID and castGUID and casterInfo.castGUID ~= castGUID then return end
 
-		local removedCasterInfo, changedTargetInfo = RemoveMassResCast(casterGUID, true)
+		lib.callbacks:Fire("MassResCast_Stopped", casterGUID, NormalizeCallbackTable(casterInfo))
 
-		lib.callbacks:Fire("MassResCast_Stopped", casterGUID, removedCasterInfo)
+		local _, changedTargetInfo = RemoveMassResCast(casterGUID, true)
 
 		if changedTargetInfo then
 			for _, targetInfo in pairs(changedTargetInfo) do
@@ -1080,6 +1257,11 @@ function lib:UNIT_SPELLCAST_STOP(_, unitID, castGUID, spellID)
 end
 
 -- A resurrection cast successfully finishes, but the target may not be alive yet.
+--
+-- The finished callback reports spellcast completion only. For known targets,
+-- the GUID is moved into ressedTargetGUIDs so UNIT_HEALTH can later fire
+-- ResTargetGUID_IsAlive. UNKNOWN targets are cleaned up after the callback
+-- because there is no real GUID to watch.
 function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitID, castGUID, spellID)
 	local casterGUID = UnitGUID(unitID)
 	if not casterGUID then return end
@@ -1108,15 +1290,15 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitID, castGUID, spellID)
 			ApplySingleCastInfo(resCasterInfo[casterGUID], resTargetInfo[targetGUID][casterGUID], casterGUID, targetGUID, castInfo)
 			UpdateFastestCasterGUID(targetGUID)
 
-			lib.callbacks:Fire("ResCast_Started", casterGUID, targetGUID, resCasterInfo[casterGUID], resTargetInfo[targetGUID])
+			lib.callbacks:Fire("ResCast_Started", casterGUID, targetGUID, resCasterInfo[casterGUID], GetCallbackTargetInfo(targetGUID, casterGUID))
 		end
 
 		local finishedCasterInfo = resCasterInfo[casterGUID]
-		local finishedTargetInfo = resTargetInfo[targetGUID]
+		local finishedTargetInfo = GetCallbackTargetInfo(targetGUID, casterGUID)
 
 		MarkRessedTargetGUID(targetGUID)
 
-		lib.callbacks:Fire("ResCast_Finished", casterGUID, targetGUID, NormalizeCallbackTable(finishedCasterInfo), NormalizeCallbackTable(finishedTargetInfo))
+		lib.callbacks:Fire("ResCast_Finished", casterGUID, targetGUID, NormalizeCallbackTable(finishedCasterInfo), finishedTargetInfo)
 
 		RemoveSingleResCast(casterGUID, targetGUID, false, false)
 	elseif MASS_RES_SPELLS[spellID] then
@@ -1133,6 +1315,9 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitID, castGUID, spellID)
 end
 
 -- A completed resurrection target is now alive.
+-- UNIT_HEALTH is the final confirmation step for completed known targets.
+-- Cast completion only means the resurrection offer finished; the unit is not
+-- considered alive until health becomes positive.
 function lib:UNIT_HEALTH(_, unitID)
 	unitID = unitID or "player"
 
@@ -1150,6 +1335,8 @@ function lib:UNIT_HEALTH(_, unitID)
 end
 
 -- A unit gains or loses a self-resurrection aura, or the player's self-res options change.
+-- Self-res availability can change through player resurrection options or
+-- through aura changes on other visible units.
 function lib:UNIT_AURA(_, unitID)
 	if unitID == "player" then
 		UpdatePlayerSelfResOptions()

@@ -1,425 +1,556 @@
----@diagnostic disable: duplicate-set-field, undefined-field
 -- File Date: @file-date-iso@
----@class addon: AceAddon
+
+-- --------------------------------------------------------------------
+-- SmartRes2 Bars Options
+--
+-- Current scope:
+-- - Minimal Bars enable/disable option.
+-- - Basic behavior/frame display settings.
+-- - Container backdrop settings.
+--
+-- The real media, color, text, and theme options will grow after the Bars
+-- runtime exists.
+-- --------------------------------------------------------------------
+
+-- --------------------------------------------------------------------
+-- Lua / Blizzard API upvalues
+-- --------------------------------------------------------------------
+
+local BACKGROUND = BACKGROUND
+local DISABLE = DISABLE
+local EMBLEM_BORDER = EMBLEM_BORDER
+local EMBLEM_BORDER_COLOR = EMBLEM_BORDER_COLOR
+local ENABLE = ENABLE
+local GENERAL_LABEL = GENERAL_LABEL
+local NONE = NONE
+local SETTINGS = SETTINGS
+local LibStub = LibStub
+
+local HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_BOTTOM = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_BOTTOM
+local HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_LEFT = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_LEFT
+local HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_RIGHT = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_RIGHT
+local HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_TOP = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_TOP
+local HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_DOWN = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_DOWN
+local HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_LEFT = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_LEFT
+local HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_RIGHT = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_RIGHT
+local HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_UP = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_UP
+
+-- --------------------------------------------------------------------
+-- Addon / module
+-- --------------------------------------------------------------------
+
+---@class SmartRes2: AceAddon
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
----@class module: AceModule
-local module = addon:GetModule("Bars", false)
+
+---@class SmartRes2_Bars: AceAddon
+---@field db SmartRes2_BarsDB
+---@field IsMasqueAvailable fun(self: SmartRes2_Bars): boolean
+---@field RefreshConfig fun(self: SmartRes2_Bars)
+local module = addon:GetModule("Bars")
+
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
+local LibSharedMedia = LibStub("LibSharedMedia-3.0")
 
--- additional libraries
-local AceGUIWidgetLSMlists = LibStub("AceGUISharedMediaWidgets-1.0") and AceGUIWidgetLSMlists
-local masque = module.masque
+-- --------------------------------------------------------------------
+-- File-scope state
+-- --------------------------------------------------------------------
 
--- we must remember to call addon:Print(..) to get SmartRes2:Print(...)
--- if we call self:Print(...) we would get Bars:Print(...)
+local options
 
+local growDirectionValues = {
+	DOWN = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_DOWN,
+	UP = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_UP,
+}
+
+local iconPositionValues = {
+	NONE = NONE,
+	LEFT = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_LEFT,
+	RIGHT = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_RIGHT,
+}
+
+local framePointValues = {
+	TOPLEFT = L["Top Left"],
+	TOP = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_TOP,
+	TOPRIGHT = L["Top Right"],
+	LEFT = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_LEFT,
+	CENTER = L["Center"],
+	RIGHT = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_RIGHT,
+	BOTTOMLEFT = L["Bottom Left"],
+	BOTTOM = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_BOTTOM,
+	BOTTOMRIGHT = L["Bottom Right"],
+}
+
+local function IsModuleDisabled()
+	return not module.db.profile.enabled
+end
+
+-- --------------------------------------------------------------------
+-- Options table
+-- --------------------------------------------------------------------
+
+---@return table options
 function module:GetOptions()
-    self.db = addon.db:GetNamespace(module:GetName())
-    local db = self.db.profile
-    if not self.resFrame then
-        self:CreateResFrame()
-        self:GetResFramePosition()
-    end
-    local options = {
-        order = 60,
-        type = "group",
-        childGroups = "tab",
-        name = L["Res Bars Options"],
-        args = {
-            miscellaneous = {
-                order = 10,
-                type = "group",
-                name = MISCELLANEOUS,
-                args = {
-                    enabled = {
-                        order = 10,
-                        type = "toggle",
-                        name = ENABLE .. " " .. JUST_OR .. " " .. DISABLE,
-                        desc = L["Toggle module on/off."],
-                        get = function() return db.enabled end,
-                        set = function(_, value)
-                            db.enabled = value
-                            if value then
-                                if not module:IsEnabled() then
-                                    addon:EnableModule(module:GetName())
-                                end
-                            else
-                                if module:IsEnabled() then
-                                    addon:DisableModule(module:GetName())
-                                end
-                            end
-                        end
-                    },
-                    clampToScreen = {
-                        order = 20,
-                        type = "toggle",
-                        disabled = function() return not db.enabled end,
-                        name = L["Clamp to Screen"],
-                        desc = L["Prevent the bar frame from moving off your screen."],
-                        get = function() return db.clampToScreen end,
-                        set = function(_, value) db.clampToScreen = value end
-                    },
-                    lockFrame = {
-                        order = 30,
-                        type = "toggle",
-                        disabled = function() return not db.enabled end,
-                        name = L["Lock Frame"],
-                        desc = L["Prevents dragging the frame."],
-                        get = function() return db.lockFrame end,
-                        set = function(_, value) db.lockFrame = value end
-                    },
-                    supportMasque = {
-                        order = 40,
-                        type = "toggle",
-                        disabled = function() return not db.enabled end,
-                        hidden = function() return not masque end,
-                        name = L["Skin Icon with Masque"],
-                        get = function() return db.supportMasque end,
-                        set = function(_, value) db.supportMasque = value end
-                    },
-                    iconPosition = {
-                        order = 50,
-                        type = "select",
-                        style = "dropdown",
-                        disabled = function() return not db.enabled end,
-                        name = L["Icon Position"],
-                        get = function() return db.iconPosition end,
-                        set = function(_, value) db.iconPosition = value == "" and nil or value end,
-                        values = {
-                            [""] = NONE,
-                            ["LEFT"] = L["Left"],
-                            ["RIGHT"] = L["Right"]
-                        }
-                    },
-                    framePoint = {
-                        order = 60,
-                        type = "select",
-                        style = "dropdown",
-                        disabled = function() return not db.enabled or db.lockFrame end,
-                        name = L["Anchor Point"],
-                        desc = L["This automatically updates when the frame is locked."],
-                        get = function() return db.point end,
-                        set = function(_, value)
-                            db.point = value
-                            self:SetResFramePosition()
-                        end,
-                        values = {
-                            ["TOPLEFT"] = L["Top Left"],
-                            ["TOP"] = L["Top"],
-                            ["TOPRIGHT"] = L["Top Right"],
-                            ["LEFT"] = L["Left"],
-                            ["CENTER"] = L["Center"],
-                            ["RIGHT"] = L["Right"],
-                            ["BOTTOMLEFT"] = L["Bottom Left"],
-                            ["BOTTOM"] = L["Bottom"],
-                            ["BOTTOMRIGHT"] = L["Bottom Right"]
-                        }
-                    },
-                    frameX = {
-                        order = 70,
-                        type = "range",
-                        disabled = function() return not db.enabled or db.lockFrame end,
-                        name = L["Horizontal Offset"],
-                        desc = L["The offset may change within bounds of the anchor point."],
-                        get = function() return db.x end,
-                        set = function(_, value)
-                            db.x = value
-                            self:SetResFramePosition()
-                        end,
-                        min = -960,
-                        max = 960,
-                        step = 1,
-                        bigStep = 40
-                    },
-                    frameY = {
-                        order = 80,
-                        type = "range",
-                        disabled = function() return not db.enabled or db.lockFrame end,
-                        name = L["Vertical Offset"],
-                        desc = L["The offset may change within bounds of the anchor point."],
-                        get = function() return db.y end,
-                        set = function(_, value)
-                            db.y = value
-                            self:SetResFramePosition()
-                        end,
-                        min = -540,
-                        max = 540,
-                        step = 1,
-                        bigStep = 20
-                    },
-                    frameScale = {
-                        order = 90,
-                        type = "range",
-                        disabled = function() return not db.enabled end,
-                        name = L["Frame Scale"],
-                        get = function() return db.scale end,
-                        set = function(_, value)
-                            db.scale = value
-                            self:SetResFramePosition()
-                        end,
-                        isPercent = true,
-                        min = 0.50,
-                        max = 5.00,
-                        step = 0.01,
-                        bigStep = 0.25
-                    },
-                    frameWidth = {
-                        order = 100,
-                        type = "range",
-                        disabled = function() return not db.enabled end,
-                        name = L["Frame Width"],
-                        get = function() return db.width end,
-                        set = function(_, value)
-                            db.width = value
-                            self:SetResFramePosition()
-                        end,
-                        min = 100,
-                        max = 400,
-                        step = 1,
-                        bigStep = 10
-                    },
-                    frameHeight = {
-                        order = 110,
-                        type = "range",
-                        disabled = function() return not db.enabled end,
-                        name = L["Frame Height"],
-                        get = function() return db.height end,
-                        set = function(_, value)
-                            db.height = value
-                            self:SetResFramePosition()
-                        end,
-                        min = 200,
-                        max = 800,
-                        step = 1,
-                        bigStep = 20
-                    }
-                }
-            },
-            barColours = {
-                order = 20,
-                type = "group",
-                disabled = function() return not db.enabled end,
-                name = COLORS,
-                args = {
-                    goodSingleRes = {
-                        order = 10,
-                        type = "color",
-                        hasAlpha = true,
-                        width = 1.25,
-                        name = L["Non-Collision Single Res"],
-                        get = function()
-                            local c = db.goodSingleRes
-                            return c.r, c.g, c.b, c.a
-                        end,
-                        set = function(_, r, g, b, a)
-                            local c = db.goodSingleRes
-                            c.r, c.g, c.b, c.a = r, g, b, a
-                        end
-                    },
-                    collisionSingleRes = {
-                        order = 20,
-                        type = "color",
-                        hasAlpha = true,
-                        width = 1.25,
-                        name = L["Collision Single Res"],
-                        get = function()
-                            local c = db.collisionSingleRes
-                            return c.r, c.g, c.b, c.a
-                        end,
-                        set = function(_, r, g, b, a)
-                            local c = db.collisionSingleRes
-                            c.r, c.g, c.b, c.a = r, g, b, a
-                        end
-                    },
-                    goodMassRes = {
-                        order = 30,
-                        type = "color",
-                        hasAlpha = true,
-                        width = 1.25,
-                        name = L["Non-Collision Mass Res"],
-                        get = function()
-                            local c = db.goodMassRes
-                            return c.r, c.g, c.b, c.a
-                        end,
-                        set = function(_, r, g, b, a)
-                            local c = db.goodMassRes
-                            c.r, c.g, c.b, c.a = r, g, b, a
-                        end
-                    },
-                    collisionMassRes = {
-                        order = 40,
-                        type = "color",
-                        hasAlpha = true,
-                        width = 1.25,
-                        name = L["Collision Mass Res"],
-                        get = function()
-                            local c = db.collisionMassRes
-                            return c.r, c.g, c.b, c.a
-                        end,
-                        set = function(_, r, g, b, a)
-                            local c = db.collisionMassRes
-                            c.r, c.g, c.b, c.a = r, g, b, a
-                        end
-                    },
-                    waitingToAccept = {
-                        order = 50,
-                        type = "color",
-                        hasAlpha = true,
-                        width = 1.25,
-                        name = L["Waiting to Accept"],
-                        desc = L["The character has been resurrected but the player has not clicked 'Accept'."],
-                        get = function()
-                            local c = db.waitingToAccept
-                            return c.r, c.g, c.b, c.a
-                        end,
-                        set = function(_, r, g, b, a)
-                            local c = db.waitingToAccept
-                            c.r, c.g, c.b, c.a = r, g, b, a
-                        end
-                    }
-                }
-            },
-            barFonts = {
-                order = 30,
-                type = "group",
-                disabled = function() return not db.enabled end,
-                name = L["Fonts"],
-                args = {
-                    fontType = {
-                        order = 10,
-                        type = "select",
-						dialogControl = "LSM30_Font",
-                        name = L["Font"],
-                        width = 1.75,
-                        get = function() return db.fontType end,
-                        set = function(_, value) db.fontType = value end,
-                        values = AceGUIWidgetLSMlists.font
-                    },
-                    fontSize = {
-                        order = 20,
-                        type = "range",
-                        name = FONT_SIZE,
-                        get = function() return db.fontSize end,
-                        set = function(_, value) db.fontSize = value end,
-                        min = 6,
-                        max = 18,
-                        step = 1,
-                        bigStep = 3
-                    },
-                    fontFlags = {
-                        order = 30,
-                        type = "select",
-                        style = "dropdown",
-                        name = ANTIALIASING .. " " .. QUEST_LOGIC_AND .. " " .. EMBLEM_BORDER,
-                        width = 1.25,
-                        get = function() return db.fontFlags end,
-                        set = function(_, value) db.fontFlags = value end,
-                        values = {
-                            [""] = NONE,
-                            ["MONOCHROME"] = ANTIALIASING,
-                            ["OUTLINE"] = L["Black Outline"],
-                            ["THICK"] = L["Thick Black Outline"],
-                            ["MONOCHROME, OUTLINE"] = ANTIALIASING .. " " .. L["and a Black Outline"],
-                            ["MONOCHROME, THICK"] = ANTIALIASING .. " " .. L["and a Thick Black Outline"],
-                        }
-                    }
-                }
-            },
-            barTextures = {
-                order = 40,
-                type = "group",
-                disabled = function() return not db.enabled end,
-                name = TEXTURES_SUBHEADER,
-                args = {
-                    border = {
-                        order = 10,
-                        type = "select",
-                        dialogControl = "LSM30_Border",
-                        name = EMBLEM_BORDER,
-                        get = function() return db.border end,
-                        set = function(_, value) db.border = value end,
-                        values = AceGUIWidgetLSMlists.border
-                    },
-                    borderThickness = {
-                        order = 20,
-                        type = "range",
-                        name = L["Border Thickness"],
-                        get = function() return db.borderThickness end,
-                        set = function(_, value) db.borderThickness = value end,
-                        min = 1,
-                        max = 15,
-                        step = 1,
-                        bigStep = 5
-                    },
-                    borderLeftInset = {
-                        order = 30,
-                        type = "range",
-                        name = L["Left Inset"],
-                        desc = L["How far to the left of the frame to place the border."],
-                        get = function() return db.leftInset end,
-                        set = function(_, value) db.leftInset = value end,
-                        min = -5,
-                        max = 5,
-                        step = 1,
-                        bigStep = 5
-                    },
-                    borderRightInset = {
-                        order = 40,
-                        type = "range",
-                        name = L["Right Inset"],
-                        desc = L["How far to the right of the frame to place the border."],
-                        get = function() return db.rightInset end,
-                        set = function(_, value) db.rightInset = value end,
-                        min = -5,
-                        max = 5,
-                        step = 1,
-                        bigStep = 5
-                    },
-                    borderTopInset = {
-                        order = 50,
-                        type = "range",
-                        name = L["Top Inset"],
-                        desc = L["How far from the top of the frame to place the border."],
-                        get = function() return db.topInset end,
-                        set = function(_, value) db.topInset = value end,
-                        min = -5,
-                        max = 5,
-                        step = 1,
-                        bigStep = 5
-                    },
-                    borderBottomInset = {
-                        order = 60,
-                        type = "range",
-                        name = L["Bottom Inset"],
-                        desc = L["How far from the bottom of the frame to place the border."],
-                        get = function() return db.bottomInset end,
-                        set = function(_, value) db.bottomInset = value end,
-                        min = -5,
-                        max = 5,
-                        step = 1,
-                        bigStep = 5
-                    },
-                    background = {
-                        order = 70,
-                        type = "select",
-                        dialogControl = "LSM30_Background",
-                        name = EMBLEM_BACKGROUND,
-                        get = function() return db.background end,
-                        set = function(_, value) db.background = value end,
-                        values = AceGUIWidgetLSMlists.background
-                    },
-                    statusBar = {
-                        order = 80,
-                        type = "select",
-                        dialogControl = "LSM30_Statusbar",
-                        name = L["Bar Texture"],
-                        get = function() return db.statusBar end,
-                        set = function(_, value) db.statusBar = value end,
-                        values = AceGUIWidgetLSMlists.statusbar
-                    }
-                }
-            }
-        }
-    }
-    return options
+	if options then
+		return options
+	end
+
+	options = {
+		order = 40,
+		type = "group",
+		childGroups = "tab",
+		name = L["Bars"],
+		args = {
+			generalOptions = {
+				order = 10,
+				type = "group",
+				name = GENERAL_LABEL,
+				args = {
+					enabled = {
+						order = 10,
+						type = "toggle",
+						name = ENABLE .. " / " .. DISABLE,
+						desc = L["Toggle the Bars module on or off."],
+						get = function()
+							return module.db.profile.enabled
+						end,
+						set = function(_, value)
+							module.db.profile.enabled = value
+
+							if value then
+								addon:EnableModule(module:GetName())
+							else
+								addon:DisableModule(module:GetName())
+							end
+						end,
+					},
+					maxBars = {
+						order = 20,
+						type = "range",
+						name = L["Maximum Bars"],
+						desc = L["Maximum number of bars to display. Hidden bars are still tracked."],
+						disabled = IsModuleDisabled,
+						min = 1,
+						max = 40,
+						step = 1,
+						bigStep = 5,
+						get = function()
+							return module.db.profile.behavior.maxBars
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.maxBars = value
+							module:RefreshConfig()
+						end,
+					},
+					transitionDuration = {
+						order = 30,
+						type = "range",
+						name = L["Transition Duration"],
+						desc = L["How long bars fade during state changes. Set to 0 for instant changes."],
+						disabled = IsModuleDisabled,
+						min = 0,
+						max = 0.5,
+						step = 0.1,
+						bigStep = 0.1,
+						get = function()
+							return module.db.profile.behavior.transitionDuration
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.transitionDuration = value
+							module:RefreshConfig()
+						end,
+					},
+					growDirection = {
+						order = 40,
+						type = "select",
+						style = "dropdown",
+						name = L["Grow Direction"],
+						desc = L["Direction new bars are added from the container frame."],
+						disabled = IsModuleDisabled,
+						values = growDirectionValues,
+						get = function()
+							return module.db.profile.frame.growDirection
+						end,
+						set = function(_, value)
+							module.db.profile.frame.growDirection = value
+							module:RefreshConfig()
+						end,
+					},
+					hideWhenEmpty = {
+						order = 50,
+						type = "toggle",
+						name = L["Hide When Empty"],
+						desc = L["Hide the Bars frame when there are no bars to display."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return module.db.profile.frame.hideWhenEmpty
+						end,
+						set = function(_, value)
+							module.db.profile.frame.hideWhenEmpty = value
+							module:RefreshConfig()
+						end,
+					},
+					fill = {
+						order = 60,
+						type = "toggle",
+						name = L["Fill Bars"],
+						desc = L["Fill bars over time instead of draining them."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return module.db.profile.behavior.fill
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.fill = value
+							module:RefreshConfig()
+						end,
+					},
+					showTime = {
+						order = 70,
+						type = "toggle",
+						name = L["Show Time"],
+						desc = L["Show remaining time on bars."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return module.db.profile.behavior.showTime
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.showTime = value
+							module:RefreshConfig()
+						end,
+					},
+					showLabel = {
+						order = 80,
+						type = "toggle",
+						name = L["Show Text"],
+						desc = L["Show text labels on bars."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return module.db.profile.behavior.showLabel
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.showLabel = value
+							module:RefreshConfig()
+						end,
+					},
+					iconPosition = {
+						order = 90,
+						type = "select",
+						style = "dropdown",
+						name = L["Icon Position"],
+						desc = L["Where to show bar icons."],
+						disabled = IsModuleDisabled,
+						values = iconPositionValues,
+						get = function()
+							return module.db.profile.behavior.iconPosition
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.iconPosition = value
+							module:RefreshConfig()
+						end,
+					},
+				},
+			},
+			frameOptions = {
+				order = 20,
+				type = "group",
+				name = L["Frame"],
+				disabled = IsModuleDisabled,
+				args = {
+					frameWidth = {
+						order = 10,
+						type = "range",
+						name = L["Frame Width"],
+						get = function()
+							return module.db.profile.frame.width
+						end,
+						set = function(_, value)
+							module.db.profile.frame.width = value
+							module:RefreshConfig()
+						end,
+						min = 100,
+						max = 600,
+						step = 1,
+						bigStep = 10,
+					},
+					frameHeight = {
+						order = 20,
+						type = "range",
+						name = L["Frame Height"],
+						get = function()
+							return module.db.profile.frame.height
+						end,
+						set = function(_, value)
+							module.db.profile.frame.height = value
+							module:RefreshConfig()
+						end,
+						min = 50,
+						max = 800,
+						step = 1,
+						bigStep = 10,
+					},
+					frameScale = {
+						order = 30,
+						type = "range",
+						name = L["Frame Scale"],
+						get = function()
+							return module.db.profile.frame.scale
+						end,
+						set = function(_, value)
+							module.db.profile.frame.scale = value
+							module:RefreshConfig()
+						end,
+						isPercent = true,
+						min = 0.5,
+						max = 3,
+						step = 0.01,
+						bigStep = 0.1,
+					},
+					pixelSnap = {
+						order = 40,
+						type = "toggle",
+						name = L["Pixel Snap"],
+						desc = L["Round the Bars frame size and position to whole pixels."],
+						get = function()
+							return module.db.profile.frame.pixelSnap
+						end,
+						set = function(_, value)
+							module.db.profile.frame.pixelSnap = value
+							module:RefreshConfig()
+						end,
+					},
+					clampToScreen = {
+						order = 50,
+						type = "toggle",
+						name = L["Clamp to Screen"],
+						desc = L["Prevent the bar frame from moving off your screen."],
+						get = function()
+							return module.db.profile.frame.clampToScreen
+						end,
+						set = function(_, value)
+							module.db.profile.frame.clampToScreen = value
+							module:RefreshConfig()
+						end,
+					},
+					framePoint = {
+						order = 60,
+						type = "select",
+						style = "dropdown",
+						name = L["Anchor Point"],
+						values = framePointValues,
+						get = function()
+							return module.db.profile.frame.point
+						end,
+						set = function(_, value)
+							module.db.profile.frame.point = value
+							module:RefreshConfig()
+						end,
+					},
+					frameX = {
+						order = 70,
+						type = "range",
+						name = L["Horizontal Offset"],
+						desc = L["The offset may change within bounds of the anchor point."],
+						get = function()
+							return module.db.profile.frame.x
+						end,
+						set = function(_, value)
+							module.db.profile.frame.x = value
+							module:RefreshConfig()
+						end,
+						min = -960,
+						max = 960,
+						step = 1,
+						bigStep = 40,
+					},
+					frameY = {
+						order = 80,
+						type = "range",
+						name = L["Vertical Offset"],
+						desc = L["The offset may change within bounds of the anchor point."],
+						get = function()
+							return module.db.profile.frame.y
+						end,
+						set = function(_, value)
+							module.db.profile.frame.y = value
+							module:RefreshConfig()
+						end,
+						min = -540,
+						max = 540,
+						step = 1,
+						bigStep = 20,
+					},
+				},
+			},
+			backdropOptions = {
+				order = 30,
+				type = "group",
+				name = BACKGROUND,
+				disabled = IsModuleDisabled,
+				args = {
+					background = {
+						order = 10,
+						type = "select",
+						dialogControl = "LSM30_Background",
+						name = BACKGROUND,
+						values = LibSharedMedia:HashTable(LibSharedMedia.MediaType.BACKGROUND),
+						get = function()
+							return module.db.profile.frame.backdrop.background
+						end,
+						set = function(_, value)
+							module.db.profile.frame.backdrop.background = value
+							module:RefreshConfig()
+						end,
+					},
+					backgroundColor = {
+						order = 20,
+						type = "color",
+						name = L["Background Color"],
+						hasAlpha = true,
+						get = function()
+							local color = module.db.profile.frame.backdrop.backgroundColor
+							return color.r, color.g, color.b, color.a
+						end,
+						set = function(_, r, g, b, a)
+							local color = module.db.profile.frame.backdrop.backgroundColor
+							color.r = r
+							color.g = g
+							color.b = b
+							color.a = a
+							module:RefreshConfig()
+						end,
+					},
+					border = {
+						order = 30,
+						type = "select",
+						dialogControl = "LSM30_Border",
+						name = EMBLEM_BORDER,
+						values = LibSharedMedia:HashTable(LibSharedMedia.MediaType.BORDER),
+						get = function()
+							return module.db.profile.frame.backdrop.border
+						end,
+						set = function(_, value)
+							module.db.profile.frame.backdrop.border = value
+							module:RefreshConfig()
+						end,
+					},
+					borderColor = {
+						order = 40,
+						type = "color",
+						name = EMBLEM_BORDER_COLOR,
+						hasAlpha = true,
+						get = function()
+							local color = module.db.profile.frame.backdrop.borderColor
+							return color.r, color.g, color.b, color.a
+						end,
+						set = function(_, r, g, b, a)
+							local color = module.db.profile.frame.backdrop.borderColor
+							color.r = r
+							color.g = g
+							color.b = b
+							color.a = a
+							module:RefreshConfig()
+						end,
+					},
+					borderThickness = {
+						order = 50,
+						type = "range",
+						name = L["Border Thickness"],
+						get = function()
+							return module.db.profile.frame.backdrop.edgeSize
+						end,
+						set = function(_, value)
+							module.db.profile.frame.backdrop.edgeSize = value
+							module:RefreshConfig()
+						end,
+						min = 0,
+						max = 32,
+						step = 1,
+						bigStep = 2,
+					},
+					leftInset = {
+						order = 60,
+						type = "range",
+						name = L["Left Inset"],
+						desc = L["How far to the left of the frame to place the border."],
+						get = function()
+							return module.db.profile.frame.backdrop.insets.left
+						end,
+						set = function(_, value)
+							module.db.profile.frame.backdrop.insets.left = value
+							module:RefreshConfig()
+						end,
+						min = 0,
+						max = 32,
+						step = 1,
+						bigStep = 2,
+					},
+					rightInset = {
+						order = 70,
+						type = "range",
+						name = L["Right Inset"],
+						desc = L["How far to the right of the frame to place the border."],
+						get = function()
+							return module.db.profile.frame.backdrop.insets.right
+						end,
+						set = function(_, value)
+							module.db.profile.frame.backdrop.insets.right = value
+							module:RefreshConfig()
+						end,
+						min = 0,
+						max = 32,
+						step = 1,
+						bigStep = 2,
+					},
+					topInset = {
+						order = 80,
+						type = "range",
+						name = L["Top Inset"],
+						desc = L["How far from the top of the frame to place the border."],
+						get = function()
+							return module.db.profile.frame.backdrop.insets.top
+						end,
+						set = function(_, value)
+							module.db.profile.frame.backdrop.insets.top = value
+							module:RefreshConfig()
+						end,
+						min = 0,
+						max = 32,
+						step = 1,
+						bigStep = 2,
+					},
+					bottomInset = {
+						order = 90,
+						type = "range",
+						name = L["Bottom Inset"],
+						desc = L["How far from the bottom of the frame to place the border."],
+						get = function()
+							return module.db.profile.frame.backdrop.insets.bottom
+						end,
+						set = function(_, value)
+							module.db.profile.frame.backdrop.insets.bottom = value
+							module:RefreshConfig()
+						end,
+						min = 0,
+						max = 32,
+						step = 1,
+						bigStep = 2,
+					},
+				},
+			},
+			futureOptions = {
+				order = 40,
+				type = "group",
+				name = SETTINGS,
+				args = {
+					placeholder = {
+						order = 10,
+						type = "description",
+						name = L["Media, color, text, and theme options will be added after the Bars runtime is rebuilt."],
+						fontSize = "medium",
+					},
+				},
+			},
+		},
+	}
+
+	return options
 end
