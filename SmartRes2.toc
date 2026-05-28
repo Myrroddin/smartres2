@@ -31,7 +31,7 @@
 ## Category-ruRU: Подземелья и рейды
 ## Category-zhCN: 地下城和团队副本
 ## Category-zhTW: 地城與團隊
-## X-Localizations: enUS, frFR, deDE, esES, esMX, ruRU, zhCN, zhTW, ptBR, itIT, koKR
+## X-Localizations: enUS, deDE, esES, esMX, frFR, itIT, koKR, ptBR, ruRU, zhCN, zhTW
 
 ## X-Curse-Project-ID: 19988
 ## X-WoWI-ID: 16006
@@ -44,8 +44,7 @@
 
 ## SavedVariables: SmartRes2DB
 
-## RequiredDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibResInfo-2.0, AceGUI-3.0-SharedMediaWidgets, LibDualSpec-1.0
-## OptionalDeps: Masque
+## OptionalDeps: LibStub, CallbackHandler-1.0, Ace3, LibDataBroker-1.1, LibDBIcon-1.0, LibAboutPanel-2.0, LibCandyBar-3.0, LibSharedMedia-3.0, LibResInfo-2.0, AceGUI-3.0-SharedMediaWidgets, LibDualSpec-1.0, Masque
 
 Libs\LibStub\LibStub.lua
 Libs\CallbackHandler-1.0\CallbackHandler-1.0.xml
@@ -80,7 +79,7 @@ Locales\zhTW.lua
 
 Core.lua
 Options.lua
-Modules\Chat\Chat.lua
-Modules\Chat\ChatOptions.lua
+# Modules\Chat\Chat.lua
+# Modules\Chat\ChatOptions.lua
 Modules\Bars\Bars.lua
 Modules\Bars\BarsOptions.lua

@@ -9,16 +9,16 @@
 -- - Register Bars options with SmartRes2.
 -- - Own the Bars settings model.
 -- - Create and configure the Bars container frame.
+-- - Create, style, sort, and lay out LibCandyBar preview/runtime bars.
 --
 -- Current boundary:
--- - This file creates the visible container frame only.
--- - It does not create LibCandyBar bars yet.
+-- - This file creates the visible container frame.
+-- - This file creates permanent preview/test bars for user styling.
 -- - It does not consume LibResInfo callbacks yet.
 --
 -- Future responsibilities:
 -- - Track active cast bars keyed by casterGUID.
 -- - Track waiting-to-accept bars keyed by targetGUID.
--- - Render visible bars with LibCandyBar-3.0.
 -- - Keep hidden bars tracked when maxBars hides them.
 -- - Apply individual user settings and future Themes presets.
 --
@@ -33,8 +33,13 @@
 
 local BackdropTemplateMixin = BackdropTemplateMixin
 local CreateFrame = CreateFrame
+local GetTime = GetTime
 local LibStub = LibStub
 local math_floor = math.floor
+local math_random = math.random
+local next = next
+local string_format = string.format
+local table_sort = table.sort
 local UIParent = UIParent
 
 -- --------------------------------------------------------------------
@@ -43,6 +48,8 @@ local UIParent = UIParent
 
 ---@class SmartRes2: AceAddon
 ---@field db SmartRes2DB
+---@field GetMassResurrectionIcon fun(self: SmartRes2): number|string|nil
+---@field GetResurrectionIconForClass fun(self: SmartRes2, classFilename: string|nil, useDefault?: boolean): number|string|nil
 ---@field RegisterModuleOptions fun(self: SmartRes2, optionsName: string, moduleOptions: table)
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 
@@ -50,6 +57,27 @@ local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 -- do not always expose SetBackdrop methods, so the container is explicitly
 -- created with "BackdropTemplate" and annotated as such for WoWLua-LS.
 ---@alias SmartRes2_BackdropFrame Frame & BackdropTemplate
+
+---@class SmartRes2_CandyBar: Frame
+---@field Set fun(self: SmartRes2_CandyBar, key: string, data: any)
+---@field Get fun(self: SmartRes2_CandyBar, key: string): any
+---@field SetBackgroundColor fun(self: SmartRes2_CandyBar, r: number, g: number, b: number, a: number)
+---@field SetColor fun(self: SmartRes2_CandyBar, r: number, g: number, b: number, a: number)
+---@field SetDuration fun(self: SmartRes2_CandyBar, duration: number, isApproximate?: boolean)
+---@field SetFill fun(self: SmartRes2_CandyBar, fill: boolean)
+---@field SetFont fun(self: SmartRes2_CandyBar, fontFile: string, height: number, flags: string)
+---@field SetIcon fun(self: SmartRes2_CandyBar, icon: string|number|nil, ...)
+---@field SetIconPosition fun(self: SmartRes2_CandyBar, position: "LEFT"|"RIGHT")
+---@field SetLabel fun(self: SmartRes2_CandyBar, text: string|nil)
+---@field SetLabelVisibility fun(self: SmartRes2_CandyBar, bool: boolean)
+---@field SetSize fun(self: SmartRes2_CandyBar, width: number, height: number)
+---@field SetShadowColor fun(self: SmartRes2_CandyBar, r: number, g: number, b: number, a: number)
+---@field SetShadowOffset fun(self: SmartRes2_CandyBar, offsetX: number, offsetY: number)
+---@field SetTextColor fun(self: SmartRes2_CandyBar, r: number, g: number, b: number, a: number)
+---@field SetTexture fun(self: SmartRes2_CandyBar, texture: string)
+---@field SetTimeVisibility fun(self: SmartRes2_CandyBar, bool: boolean)
+---@field Start fun(self: SmartRes2_CandyBar, maxValue?: number)
+---@field Stop fun(self: SmartRes2_CandyBar, ...)
 
 ---@class SmartRes2_BarsColorDB
 ---@field r number
@@ -98,29 +126,64 @@ local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 ---@field showTime boolean
 ---@field showLabel boolean
 ---@field iconPosition "LEFT"|"RIGHT"|"NONE"
+---@field useShortLabels boolean
+
+---@class SmartRes2_BarsColorsDB
+---@field good SmartRes2_BarsColorDB
+---@field collision SmartRes2_BarsColorDB
+---@field waiting SmartRes2_BarsColorDB
 
 ---@class SmartRes2_BarsProfileDB
 ---@field enabled boolean
 ---@field frame SmartRes2_BarsFrameDB
 ---@field media SmartRes2_BarsMediaDB
 ---@field behavior SmartRes2_BarsBehaviorDB
+---@field colors SmartRes2_BarsColorsDB
 ---@field activeTheme string
 
 ---@class SmartRes2_BarsDB: AceDBObject-3.0
 ---@field profile SmartRes2_BarsProfileDB
 
+---@class SmartRes2_BarState
+---@field key string
+---@field source "preview"|"runtime"
+---@field kind "single"|"mass"|"waiting"
+---@field casterGUID string|nil
+---@field casterName string|nil
+---@field targetGUID string|nil
+---@field targetName string
+---@field startTime number
+---@field endTime number
+---@field duration number
+---@field isCollision boolean
+---@field isMass boolean
+---@field isWaiting boolean
+---@field icon string|number|nil
+---@field transitionToWaiting boolean|nil
+---@field waitingKey string|nil
+
 ---@class SmartRes2_Bars: AceAddon, AceEvent-3.0, AceConsole-3.0, LibResInfo-2.0
 ---@field db SmartRes2_BarsDB
 ---@field containerFrame SmartRes2_BackdropFrame|nil
+---@field containerBackground Texture|nil
 ---@field GetOptions fun(self: SmartRes2_Bars): table
+---@field ShowTestBars fun(self: SmartRes2_Bars)
+---@field ClearTestBars fun(self: SmartRes2_Bars)
+---@field HasTestBars fun(self: SmartRes2_Bars): boolean
 local module = addon:NewModule("Bars")
 
 -- --------------------------------------------------------------------
 -- Libraries
 -- --------------------------------------------------------------------
 
+---@class SmartRes2_LibCandyBar
+---@field New fun(self: SmartRes2_LibCandyBar, texture: string, width: number, height: number): SmartRes2_CandyBar
+---@field RegisterCallback fun(target: table, eventname: string, method: string, arg?: any)
+---@field UnregisterCallback fun(target: table, eventname: string)
+local LibCandyBar = LibStub("LibCandyBar-3.0") --[[@as SmartRes2_LibCandyBar]]
 local LibSharedMedia = LibStub("LibSharedMedia-3.0")
 local Masque = LibStub("Masque", true)
+local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 
 -- --------------------------------------------------------------------
 -- Constants
@@ -131,6 +194,17 @@ local Masque = LibStub("Masque", true)
 -- this hard cap unless LibResInfo reports the target accepted/returned alive
 -- first.
 local PENDING_TIMEOUT_SECONDS = 60
+
+local BAR_HEIGHT = 20
+local BAR_SPACING = 4
+local BAR_BACKGROUND_R = 0
+local BAR_BACKGROUND_G = 0
+local BAR_BACKGROUND_B = 0
+local BAR_BACKGROUND_A = 0.45
+local BAR_TEXT_R = 1
+local BAR_TEXT_G = 1
+local BAR_TEXT_B = 1
+local BAR_TEXT_A = 1
 
 -- --------------------------------------------------------------------
 -- Saved variable defaults
@@ -170,10 +244,13 @@ local defaults = {
 					top = 3,
 					bottom = 3,
 				},
+				-- Do not default this to pure black. The Blizzard color picker can
+				-- appear to ignore the color wheel when RGB starts at 0, 0, 0 until
+				-- the brightness slider is moved.
 				backgroundColor = {
-					r = 0,
-					g = 0,
-					b = 0,
+					r = 0.05,
+					g = 0.05,
+					b = 0.05,
 					a = 0.35,
 				},
 				borderColor = {
@@ -204,6 +281,30 @@ local defaults = {
 			showTime = true,
 			showLabel = true,
 			iconPosition = "LEFT",
+			useShortLabels = false,
+		},
+
+		-- Bar state colors. These are intentionally distinct for quick scanning
+		-- and to remain usable for players with red/green color blindness.
+		colors = {
+			good = {
+				r = 0.486,
+				g = 0.988,
+				b = 0,
+				a = 1,
+			},
+			collision = {
+				r = 0.9,
+				g = 0,
+				b = 0,
+				a = 1,
+			},
+			waiting = {
+				r = 0.54,
+				g = 0.81,
+				b = 0.94,
+				a = 1,
+			},
 		},
 
 		-- Themes will eventually copy complete preset batches into Bars
@@ -222,6 +323,15 @@ local db
 
 ---@type boolean
 local hasMasque = Masque ~= nil
+
+---@type table<string, SmartRes2_BarState>
+local barStates = {}
+
+---@type table<string, SmartRes2_CandyBar>
+local candyBars = {}
+
+---@type SmartRes2_BarState[]
+local sortedBars = {}
 
 -- --------------------------------------------------------------------
 -- Media registration
@@ -252,6 +362,138 @@ local function SnapPixelValue(value)
 	return math_floor(value + 0.5)
 end
 
+---@return SmartRes2_BarsProfileDB profile
+local function GetProfileDB()
+	return db --[[@as SmartRes2_BarsProfileDB]]
+end
+
+local previewSingleResIconClasses = {
+	"PRIEST",
+	"SHAMAN",
+	"PALADIN",
+	"DRUID",
+	"MONK",
+	"EVOKER",
+}
+
+local previewSingleResIconFallbacks = {
+	DRUID = [[Interface\Icons\Spell_Nature_Reincarnation]],
+	EVOKER = [[Interface\Icons\Spell_Nature_WispSplode]],
+	MONK = [[Interface\Icons\Spell_Holy_Renew]],
+	PALADIN = [[Interface\Icons\Spell_Holy_SealOfSalvation]],
+	PRIEST = [[Interface\Icons\Spell_Holy_Resurrection]],
+	SHAMAN = [[Interface\Icons\Spell_Nature_Regenerate]],
+}
+
+local previewMassResIcons = {
+	addon:GetMassResurrectionIcon(),
+	[[Interface\Icons\Spell_Holy_PrayerOfHealing02]],
+	[[Interface\Icons\Spell_Holy_PrayerOfHealing]],
+}
+
+---@param classFilename string
+---@return number|string|nil icon
+local function GetPreviewSingleResIconForClass(classFilename)
+	return addon:GetResurrectionIconForClass(classFilename, false) or previewSingleResIconFallbacks[classFilename]
+end
+
+---@param avoidIcon number|string|nil
+---@return number|string|nil icon
+local function GetPreviewSingleResIcon(avoidIcon)
+	local firstIcon
+	local count = #previewSingleResIconClasses
+	local startIndex = math_random(count)
+
+	for offset = 0, count - 1 do
+		local index = ((startIndex + offset - 2) % count) + 1
+		local icon = GetPreviewSingleResIconForClass(previewSingleResIconClasses[index])
+
+		if icon then
+			firstIcon = firstIcon or icon
+
+			if icon ~= avoidIcon then
+				return icon
+			end
+		end
+	end
+
+	return firstIcon
+end
+
+---@return number|string|nil icon
+local function GetPreviewMassResIcon()
+	local count = #previewMassResIcons
+
+	if count == 0 then
+		return nil
+	end
+
+	return previewMassResIcons[math_random(count)]
+end
+
+-- --------------------------------------------------------------------
+-- Bar labels / colors
+-- --------------------------------------------------------------------
+
+---@param state SmartRes2_BarState
+---@return string label
+local function FormatBarLabel(state)
+	if state.isWaiting then
+		if db and db.behavior.useShortLabels then
+			return string_format(L["%s : %s"], state.targetName, L["Waiting"])
+		end
+
+		return string_format(L["%s is waiting to accept"], state.targetName)
+	end
+
+	local casterName = state.casterName or ""
+
+	if db and db.behavior.useShortLabels then
+		return string_format(L["%s : %s"], casterName, state.targetName)
+	end
+
+	return string_format(L["%s is resurrecting %s"], casterName, state.targetName)
+end
+
+---@param state SmartRes2_BarState
+---@return SmartRes2_BarsColorDB color
+local function GetBarColor(state)
+	local profile = GetProfileDB()
+
+	if state.isWaiting then
+		return profile.colors.waiting
+	end
+
+	if state.isCollision then
+		return profile.colors.collision
+	end
+
+	return profile.colors.good
+end
+
+---@param a SmartRes2_BarState
+---@param b SmartRes2_BarState
+---@return boolean before
+local function CompareBarStates(a, b)
+	if a.isWaiting ~= b.isWaiting then
+		return not a.isWaiting
+	end
+
+	if not a.isWaiting then
+		if a.endTime ~= b.endTime then
+			return a.endTime < b.endTime
+		end
+
+		if a.isMass ~= b.isMass then
+			return a.isMass
+		end
+
+		return (a.casterGUID or a.key) < (b.casterGUID or b.key)
+	end
+
+	return (a.targetGUID or a.key) < (b.targetGUID or b.key)
+end
+
 -- --------------------------------------------------------------------
 -- Container frame
 -- --------------------------------------------------------------------
@@ -273,17 +515,23 @@ function module:CreateContainerFrame()
 	frame:SetFrameLevel(100)
 	frame:EnableMouse(false)
 
+	-- Keep the fill/background texture separate from the backdrop border.
+	-- SetBackdrop handles borders well, but a regular texture makes background
+	-- media and color changes immediate and predictable across clients.
+	self.containerBackground = frame:CreateTexture(nil, "BACKGROUND")
+
 	self.containerFrame = frame
 
 	return frame
 end
 
--- Applies the DB-driven backdrop to the container frame.
+-- Applies the DB-driven frame style.
 --
--- LibSharedMedia returns nil for the "None" key. That is useful here: a nil
--- bgFile or edgeFile simply means that part of the backdrop is not drawn.
+-- The background uses a normal texture so media/color changes are predictable
+-- across clients. The backdrop is reserved for the border, where Blizzard's
+-- BackdropTemplate API is still the right fit.
 function module:ApplyContainerBackdrop()
-	if not db or not self.containerFrame or not self.containerFrame.SetBackdrop then
+	if not db or not self.containerFrame then
 		return
 	end
 
@@ -291,12 +539,39 @@ function module:ApplyContainerBackdrop()
 	local backgroundColor = backdropSettings.backgroundColor
 	local borderColor = backdropSettings.borderColor
 	local insets = backdropSettings.insets
+	local backgroundTexture = self.containerBackground
 
-	local background = LibSharedMedia:Fetch(LibSharedMedia.MediaType.BACKGROUND, backdropSettings.background)
-	local border = LibSharedMedia:Fetch(LibSharedMedia.MediaType.BORDER, backdropSettings.border)
+	if backgroundTexture then
+		local background = LibSharedMedia:Fetch(
+			LibSharedMedia.MediaType.BACKGROUND,
+			backdropSettings.background,
+			true
+		)
+
+		backgroundTexture:ClearAllPoints()
+		backgroundTexture:SetPoint("TOPLEFT", self.containerFrame, "TOPLEFT", insets.left, -insets.top)
+		backgroundTexture:SetPoint("BOTTOMRIGHT", self.containerFrame, "BOTTOMRIGHT", -insets.right, insets.bottom)
+
+		if background then
+			backgroundTexture:SetTexture(background)
+			backgroundTexture:SetVertexColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a)
+			backgroundTexture:Show()
+		else
+			backgroundTexture:Hide()
+		end
+	end
+
+	if not self.containerFrame.SetBackdrop then
+		return
+	end
+
+	local border = LibSharedMedia:Fetch(
+		LibSharedMedia.MediaType.BORDER,
+		backdropSettings.border,
+		true
+	)
 
 	self.containerFrame:SetBackdrop({
-		bgFile = background,
 		edgeFile = border,
 		edgeSize = backdropSettings.edgeSize,
 		insets = {
@@ -307,13 +582,14 @@ function module:ApplyContainerBackdrop()
 		},
 	})
 
-	self.containerFrame:SetBackdropColor(backgroundColor.r, backgroundColor.g, backgroundColor.b, backgroundColor.a)
-	self.containerFrame:SetBackdropBorderColor(borderColor.r, borderColor.g, borderColor.b, borderColor.a)
+	if border then
+		self.containerFrame:SetBackdropBorderColor(borderColor.r, borderColor.g, borderColor.b, borderColor.a)
+	end
 end
 
 -- Applies profile frame settings to the container. This helper only handles
--- the container itself; future CandyBar positioning will happen in a separate
--- layout pass so hidden bars can still be tracked without being rendered.
+-- the container itself; CandyBar positioning happens in a separate layout pass
+-- so hidden bars can remain tracked without being visibly rendered.
 function module:ApplyContainerFrameSettings()
 	if not db then return end
 
@@ -344,12 +620,360 @@ function module:ApplyContainerFrameSettings()
 	self:ApplyContainerBackdrop()
 end
 
+-- --------------------------------------------------------------------
+-- CandyBar rendering
+-- --------------------------------------------------------------------
+
+---@return string texture
+local function GetStatusBarTexture()
+	local profile = GetProfileDB()
+
+	return LibSharedMedia:Fetch(LibSharedMedia.MediaType.STATUSBAR, profile.media.statusBar) --[[@as string]]
+end
+
+---@return string fontFile
+local function GetFontFile()
+	local profile = GetProfileDB()
+
+	return LibSharedMedia:Fetch(LibSharedMedia.MediaType.FONT, profile.media.font) --[[@as string]]
+end
+
+---@param key string
+---@return SmartRes2_CandyBar bar
+function module:GetOrCreateCandyBar(key)
+	local bar = candyBars[key]
+
+	if bar then
+		return bar
+	end
+
+	local profile = GetProfileDB()
+
+	bar = LibCandyBar:New(GetStatusBarTexture(), profile.frame.width, BAR_HEIGHT) --[[@as SmartRes2_CandyBar]]
+	bar:Set("SmartRes2Key", key)
+	bar:SetParent(self:CreateContainerFrame())
+	bar:SetFrameStrata("MEDIUM")
+	bar:SetFrameLevel(110)
+	bar:EnableMouse(false)
+
+	candyBars[key] = bar
+
+	return bar
+end
+
+---@param state SmartRes2_BarState
+---@param bar SmartRes2_CandyBar
+function module:ApplyCandyBarSettings(state, bar)
+	local profile = GetProfileDB()
+	local color = GetBarColor(state)
+	local icon = state.icon
+
+	bar:SetParent(self:CreateContainerFrame())
+	bar:SetSize(profile.frame.width, BAR_HEIGHT)
+	bar:SetTexture(GetStatusBarTexture())
+	bar:SetFill(profile.behavior.fill)
+	bar:SetColor(color.r, color.g, color.b, color.a)
+	bar:SetBackgroundColor(BAR_BACKGROUND_R, BAR_BACKGROUND_G, BAR_BACKGROUND_B, BAR_BACKGROUND_A)
+	bar:SetTextColor(BAR_TEXT_R, BAR_TEXT_G, BAR_TEXT_B, BAR_TEXT_A)
+	bar:SetFont(GetFontFile(), profile.media.fontSize, profile.media.fontFlags)
+	bar:SetLabel(FormatBarLabel(state))
+	bar:SetTimeVisibility(profile.behavior.showTime)
+	bar:SetLabelVisibility(profile.behavior.showLabel)
+	bar:SetShadowOffset(1, -1)
+	bar:SetShadowColor(0, 0, 0, 1)
+
+	if not icon or profile.behavior.iconPosition == "NONE" then
+		bar:SetIcon(nil)
+	else
+		bar:SetIcon(icon)
+		bar:SetIconPosition(profile.behavior.iconPosition)
+	end
+end
+
+---@param state SmartRes2_BarState
+function module:RefreshCandyBar(state)
+	local bar = candyBars[state.key]
+
+	if not bar then
+		return
+	end
+
+	self:ApplyCandyBarSettings(state, bar)
+end
+
+function module:RefreshCandyBars()
+	for _, state in next, barStates do
+		self:RefreshCandyBar(state)
+	end
+end
+
+function module:BuildSortedBars()
+	for index in next, sortedBars do
+		sortedBars[index] = nil
+	end
+
+	for _, state in next, barStates do
+		sortedBars[#sortedBars + 1] = state
+	end
+
+	table_sort(sortedBars, CompareBarStates)
+end
+
+function module:LayoutCandyBars()
+	if not db or not self.containerFrame then
+		return
+	end
+
+	local profile = GetProfileDB()
+
+	self:BuildSortedBars()
+
+	local previousBar
+	local maxBars = profile.behavior.maxBars
+	local growUp = profile.frame.growDirection == "UP"
+
+	for index, state in next, sortedBars do
+		local bar = candyBars[state.key]
+
+		if bar then
+			bar:ClearAllPoints()
+			bar:SetSize(profile.frame.width, BAR_HEIGHT)
+
+			if index <= maxBars then
+				if not previousBar then
+					if growUp then
+						bar:SetPoint("BOTTOMLEFT", self.containerFrame, "BOTTOMLEFT", 0, 0)
+					else
+						bar:SetPoint("TOPLEFT", self.containerFrame, "TOPLEFT", 0, 0)
+					end
+				elseif growUp then
+					bar:SetPoint("BOTTOMLEFT", previousBar, "TOPLEFT", 0, BAR_SPACING)
+				else
+					bar:SetPoint("TOPLEFT", previousBar, "BOTTOMLEFT", 0, -BAR_SPACING)
+				end
+
+				bar:Show()
+				previousBar = bar
+			else
+				bar:Hide()
+			end
+		end
+	end
+end
+
+---@param state SmartRes2_BarState
+function module:AddOrUpdateBar(state)
+	if not db then
+		return
+	end
+
+	local now = GetTime()
+
+	state.startTime = state.startTime or now
+	state.duration = state.duration or 1
+	state.endTime = state.endTime or (state.startTime + state.duration)
+	barStates[state.key] = state
+
+	local bar = self:GetOrCreateCandyBar(state.key)
+	self:ApplyCandyBarSettings(state, bar)
+	bar:SetDuration(state.duration)
+	bar:Start()
+
+	self:RefreshContainerVisibility()
+	self:LayoutCandyBars()
+end
+
+---@param key string
+function module:StopBar(key)
+	local bar = candyBars[key]
+
+	barStates[key] = nil
+	candyBars[key] = nil
+
+	if bar then
+		bar:Stop("SmartRes2_StopBar")
+	end
+end
+
+---@param source "preview"|"runtime"|nil
+function module:ClearBars(source)
+	local keys = {}
+
+	for key, state in next, barStates do
+		if not source or state.source == source then
+			keys[#keys + 1] = key
+		end
+	end
+
+	for index = 1, #keys do
+		self:StopBar(keys[index])
+	end
+
+	self:RefreshContainerVisibility()
+	self:LayoutCandyBars()
+end
+
+function module:ClearTestBars()
+	self:ClearBars("preview")
+end
+
+function module:ShowTestBars()
+	self:ClearTestBars()
+
+	local now = GetTime()
+	local alyndraIcon = GetPreviewSingleResIcon()
+	local caliaIcon = GetPreviewSingleResIcon(alyndraIcon)
+	local maerinIcon = GetPreviewMassResIcon()
+
+	self:AddOrUpdateBar({
+		key = "SmartRes2_Preview_GoodSingle",
+		source = "preview",
+		kind = "single",
+		casterGUID = "SmartRes2-Preview-Alyndra",
+		casterName = "Alyndra",
+		targetGUID = "SmartRes2-Preview-Brennor",
+		targetName = "Brennor",
+		startTime = now,
+		duration = 9.1,
+		endTime = now + 9.1,
+		isCollision = false,
+		isMass = false,
+		isWaiting = false,
+		icon = alyndraIcon,
+		transitionToWaiting = true,
+		waitingKey = "SmartRes2_Preview_BrennorWaiting",
+	})
+
+	self:AddOrUpdateBar({
+		key = "SmartRes2_Preview_CollisionSingle",
+		source = "preview",
+		kind = "single",
+		casterGUID = "SmartRes2-Preview-Calia",
+		casterName = "Calia",
+		targetGUID = "SmartRes2-Preview-Brennor",
+		targetName = "Brennor",
+		startTime = now,
+		duration = 10,
+		endTime = now + 10,
+		isCollision = true,
+		isMass = false,
+		isWaiting = false,
+		icon = caliaIcon,
+	})
+
+	self:AddOrUpdateBar({
+		key = "SmartRes2_Preview_GoodMass",
+		source = "preview",
+		kind = "mass",
+		casterGUID = "SmartRes2-Preview-Maerin",
+		casterName = "Maerin",
+		targetGUID = nil,
+		targetName = L["Multiple Targets"],
+		startTime = now,
+		duration = 10,
+		endTime = now + 10,
+		isCollision = false,
+		isMass = true,
+		isWaiting = false,
+		icon = maerinIcon,
+	})
+
+	self:AddOrUpdateBar({
+		key = "SmartRes2_Preview_Waiting",
+		source = "preview",
+		kind = "waiting",
+		casterGUID = nil,
+		casterName = nil,
+		targetGUID = "SmartRes2-Preview-Tovin",
+		targetName = "Tovin",
+		startTime = now,
+		duration = PENDING_TIMEOUT_SECONDS,
+		endTime = now + PENDING_TIMEOUT_SECONDS,
+		isCollision = false,
+		isMass = false,
+		isWaiting = true,
+		icon = nil,
+	})
+end
+
+---@param callback string
+---@param bar SmartRes2_CandyBar
+---@param reason string|nil
+function module:OnCandyBarStopped(callback, bar, reason)
+	local key = bar:Get("SmartRes2Key") --[[@as string|nil]]
+
+	---@type SmartRes2_BarState|nil
+	local state
+
+	if key then
+		state = barStates[key]
+		barStates[key] = nil
+		candyBars[key] = nil
+	end
+
+	if state and state.transitionToWaiting and reason ~= "SmartRes2_StopBar" then
+		local waitingKey = state.waitingKey or (state.key .. "_Waiting")
+
+		if barStates[waitingKey] then
+			self:RefreshContainerVisibility()
+			self:LayoutCandyBars()
+			return
+		end
+
+		local now = GetTime()
+
+		self:AddOrUpdateBar({
+			key = waitingKey,
+			source = state.source,
+			kind = "waiting",
+			casterGUID = nil,
+			casterName = nil,
+			targetGUID = state.targetGUID,
+			targetName = state.targetName,
+			startTime = now,
+			duration = PENDING_TIMEOUT_SECONDS,
+			endTime = now + PENDING_TIMEOUT_SECONDS,
+			isCollision = false,
+			isMass = false,
+			isWaiting = true,
+			icon = nil,
+		})
+
+		return
+	end
+
+	self:RefreshContainerVisibility()
+	self:LayoutCandyBars()
+end
+
+---@param key string
+---@param isCollision boolean
+function module:SetBarCollision(key, isCollision)
+	local state = barStates[key]
+
+	if not state then
+		return
+	end
+
+	state.isCollision = isCollision
+	self:RefreshCandyBar(state)
+end
+
+---@return boolean hasTestBars
+function module:HasTestBars()
+	for _, state in next, barStates do
+		if state.source == "preview" then
+			return true
+		end
+	end
+
+	return false
+end
+
 -- Returns true when there is something meaningful to show inside the container.
--- At this stage no live bars exist yet, so this intentionally returns false.
--- Later this will check the tracked/visible bar state.
 ---@return boolean hasVisibleBars
 function module:HasVisibleBars()
-	return false
+	return next(barStates) ~= nil
 end
 
 -- Centralizes container visibility so hideWhenEmpty is applied consistently.
@@ -372,6 +996,8 @@ end
 
 function module:RefreshContainerFrame()
 	self:ApplyContainerFrameSettings()
+	self:RefreshCandyBars()
+	self:LayoutCandyBars()
 	self:RefreshContainerVisibility()
 end
 
@@ -398,6 +1024,8 @@ end
 function module:OnEnable()
 	self:RefreshContainerFrame()
 
+	LibCandyBar.RegisterCallback(self, "LibCandyBar_Stop", "OnCandyBarStopped")
+
 	-- LibResInfo separates single-target and mass resurrection callbacks
 	-- because the data and lifecycle differ. Keep callback handlers explicit
 	-- for readability, then delegate shared bar creation, sorting, visibility,
@@ -416,12 +1044,16 @@ function module:OnEnable()
 end
 
 function module:OnDisable()
+	self:ClearBars()
+
+	LibCandyBar.UnregisterCallback(self, "LibCandyBar_Stop")
+
 	if self.containerFrame then
 		self.containerFrame:Hide()
 	end
 
-	-- Bars will unregister callbacks and hide/release bars here once rendering
-	-- exists.
+	-- Bars will unregister LibResInfo callbacks and hide/release bars here once
+	-- real resurrection rendering exists.
 	--
 	-- LibResInfo-2.0 provides UnregisterAllResInfoCallbacks through embedding,
 	-- but wait to call it until Bars actually registers LibResInfo callbacks.
@@ -434,8 +1066,8 @@ function module:RefreshConfig()
 		self:RefreshContainerFrame()
 	end
 
-	-- Later, this will also re-apply media, theme, color, text, and bar
-	-- appearance settings.
+	-- Later, this will also re-apply theme and additional text/font appearance
+	-- settings.
 end
 
 -- --------------------------------------------------------------------

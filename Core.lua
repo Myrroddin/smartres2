@@ -29,7 +29,10 @@ local NORMAL_FONT_COLOR = NORMAL_FONT_COLOR
 
 local C_Spell = C_Spell
 local LibStub = LibStub
+local pairs = pairs
+local type = type
 local UnitClassBase = UnitClassBase
+local wipe = wipe
 
 -- --------------------------------------------------------------------
 -- Libraries
@@ -43,7 +46,10 @@ local AceDB = LibStub("AceDB-3.0")
 
 ---@class SmartRes2: AceAddon, AceConsole-3.0, AceEvent-3.0, LibAboutPanel-2.0, LibResInfo-2.0
 ---@field db SmartRes2DB
+---@field GetMassResurrectionIcon fun(self: SmartRes2): number|string|nil
 ---@field GetOptions fun(self: SmartRes2): table
+---@field TogglePreviewBars fun(self: SmartRes2)
+---@field GetResurrectionIconForClass fun(self: SmartRes2, classFilename: string|nil, useDefault?: boolean): number|string|nil
 local addon = LibStub("AceAddon-3.0"):NewAddon(
 	"SmartRes2",
 	"AceEvent-3.0",
@@ -53,6 +59,12 @@ local addon = LibStub("AceAddon-3.0"):NewAddon(
 )
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
+
+---@class SmartRes2_Bars: AceAddon
+---@field db SmartRes2_BarsDB
+---@field ClearTestBars fun(self: SmartRes2_Bars)
+---@field HasTestBars fun(self: SmartRes2_Bars): boolean
+---@field ShowTestBars fun(self: SmartRes2_Bars)
 
 -- All modules should have AceEvent, AceConsole, and LibResInfo mixed in by
 -- default. LibAboutPanel intentionally remains Core-only because modules do
@@ -68,6 +80,8 @@ addon:SetDefaultModuleLibraries(
 -- --------------------------------------------------------------------
 
 local DEFAULT_ICON_SPELL_ID = 2006 -- Priest: Resurrection
+local MASS_RESURRECTION_ICON_SPELL_ID = 83968 -- Mass Resurrection
+local MASS_RESURRECTION_ICON = [[Interface\Icons\Spell_Holy_PrayerOfHealing02]]
 
 -- Broker/minimap icon spellIDs are intentionally non-combat resurrection
 -- spell icons. Combat resurrection priority is situational and should not
@@ -88,6 +102,7 @@ local classResIconSpellIDs = {
 
 local defaults = {
 	global = {
+		resetGlobalOnProfileChange = false,
 		useClassIconForBroker = true,
 		minimap = {
 			hide = false,
@@ -123,6 +138,54 @@ local options
 ---@return number|string|nil icon
 local function GetSpellIcon(spellID)
 	return C_Spell.GetSpellTexture(spellID)
+end
+
+---@param classFilename string|nil
+---@param useDefault boolean|nil
+---@return number|string|nil icon
+function addon:GetResurrectionIconForClass(classFilename, useDefault)
+	local spellID = classFilename and classResIconSpellIDs[classFilename]
+	local icon = spellID and GetSpellIcon(spellID)
+
+	if icon then
+		return icon
+	end
+
+	if useDefault ~= false then
+		return GetSpellIcon(DEFAULT_ICON_SPELL_ID)
+	end
+end
+
+---@return number|string|nil icon
+function addon:GetMassResurrectionIcon()
+	return GetSpellIcon(MASS_RESURRECTION_ICON_SPELL_ID) or MASS_RESURRECTION_ICON
+end
+
+---@param source table
+---@param target table
+local function CopyDefaults(source, target)
+	for key, value in pairs(source) do
+		if type(value) == "table" then
+			target[key] = target[key] or {}
+			CopyDefaults(value, target[key])
+		else
+			target[key] = value
+		end
+	end
+end
+
+-- Global settings are not profile-scoped AceDB data. When the user opts into
+-- resetting globals alongside profile changes, preserve that opt-in so the
+-- setting does not disable itself after the first reset.
+local function ResetGlobalDB()
+	if not global then return end
+
+	local resetGlobalOnProfileChange = global.resetGlobalOnProfileChange
+
+	wipe(global)
+	CopyDefaults(defaults.global, global)
+
+	global.resetGlobalOnProfileChange = resetGlobalOnProfileChange
 end
 
 -- AceDB namespaces are created by modules when those modules are written.
@@ -196,8 +259,22 @@ function addon:RefreshConfig()
 	db = self.db.profile
 	global = self.db.global
 
-	self:RefreshModules()
-	self:RefreshModuleConfigs()
+	if global and global.resetGlobalOnProfileChange then
+		ResetGlobalDB()
+	end
+
+	if db.enabled then
+		self:RefreshModules()
+		self:RefreshModuleConfigs()
+	else
+		self:DisableModules()
+	end
+
+	if global then
+		LibDBIcon:Refresh("SmartRes2", global.minimap)
+	end
+
+	self:RefreshBrokerIcon()
 
 	AceConfigRegistry:NotifyChange("SmartRes2")
 end
@@ -282,6 +359,24 @@ function addon:ChatCommand()
 	AceConfigDialog:Open("SmartRes2")
 end
 
+function addon:TogglePreviewBars()
+	if not db or not db.enabled or not self:IsEnabled() then
+		return
+	end
+
+	local barsModule = self:GetModule("Bars", true) --[[@as SmartRes2_Bars|nil]]
+
+	if not barsModule or not barsModule.db or not barsModule.db.profile.enabled or not barsModule:IsEnabled() then
+		return
+	end
+
+	if barsModule:HasTestBars() then
+		barsModule:ClearTestBars()
+	else
+		barsModule:ShowTestBars()
+	end
+end
+
 -- --------------------------------------------------------------------
 -- Broker / minimap
 -- --------------------------------------------------------------------
@@ -296,11 +391,14 @@ function addon:InitializeBroker()
 		OnClick = function(_, button)
 			if button == "RightButton" then
 				AceConfigDialog:Open("SmartRes2")
+			elseif button == "MiddleButton" then
+				self:TogglePreviewBars()
 			end
 		end,
 		OnTooltipShow = function(tooltip)
 			tooltip:AddLine("SmartRes2", HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
 			tooltip:AddLine(L["Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+			tooltip:AddLine(L["Middle click to show or clear test bars."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 			tooltip:Show()
 		end,
 	}
@@ -313,13 +411,10 @@ end
 ---@return number|string|nil icon
 function addon:GetBrokerIcon()
 	if global and global.useClassIconForBroker then
-		local classFilename = UnitClassBase("player")
-		local spellID = classResIconSpellIDs[classFilename]
-
-		return GetSpellIcon(spellID or DEFAULT_ICON_SPELL_ID)
+		return self:GetResurrectionIconForClass(UnitClassBase("player"))
 	end
 
-	return GetSpellIcon(DEFAULT_ICON_SPELL_ID)
+	return self:GetResurrectionIconForClass(nil)
 end
 
 function addon:RefreshBrokerIcon()

@@ -42,6 +42,7 @@ local LibStub = LibStub
 ---@field minimapPos number
 
 ---@class SmartRes2GlobalDB
+---@field resetGlobalOnProfileChange boolean
 ---@field useClassIconForBroker boolean
 ---@field minimap SmartRes2MinimapDB
 
@@ -153,7 +154,24 @@ function addon:GetOptions()
 						end,
 						set = function(_, value)
 							GetProfileDB().enabled = value
-							addon:SetEnabledState(value)
+
+							if value then
+								addon:Enable()
+							else
+								addon:Disable()
+							end
+						end,
+					},
+					resetGlobalOnProfileChange = {
+						order = 20,
+						type = "toggle",
+						name = L["Reset Global Settings With Profiles"],
+						desc = L["Reset global settings, such as minimap options, when profile settings change."],
+						get = function()
+							return GetGlobalDB().resetGlobalOnProfileChange
+						end,
+						set = function(_, value)
+							GetGlobalDB().resetGlobalOnProfileChange = value
 						end,
 					},
 				},
@@ -227,8 +245,40 @@ function addon:GetOptions()
 							RefreshMinimapButton()
 						end,
 					},
-					minimapPos = {
+					useClassIconForBroker = {
 						order = 40,
+						type = "toggle",
+						name = L["Class Button"],
+						desc = L["Use your class resurrection spell icon for the minimap button."],
+						get = function()
+							return GetGlobalDB().useClassIconForBroker
+						end,
+						set = function(_, value)
+							GetGlobalDB().useClassIconForBroker = value
+							addon:RefreshBrokerIcon()
+						end,
+					},
+					addonCompartment = {
+						order = 50,
+						type = "toggle",
+						name = L["AddOn Compartment"],
+						desc = L["Show the minimap button in the addon compartment."],
+						disabled = function()
+							return not LibDBIcon:IsButtonCompartmentAvailable()
+						end,
+						hidden = function()
+							return not LibDBIcon:IsButtonCompartmentAvailable()
+						end,
+						get = function()
+							return GetMinimapDB().showInCompartment
+						end,
+						set = function(_, value)
+							GetMinimapDB().showInCompartment = value
+							RefreshMinimapButton()
+						end,
+					},
+					minimapPos = {
+						order = 60,
 						type = "range",
 						name = L["Rotate Button"],
 						desc = L["Rotate the minimap button."],
@@ -250,38 +300,6 @@ function addon:GetOptions()
 						max = 360,
 						step = 1,
 						bigStep = 15,
-					},
-					useClassIconForBroker = {
-						order = 50,
-						type = "toggle",
-						name = L["Class Button"],
-						desc = L["Use your class resurrection spell icon for the minimap button."],
-						get = function()
-							return GetGlobalDB().useClassIconForBroker
-						end,
-						set = function(_, value)
-							GetGlobalDB().useClassIconForBroker = value
-							addon:RefreshBrokerIcon()
-						end,
-					},
-					addonCompartment = {
-						order = 60,
-						type = "toggle",
-						name = L["AddOn Compartment"],
-						desc = L["Show the minimap button in the addon compartment."],
-						disabled = function()
-							return not LibDBIcon:IsButtonCompartmentAvailable()
-						end,
-						hidden = function()
-							return not LibDBIcon:IsButtonCompartmentAvailable()
-						end,
-						get = function()
-							return GetMinimapDB().showInCompartment
-						end,
-						set = function(_, value)
-							GetMinimapDB().showInCompartment = value
-							RefreshMinimapButton()
-						end,
 					},
 				},
 			},

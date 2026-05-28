@@ -23,17 +23,7 @@ local EMBLEM_BORDER_COLOR = EMBLEM_BORDER_COLOR
 local ENABLE = ENABLE
 local GENERAL_LABEL = GENERAL_LABEL
 local NONE = NONE
-local SETTINGS = SETTINGS
 local LibStub = LibStub
-
-local HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_BOTTOM = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_BOTTOM
-local HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_LEFT = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_LEFT
-local HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_RIGHT = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_RIGHT
-local HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_TOP = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_TOP
-local HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_DOWN = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_DOWN
-local HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_LEFT = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_LEFT
-local HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_RIGHT = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_RIGHT
-local HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_UP = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_UP
 
 -- --------------------------------------------------------------------
 -- Addon / module
@@ -44,8 +34,10 @@ local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 
 ---@class SmartRes2_Bars: AceAddon
 ---@field db SmartRes2_BarsDB
+---@field ClearTestBars fun(self: SmartRes2_Bars)
 ---@field IsMasqueAvailable fun(self: SmartRes2_Bars): boolean
 ---@field RefreshConfig fun(self: SmartRes2_Bars)
+---@field ShowTestBars fun(self: SmartRes2_Bars)
 local module = addon:GetModule("Bars")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
@@ -58,30 +50,34 @@ local LibSharedMedia = LibStub("LibSharedMedia-3.0")
 local options
 
 local growDirectionValues = {
-	DOWN = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_DOWN,
-	UP = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_UP,
+	DOWN = L["Down"],
+	UP = L["Up"],
 }
 
 local iconPositionValues = {
 	NONE = NONE,
-	LEFT = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_LEFT,
-	RIGHT = HUD_EDIT_MODE_SETTING_AURA_FRAME_ICON_DIRECTION_RIGHT,
+	LEFT = L["Left"],
+	RIGHT = L["Right"],
 }
 
 local framePointValues = {
 	TOPLEFT = L["Top Left"],
-	TOP = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_TOP,
+	TOP = L["Top"],
 	TOPRIGHT = L["Top Right"],
-	LEFT = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_LEFT,
+	LEFT = L["Left"],
 	CENTER = L["Center"],
-	RIGHT = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_RIGHT,
+	RIGHT = L["Right"],
 	BOTTOMLEFT = L["Bottom Left"],
-	BOTTOM = HUD_EDIT_MODE_SETTING_ENCOUNTER_EVENTS_ICON_DIRECTION_BOTTOM,
+	BOTTOM = L["Bottom"],
 	BOTTOMRIGHT = L["Bottom Right"],
 }
 
 local function IsModuleDisabled()
 	return not module.db.profile.enabled
+end
+
+local function IsShortTextDisabled()
+	return IsModuleDisabled() or not module.db.profile.behavior.showLabel
 end
 
 -- --------------------------------------------------------------------
@@ -123,8 +119,78 @@ function module:GetOptions()
 							end
 						end,
 					},
-					maxBars = {
+					hideWhenEmpty = {
 						order = 20,
+						type = "toggle",
+						name = L["Hide When Empty"],
+						desc = L["Hide the Bars frame when there are no bars to display."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return module.db.profile.frame.hideWhenEmpty
+						end,
+						set = function(_, value)
+							module.db.profile.frame.hideWhenEmpty = value
+							module:RefreshConfig()
+						end,
+					},
+					fill = {
+						order = 30,
+						type = "toggle",
+						name = L["Fill Bars"],
+						desc = L["Fill bars over time instead of draining them."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return module.db.profile.behavior.fill
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.fill = value
+							module:RefreshConfig()
+						end,
+					},
+					showTime = {
+						order = 40,
+						type = "toggle",
+						name = L["Show Time"],
+						desc = L["Show remaining time on bars."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return module.db.profile.behavior.showTime
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.showTime = value
+							module:RefreshConfig()
+						end,
+					},
+					showLabel = {
+						order = 50,
+						type = "toggle",
+						name = L["Show Text"],
+						desc = L["Show text labels on bars."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return module.db.profile.behavior.showLabel
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.showLabel = value
+							module:RefreshConfig()
+						end,
+					},
+					useShortLabels = {
+						order = 60,
+						type = "toggle",
+						name = L["Use Short Text"],
+						desc = L["Show shorter bar text, such as Caster : Target."],
+						disabled = IsShortTextDisabled,
+						get = function()
+							return module.db.profile.behavior.useShortLabels
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.useShortLabels = value
+							module:RefreshConfig()
+						end,
+					},
+					maxBars = {
+						order = 70,
 						type = "range",
 						name = L["Maximum Bars"],
 						desc = L["Maximum number of bars to display. Hidden bars are still tracked."],
@@ -142,7 +208,7 @@ function module:GetOptions()
 						end,
 					},
 					transitionDuration = {
-						order = 30,
+						order = 80,
 						type = "range",
 						name = L["Transition Duration"],
 						desc = L["How long bars fade during state changes. Set to 0 for instant changes."],
@@ -160,7 +226,7 @@ function module:GetOptions()
 						end,
 					},
 					growDirection = {
-						order = 40,
+						order = 90,
 						type = "select",
 						style = "dropdown",
 						name = L["Grow Direction"],
@@ -175,64 +241,8 @@ function module:GetOptions()
 							module:RefreshConfig()
 						end,
 					},
-					hideWhenEmpty = {
-						order = 50,
-						type = "toggle",
-						name = L["Hide When Empty"],
-						desc = L["Hide the Bars frame when there are no bars to display."],
-						disabled = IsModuleDisabled,
-						get = function()
-							return module.db.profile.frame.hideWhenEmpty
-						end,
-						set = function(_, value)
-							module.db.profile.frame.hideWhenEmpty = value
-							module:RefreshConfig()
-						end,
-					},
-					fill = {
-						order = 60,
-						type = "toggle",
-						name = L["Fill Bars"],
-						desc = L["Fill bars over time instead of draining them."],
-						disabled = IsModuleDisabled,
-						get = function()
-							return module.db.profile.behavior.fill
-						end,
-						set = function(_, value)
-							module.db.profile.behavior.fill = value
-							module:RefreshConfig()
-						end,
-					},
-					showTime = {
-						order = 70,
-						type = "toggle",
-						name = L["Show Time"],
-						desc = L["Show remaining time on bars."],
-						disabled = IsModuleDisabled,
-						get = function()
-							return module.db.profile.behavior.showTime
-						end,
-						set = function(_, value)
-							module.db.profile.behavior.showTime = value
-							module:RefreshConfig()
-						end,
-					},
-					showLabel = {
-						order = 80,
-						type = "toggle",
-						name = L["Show Text"],
-						desc = L["Show text labels on bars."],
-						disabled = IsModuleDisabled,
-						get = function()
-							return module.db.profile.behavior.showLabel
-						end,
-						set = function(_, value)
-							module.db.profile.behavior.showLabel = value
-							module:RefreshConfig()
-						end,
-					},
 					iconPosition = {
-						order = 90,
+						order = 100,
 						type = "select",
 						style = "dropdown",
 						name = L["Icon Position"],
@@ -255,8 +265,34 @@ function module:GetOptions()
 				name = L["Frame"],
 				disabled = IsModuleDisabled,
 				args = {
-					frameWidth = {
+					pixelSnap = {
 						order = 10,
+						type = "toggle",
+						name = L["Pixel Snap"],
+						desc = L["Round the Bars frame size and position to whole pixels."],
+						get = function()
+							return module.db.profile.frame.pixelSnap
+						end,
+						set = function(_, value)
+							module.db.profile.frame.pixelSnap = value
+							module:RefreshConfig()
+						end,
+					},
+					clampToScreen = {
+						order = 20,
+						type = "toggle",
+						name = L["Clamp to Screen"],
+						desc = L["Prevent the bar frame from moving off your screen."],
+						get = function()
+							return module.db.profile.frame.clampToScreen
+						end,
+						set = function(_, value)
+							module.db.profile.frame.clampToScreen = value
+							module:RefreshConfig()
+						end,
+					},
+					frameWidth = {
+						order = 30,
 						type = "range",
 						name = L["Frame Width"],
 						get = function()
@@ -272,7 +308,7 @@ function module:GetOptions()
 						bigStep = 10,
 					},
 					frameHeight = {
-						order = 20,
+						order = 50,
 						type = "range",
 						name = L["Frame Height"],
 						get = function()
@@ -288,7 +324,7 @@ function module:GetOptions()
 						bigStep = 10,
 					},
 					frameScale = {
-						order = 30,
+						order = 60,
 						type = "range",
 						name = L["Frame Scale"],
 						get = function()
@@ -303,46 +339,6 @@ function module:GetOptions()
 						max = 3,
 						step = 0.01,
 						bigStep = 0.1,
-					},
-					pixelSnap = {
-						order = 40,
-						type = "toggle",
-						name = L["Pixel Snap"],
-						desc = L["Round the Bars frame size and position to whole pixels."],
-						get = function()
-							return module.db.profile.frame.pixelSnap
-						end,
-						set = function(_, value)
-							module.db.profile.frame.pixelSnap = value
-							module:RefreshConfig()
-						end,
-					},
-					clampToScreen = {
-						order = 50,
-						type = "toggle",
-						name = L["Clamp to Screen"],
-						desc = L["Prevent the bar frame from moving off your screen."],
-						get = function()
-							return module.db.profile.frame.clampToScreen
-						end,
-						set = function(_, value)
-							module.db.profile.frame.clampToScreen = value
-							module:RefreshConfig()
-						end,
-					},
-					framePoint = {
-						order = 60,
-						type = "select",
-						style = "dropdown",
-						name = L["Anchor Point"],
-						values = framePointValues,
-						get = function()
-							return module.db.profile.frame.point
-						end,
-						set = function(_, value)
-							module.db.profile.frame.point = value
-							module:RefreshConfig()
-						end,
 					},
 					frameX = {
 						order = 70,
@@ -378,12 +374,26 @@ function module:GetOptions()
 						step = 1,
 						bigStep = 20,
 					},
+					framePoint = {
+						order = 90,
+						type = "select",
+						style = "dropdown",
+						name = L["Anchor Point"],
+						values = framePointValues,
+						get = function()
+							return module.db.profile.frame.point
+						end,
+						set = function(_, value)
+							module.db.profile.frame.point = value
+							module:RefreshConfig()
+						end,
+					},
 				},
 			},
 			backdropOptions = {
 				order = 30,
 				type = "group",
-				name = BACKGROUND,
+				name = L["Frame Style"],
 				disabled = IsModuleDisabled,
 				args = {
 					background = {
@@ -410,11 +420,12 @@ function module:GetOptions()
 							return color.r, color.g, color.b, color.a
 						end,
 						set = function(_, r, g, b, a)
-							local color = module.db.profile.frame.backdrop.backgroundColor
-							color.r = r
-							color.g = g
-							color.b = b
-							color.a = a
+							module.db.profile.frame.backdrop.backgroundColor = {
+								r = r,
+								g = g,
+								b = b,
+								a = a,
+							}
 							module:RefreshConfig()
 						end,
 					},
@@ -442,11 +453,12 @@ function module:GetOptions()
 							return color.r, color.g, color.b, color.a
 						end,
 						set = function(_, r, g, b, a)
-							local color = module.db.profile.frame.backdrop.borderColor
-							color.r = r
-							color.g = g
-							color.b = b
-							color.a = a
+							module.db.profile.frame.backdrop.borderColor = {
+								r = r,
+								g = g,
+								b = b,
+								a = a,
+							}
 							module:RefreshConfig()
 						end,
 					},
@@ -536,16 +548,103 @@ function module:GetOptions()
 					},
 				},
 			},
-			futureOptions = {
+			colorsOptions = {
 				order = 40,
 				type = "group",
-				name = SETTINGS,
+				name = L["Bar Options"],
+				disabled = IsModuleDisabled,
 				args = {
-					placeholder = {
+					goodColor = {
+						order = 10,
+						type = "color",
+						name = L["Good Cast Color"],
+						desc = L["Color for the fastest active resurrection cast."],
+						hasAlpha = true,
+						get = function()
+							local color = module.db.profile.colors.good
+							return color.r, color.g, color.b, color.a
+						end,
+						set = function(_, r, g, b, a)
+							module.db.profile.colors.good = {
+								r = r,
+								g = g,
+								b = b,
+								a = a,
+							}
+							module:RefreshConfig()
+						end,
+					},
+					collisionColor = {
+						order = 20,
+						type = "color",
+						name = L["Collision Color"],
+						desc = L["Color for active resurrection casts that are not the fastest cast for that target."],
+						hasAlpha = true,
+						get = function()
+							local color = module.db.profile.colors.collision
+							return color.r, color.g, color.b, color.a
+						end,
+						set = function(_, r, g, b, a)
+							module.db.profile.colors.collision = {
+								r = r,
+								g = g,
+								b = b,
+								a = a,
+							}
+							module:RefreshConfig()
+						end,
+					},
+					waitingColor = {
+						order = 30,
+						type = "color",
+						name = L["Waiting Color"],
+						desc = L["Color for targets who have a resurrection offer but have not accepted it yet."],
+						hasAlpha = true,
+						get = function()
+							local color = module.db.profile.colors.waiting
+							return color.r, color.g, color.b, color.a
+						end,
+						set = function(_, r, g, b, a)
+							module.db.profile.colors.waiting = {
+								r = r,
+								g = g,
+								b = b,
+								a = a,
+							}
+							module:RefreshConfig()
+						end,
+					},
+				},
+			},
+			previewOptions = {
+				order = 50,
+				type = "group",
+				name = L["Preview"],
+				disabled = IsModuleDisabled,
+				args = {
+					description = {
 						order = 10,
 						type = "description",
-						name = L["Media, color, text, and theme options will be added after the Bars runtime is rebuilt."],
+						name = L["Show simulated resurrection bars so you can preview your current bar settings."],
 						fontSize = "medium",
+					},
+					showTestBars = {
+						order = 20,
+						type = "execute",
+						name = L["Show Test Bars"],
+						desc = L["Show simulated resurrection bars so you can preview your current bar settings."],
+						func = function()
+							module:ShowTestBars()
+						end,
+					},
+					clearTestBars = {
+						order = 30,
+						type = "execute",
+						name = L["Clear Test Bars"],
+						desc = L["Clear simulated resurrection bars."],
+						func = function()
+							module:ClearTestBars()
+						end,
 					},
 				},
 			},
