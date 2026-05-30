@@ -20,9 +20,11 @@ local BACKGROUND = BACKGROUND
 local DISABLE = DISABLE
 local EMBLEM_BORDER = EMBLEM_BORDER
 local EMBLEM_BORDER_COLOR = EMBLEM_BORDER_COLOR
+local FONT_SIZE = FONT_SIZE
 local ENABLE = ENABLE
 local GENERAL_LABEL = GENERAL_LABEL
 local NONE = NONE
+local TEXTURES_SUBHEADER = TEXTURES_SUBHEADER
 local LibStub = LibStub
 
 -- --------------------------------------------------------------------
@@ -30,18 +32,18 @@ local LibStub = LibStub
 -- --------------------------------------------------------------------
 
 ---@class SmartRes2: AceAddon
+---@field LSM any
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 
 ---@class SmartRes2_Bars: AceAddon
 ---@field db SmartRes2_BarsDB
 ---@field ClearTestBars fun(self: SmartRes2_Bars)
----@field IsMasqueAvailable fun(self: SmartRes2_Bars): boolean
 ---@field RefreshConfig fun(self: SmartRes2_Bars)
 ---@field ShowTestBars fun(self: SmartRes2_Bars)
 local module = addon:GetModule("Bars")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
-local LibSharedMedia = LibStub("LibSharedMedia-3.0")
+local LibSharedMedia = addon.LSM
 
 -- --------------------------------------------------------------------
 -- File-scope state
@@ -72,12 +74,22 @@ local framePointValues = {
 	BOTTOMRIGHT = L["Bottom Right"],
 }
 
+local fontOutlineValues = {
+	NONE = NONE,
+	OUTLINE = L["Thin Outline"],
+	THICKOUTLINE = L["Thick Outline"],
+}
+
 local function IsModuleDisabled()
 	return not module.db.profile.enabled
 end
 
 local function IsShortTextDisabled()
 	return IsModuleDisabled() or not module.db.profile.behavior.showLabel
+end
+
+local function IsFontShadowDisabled()
+	return IsModuleDisabled() or not module.db.profile.text.shadow
 end
 
 -- --------------------------------------------------------------------
@@ -190,7 +202,7 @@ function module:GetOptions()
 						end,
 					},
 					maxBars = {
-						order = 70,
+						order = 80,
 						type = "range",
 						name = L["Maximum Bars"],
 						desc = L["Maximum number of bars to display. Hidden bars are still tracked."],
@@ -208,7 +220,7 @@ function module:GetOptions()
 						end,
 					},
 					transitionDuration = {
-						order = 80,
+						order = 90,
 						type = "range",
 						name = L["Transition Duration"],
 						desc = L["How long bars fade during state changes. Set to 0 for instant changes."],
@@ -226,7 +238,7 @@ function module:GetOptions()
 						end,
 					},
 					growDirection = {
-						order = 90,
+						order = 100,
 						type = "select",
 						style = "dropdown",
 						name = L["Grow Direction"],
@@ -242,7 +254,7 @@ function module:GetOptions()
 						end,
 					},
 					iconPosition = {
-						order = 100,
+						order = 110,
 						type = "select",
 						style = "dropdown",
 						name = L["Icon Position"],
@@ -548,12 +560,17 @@ function module:GetOptions()
 					},
 				},
 			},
-			colorsOptions = {
+			barOptions = {
 				order = 40,
 				type = "group",
 				name = L["Bar Options"],
 				disabled = IsModuleDisabled,
 				args = {
+					barColorsHeader = {
+						order = 5,
+						type = "header",
+						name = L["Bar Colors"],
+					},
 					goodColor = {
 						order = 10,
 						type = "color",
@@ -574,8 +591,28 @@ function module:GetOptions()
 							module:RefreshConfig()
 						end,
 					},
-					collisionColor = {
+					goodMassColor = {
 						order = 20,
+						type = "color",
+						name = L["Good Mass Cast Color"],
+						desc = L["Color for the fastest active mass resurrection cast."],
+						hasAlpha = true,
+						get = function()
+							local color = module.db.profile.colors.goodMass
+							return color.r, color.g, color.b, color.a
+						end,
+						set = function(_, r, g, b, a)
+							module.db.profile.colors.goodMass = {
+								r = r,
+								g = g,
+								b = b,
+								a = a,
+							}
+							module:RefreshConfig()
+						end,
+					},
+					collisionColor = {
+						order = 30,
 						type = "color",
 						name = L["Collision Color"],
 						desc = L["Color for active resurrection casts that are not the fastest cast for that target."],
@@ -595,7 +632,7 @@ function module:GetOptions()
 						end,
 					},
 					waitingColor = {
-						order = 30,
+						order = 40,
 						type = "color",
 						name = L["Waiting Color"],
 						desc = L["Color for targets who have a resurrection offer but have not accepted it yet."],
@@ -614,6 +651,231 @@ function module:GetOptions()
 							module:RefreshConfig()
 						end,
 					},
+					fontStylesHeader = {
+						order = 50,
+						type = "header",
+						name = L["Font Styles"],
+					},
+					font = {
+						order = 60,
+						type = "select",
+						dialogControl = "LSM30_Font",
+						name = L["Font"],
+						values = LibSharedMedia:HashTable(LibSharedMedia.MediaType.FONT),
+						get = function()
+							return module.db.profile.media.font
+						end,
+						set = function(_, value)
+							module.db.profile.media.font = value
+							module:RefreshConfig()
+						end,
+					},
+					fontSize = {
+						order = 70,
+						type = "range",
+						name = FONT_SIZE,
+						min = 6,
+						max = 32,
+						step = 1,
+						bigStep = 2,
+						get = function()
+							return module.db.profile.media.fontSize
+						end,
+						set = function(_, value)
+							module.db.profile.media.fontSize = value
+							module:RefreshConfig()
+						end,
+					},
+					fontOutline = {
+						order = 80,
+						type = "select",
+						style = "dropdown",
+						name = L["Font Outline"],
+						values = fontOutlineValues,
+						get = function()
+							return module.db.profile.media.fontOutline
+						end,
+						set = function(_, value)
+							module.db.profile.media.fontOutline = value
+							module:RefreshConfig()
+						end,
+					},
+					fontSlug = {
+						order = 90,
+						type = "toggle",
+						name = L["High Quality Font Rendering"],
+						desc = L["Use Blizzard's high-quality font renderer when supported by this game client."],
+						get = function()
+							return module.db.profile.media.fontSlug
+						end,
+						set = function(_, value)
+							module.db.profile.media.fontSlug = value
+							module:RefreshConfig()
+						end,
+					},
+					fontMonochrome = {
+						order = 100,
+						type = "toggle",
+						name = L["Monochrome"],
+						get = function()
+							return module.db.profile.media.fontMonochrome
+						end,
+						set = function(_, value)
+							module.db.profile.media.fontMonochrome = value
+							module:RefreshConfig()
+						end,
+					},
+					fontColor = {
+						order = 110,
+						type = "color",
+						name = L["Font Color"],
+						hasAlpha = true,
+						get = function()
+							local color = module.db.profile.text.color
+							return color.r, color.g, color.b, color.a
+						end,
+						set = function(_, r, g, b, a)
+							module.db.profile.text.color = {
+								r = r,
+								g = g,
+								b = b,
+								a = a,
+							}
+							module:RefreshConfig()
+						end,
+					},
+					fontShadow = {
+						order = 120,
+						type = "toggle",
+						name = L["Font Shadow"],
+						get = function()
+							return module.db.profile.text.shadow
+						end,
+						set = function(_, value)
+							module.db.profile.text.shadow = value
+							module:RefreshConfig()
+						end,
+					},
+					fontShadowColor = {
+						order = 130,
+						type = "color",
+						name = L["Font Shadow Color"],
+						disabled = IsFontShadowDisabled,
+						hasAlpha = true,
+						get = function()
+							local color = module.db.profile.text.shadowColor
+							return color.r, color.g, color.b, color.a
+						end,
+						set = function(_, r, g, b, a)
+							module.db.profile.text.shadowColor = {
+								r = r,
+								g = g,
+								b = b,
+								a = a,
+							}
+							module:RefreshConfig()
+						end,
+					},
+					fontShadowOffsetX = {
+						order = 140,
+						type = "range",
+						name = L["Font Shadow X Offset"],
+						disabled = IsFontShadowDisabled,
+						min = -10,
+						max = 10,
+						step = 1,
+						bigStep = 2,
+						get = function()
+							return module.db.profile.text.shadowOffsetX
+						end,
+						set = function(_, value)
+							module.db.profile.text.shadowOffsetX = value
+							module:RefreshConfig()
+						end,
+					},
+					fontShadowOffsetY = {
+						order = 150,
+						type = "range",
+						name = L["Font Shadow Y Offset"],
+						disabled = IsFontShadowDisabled,
+						min = -10,
+						max = 10,
+						step = 1,
+						bigStep = 2,
+						get = function()
+							return module.db.profile.text.shadowOffsetY
+						end,
+						set = function(_, value)
+							module.db.profile.text.shadowOffsetY = value
+							module:RefreshConfig()
+						end,
+					},
+					texturesHeader = {
+						order = 160,
+						type = "header",
+						name = TEXTURES_SUBHEADER,
+					},
+					barTexture = {
+						order = 170,
+						type = "select",
+						dialogControl = "LSM30_Statusbar",
+						name = L["Bar Texture"],
+						values = LibSharedMedia:HashTable(LibSharedMedia.MediaType.STATUSBAR),
+						get = function()
+							return module.db.profile.media.statusBar
+						end,
+						set = function(_, value)
+							module.db.profile.media.statusBar = value
+							module:RefreshConfig()
+						end,
+					},
+					barBorder = {
+						order = 180,
+						type = "select",
+						dialogControl = "LSM30_Border",
+						name = L["Bar Border"],
+						values = LibSharedMedia:HashTable(LibSharedMedia.MediaType.BORDER),
+						get = function()
+							return module.db.profile.media.barBorder
+						end,
+						set = function(_, value)
+							module.db.profile.media.barBorder = value
+							module:RefreshConfig()
+						end,
+					},
+					barBorderThickness = {
+						order = 190,
+						type = "range",
+						name = L["Bar Border Thickness"],
+						min = 0,
+						max = 16,
+						step = 1,
+						bigStep = 2,
+						get = function()
+							return module.db.profile.media.barBorderThickness
+						end,
+						set = function(_, value)
+							module.db.profile.media.barBorderThickness = value
+							module:RefreshConfig()
+						end,
+					},
+					barSpacing = {
+						order = 200,
+						type = "range",
+						name = L["Bar Spacing"],
+						desc = L["Extra spacing between bars. SmartRes2 also accounts for bar border thickness so borders do not overlap."],
+						min = 0,
+						max = 32,
+						step = 1,
+						bigStep = 2,
+						get = function()
+							return module.db.profile.behavior.barSpacing
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.barSpacing = value
+							module:RefreshConfig()
+						end,
+					}
 				},
 			},
 			previewOptions = {

@@ -42,12 +42,14 @@ local LibStub = LibStub
 ---@field minimapPos number
 
 ---@class SmartRes2GlobalDB
+---@field settingsVersion number
 ---@field resetGlobalOnProfileChange boolean
 ---@field useClassIconForBroker boolean
 ---@field minimap SmartRes2MinimapDB
 
 ---@class SmartRes2ProfileDB
 ---@field enabled boolean
+---@field useMasque boolean
 
 ---@class SmartRes2DB: AceDBObject-3.0
 ---@field profile SmartRes2ProfileDB
@@ -55,6 +57,8 @@ local LibStub = LibStub
 
 ---@class SmartRes2: AceAddon
 ---@field db SmartRes2DB
+---@field Masque any|nil
+---@field IsMasqueAvailable fun(self: SmartRes2): boolean
 ---@field RefreshBrokerIcon fun(self: SmartRes2)
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 
@@ -106,6 +110,14 @@ end
 
 local function RefreshMinimapButton()
 	LibDBIcon:Refresh("SmartRes2", GetMinimapDB())
+end
+
+local function IsMasqueDisabled()
+	return not GetProfileDB().enabled or not addon:IsMasqueAvailable()
+end
+
+local function IsMasqueHidden()
+	return not addon:IsMasqueAvailable()
 end
 
 -- --------------------------------------------------------------------
@@ -172,6 +184,20 @@ function addon:GetOptions()
 						end,
 						set = function(_, value)
 							GetGlobalDB().resetGlobalOnProfileChange = value
+						end,
+					},
+					useMasque = {
+						order = 30,
+						type = "toggle",
+						name = L["Use Masque"],
+						desc = L["Use Masque to skin bar icons."],
+						disabled = IsMasqueDisabled,
+						hidden = IsMasqueHidden,
+						get = function()
+							return GetProfileDB().useMasque
+						end,
+						set = function(_, value)
+							GetProfileDB().useMasque = value
 						end,
 					},
 				},

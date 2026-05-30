@@ -34,11 +34,15 @@
 local BackdropTemplateMixin = BackdropTemplateMixin
 local CreateFrame = CreateFrame
 local GetTime = GetTime
+local QUEUED_STATUS_WAITING = QUEUED_STATUS_WAITING
 local LibStub = LibStub
 local math_floor = math.floor
+local math_max = math.max
+local math_min = math.min
 local math_random = math.random
 local next = next
 local string_format = string.format
+local table_concat = table.concat
 local table_sort = table.sort
 local UIParent = UIParent
 
@@ -48,6 +52,9 @@ local UIParent = UIParent
 
 ---@class SmartRes2: AceAddon
 ---@field db SmartRes2DB
+---@field LSM any
+---@field Masque any|nil
+---@field IsMasqueAvailable fun(self: SmartRes2): boolean
 ---@field GetMassResurrectionIcon fun(self: SmartRes2): number|string|nil
 ---@field GetResurrectionIconForClass fun(self: SmartRes2, classFilename: string|nil, useDefault?: boolean): number|string|nil
 ---@field RegisterModuleOptions fun(self: SmartRes2, optionsName: string, moduleOptions: table)
@@ -58,7 +65,16 @@ local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 -- created with "BackdropTemplate" and annotated as such for WoWLua-LS.
 ---@alias SmartRes2_BackdropFrame Frame & BackdropTemplate
 
+---@class SmartRes2_BarBorderFrame: Frame, BackdropTemplate
+
+---@class SmartRes2_MasqueButton: Button
+---@field Icon Texture
+---@field Normal Texture
+
 ---@class SmartRes2_CandyBar: Frame
+---@field icon Texture|nil
+---@field Icon Texture|nil
+---@field candyBarIcon Texture|nil
 ---@field Set fun(self: SmartRes2_CandyBar, key: string, data: any)
 ---@field Get fun(self: SmartRes2_CandyBar, key: string): any
 ---@field SetBackgroundColor fun(self: SmartRes2_CandyBar, r: number, g: number, b: number, a: number)
@@ -116,8 +132,19 @@ local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 ---@class SmartRes2_BarsMediaDB
 ---@field font string LibSharedMedia font key.
 ---@field fontSize number
----@field fontFlags string Required SetFont flags string; use "" for no effects.
+---@field fontOutline "NONE"|"OUTLINE"|"THICKOUTLINE"
+---@field fontSlug boolean
+---@field fontMonochrome boolean
 ---@field statusBar string LibSharedMedia statusbar key.
+---@field barBorder string LibSharedMedia border key.
+---@field barBorderThickness number
+
+---@class SmartRes2_BarsTextDB
+---@field color SmartRes2_BarsColorDB
+---@field shadow boolean
+---@field shadowColor SmartRes2_BarsColorDB
+---@field shadowOffsetX number
+---@field shadowOffsetY number
 
 ---@class SmartRes2_BarsBehaviorDB
 ---@field maxBars number
@@ -127,9 +154,11 @@ local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 ---@field showLabel boolean
 ---@field iconPosition "LEFT"|"RIGHT"|"NONE"
 ---@field useShortLabels boolean
+---@field barSpacing number
 
 ---@class SmartRes2_BarsColorsDB
 ---@field good SmartRes2_BarsColorDB
+---@field goodMass SmartRes2_BarsColorDB
 ---@field collision SmartRes2_BarsColorDB
 ---@field waiting SmartRes2_BarsColorDB
 
@@ -137,6 +166,7 @@ local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 ---@field enabled boolean
 ---@field frame SmartRes2_BarsFrameDB
 ---@field media SmartRes2_BarsMediaDB
+---@field text SmartRes2_BarsTextDB
 ---@field behavior SmartRes2_BarsBehaviorDB
 ---@field colors SmartRes2_BarsColorsDB
 ---@field activeTheme string
@@ -180,9 +210,14 @@ local module = addon:NewModule("Bars")
 ---@field New fun(self: SmartRes2_LibCandyBar, texture: string, width: number, height: number): SmartRes2_CandyBar
 ---@field RegisterCallback fun(target: table, eventname: string, method: string, arg?: any)
 ---@field UnregisterCallback fun(target: table, eventname: string)
+
+---@class SmartRes2_MasqueGroup
+---@field AddButton fun(self: SmartRes2_MasqueGroup, button: table, regions?: table, buttonType?: string, strict?: boolean)
+---@field RemoveButton fun(self: SmartRes2_MasqueGroup, button: table, skipRestore?: boolean)
+---@field ReSkin fun(self: SmartRes2_MasqueGroup)
+
 local LibCandyBar = LibStub("LibCandyBar-3.0") --[[@as SmartRes2_LibCandyBar]]
-local LibSharedMedia = LibStub("LibSharedMedia-3.0")
-local Masque = LibStub("Masque", true)
+local LibSharedMedia = addon.LSM
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 
 -- --------------------------------------------------------------------
@@ -201,10 +236,6 @@ local BAR_BACKGROUND_R = 0
 local BAR_BACKGROUND_G = 0
 local BAR_BACKGROUND_B = 0
 local BAR_BACKGROUND_A = 0.45
-local BAR_TEXT_R = 1
-local BAR_TEXT_G = 1
-local BAR_TEXT_B = 1
-local BAR_TEXT_A = 1
 
 -- --------------------------------------------------------------------
 -- Saved variable defaults
@@ -267,8 +298,33 @@ local defaults = {
 		media = {
 			font = "Friz Quadrata TT",
 			fontSize = 10,
-			fontFlags = "",
+			fontOutline = "NONE",
+			fontSlug = false,
+			fontMonochrome = false,
 			statusBar = "Blizzard",
+			barBorder = "Blizzard Tooltip",
+			barBorderThickness = 4,
+		},
+
+		-- Text settings apply to both the bar label and the remaining-time text.
+		-- Font flags are built from these user-facing options before being passed
+		-- to LibCandyBar's SetFont wrapper.
+		text = {
+			color = {
+				r = 1,
+				g = 1,
+				b = 1,
+				a = 1,
+			},
+			shadow = false,
+			shadowColor = {
+				r = 0,
+				g = 0,
+				b = 0,
+				a = 0.75,
+			},
+			shadowOffsetX = 1,
+			shadowOffsetY = -1,
 		},
 
 		-- maxBars limits only what is rendered, not what is tracked. Hidden
@@ -282,6 +338,7 @@ local defaults = {
 			showLabel = true,
 			iconPosition = "LEFT",
 			useShortLabels = false,
+			barSpacing = 0,
 		},
 
 		-- Bar state colors. These are intentionally distinct for quick scanning
@@ -291,6 +348,12 @@ local defaults = {
 				r = 0.486,
 				g = 0.988,
 				b = 0,
+				a = 1,
+			},
+			goodMass = {
+				r = 0.35,
+				g = 1,
+				b = 0.65,
 				a = 1,
 			},
 			collision = {
@@ -321,34 +384,26 @@ local defaults = {
 ---@type SmartRes2_BarsProfileDB|nil
 local db
 
----@type boolean
-local hasMasque = Masque ~= nil
-
 ---@type table<string, SmartRes2_BarState>
 local barStates = {}
 
 ---@type table<string, SmartRes2_CandyBar>
 local candyBars = {}
 
+---@type table<string, SmartRes2_BarBorderFrame>
+local barBorderFrames = {}
+
+---@type table<string, SmartRes2_MasqueButton>
+local masqueButtons = {}
+
+---@type table<string, table>
+local masqueRegions = {}
+
+---@type SmartRes2_MasqueGroup|nil
+local masqueGroup
+
 ---@type SmartRes2_BarState[]
 local sortedBars = {}
-
--- --------------------------------------------------------------------
--- Media registration
--- --------------------------------------------------------------------
-
-local function RegisterMedia()
-	-- Register only SmartRes2-owned media here. LibSharedMedia already
-	-- registers Blizzard defaults such as "Blizzard", "Solid",
-	-- "Blizzard Tooltip", and locale-aware default fonts.
-	--
-	-- Example for later:
-	-- LibSharedMedia:Register(
-	--     LibSharedMedia.MediaType.FONT,
-	--     "SmartRes2 Olde English",
-	--     [[Interface\AddOns\SmartRes2\Media\Fonts\OldeEnglish.ttf]]
-	-- )
-end
 
 -- --------------------------------------------------------------------
 -- Pixel snapping
@@ -365,6 +420,76 @@ end
 ---@return SmartRes2_BarsProfileDB profile
 local function GetProfileDB()
 	return db --[[@as SmartRes2_BarsProfileDB]]
+end
+
+---@return number width
+local function GetBarFrameWidth()
+	local profile = GetProfileDB()
+	local insets = profile.frame.backdrop.insets
+
+	return math_max(1, profile.frame.width - insets.left - insets.right)
+end
+
+---@return number thickness
+local function GetBarBorderThickness()
+	local profile = GetProfileDB()
+	local border = profile.media.barBorder
+
+	if not border or border == "None" then
+		return 0
+	end
+
+	return math_max(0, profile.media.barBorderThickness)
+end
+
+---@return number width
+local function GetBarWidth()
+	local borderThickness = GetBarBorderThickness()
+
+	return math_max(1, GetBarFrameWidth() - (borderThickness * 2))
+end
+
+---@return number height
+local function GetBarFrameHeight()
+	return BAR_HEIGHT + (GetBarBorderThickness() * 2)
+end
+
+---@return number spacing
+local function GetBarSpacing()
+	local profile = GetProfileDB()
+
+	return profile.behavior.barSpacing + GetBarBorderThickness()
+end
+
+---@return number offsetX
+local function GetBarOffsetX()
+	local profile = GetProfileDB()
+
+	return profile.frame.backdrop.insets.left
+end
+
+---@return number offsetY
+local function GetFirstBarOffsetY()
+	local profile = GetProfileDB()
+	local insets = profile.frame.backdrop.insets
+
+	if profile.frame.growDirection == "UP" then
+		return insets.bottom
+	end
+
+	return -insets.top
+end
+
+---@return number maxVisibleBars
+local function GetMaxVisibleBars()
+	local profile = GetProfileDB()
+	local insets = profile.frame.backdrop.insets
+	local innerHeight = math_max(1, profile.frame.height - insets.top - insets.bottom)
+	local barFrameHeight = GetBarFrameHeight()
+	local barSpacing = GetBarSpacing()
+	local maxBarsByHeight = math_floor((innerHeight + barSpacing) / (barFrameHeight + barSpacing))
+
+	return math_max(1, maxBarsByHeight)
 end
 
 local previewSingleResIconClasses = {
@@ -440,7 +565,7 @@ end
 local function FormatBarLabel(state)
 	if state.isWaiting then
 		if db and db.behavior.useShortLabels then
-			return string_format(L["%s : %s"], state.targetName, L["Waiting"])
+			return string_format(L["%s : %s"], state.targetName, QUEUED_STATUS_WAITING)
 		end
 
 		return string_format(L["%s is waiting to accept"], state.targetName)
@@ -466,6 +591,10 @@ local function GetBarColor(state)
 
 	if state.isCollision then
 		return profile.colors.collision
+	end
+
+	if state.isMass then
+		return profile.colors.goodMass
 	end
 
 	return profile.colors.good
@@ -621,6 +750,215 @@ function module:ApplyContainerFrameSettings()
 end
 
 -- --------------------------------------------------------------------
+-- Masque icon skinning
+-- --------------------------------------------------------------------
+
+---@return boolean enabled
+local function IsMasqueEnabled()
+	return addon.Masque ~= nil and addon.db and addon.db.profile and addon.db.profile.useMasque
+end
+
+---@return SmartRes2_MasqueGroup|nil group
+function module:GetMasqueGroup()
+	local Masque = addon.Masque
+
+	if not Masque or not addon.db or not addon.db.profile.useMasque then
+		return nil
+	end
+
+	if not masqueGroup then
+		masqueGroup = Masque:Group("SmartRes2", "Bars") --[[@as SmartRes2_MasqueGroup]]
+	end
+
+	return masqueGroup
+end
+
+---@param bar SmartRes2_CandyBar
+local function HideCandyBarIconTexture(bar)
+	local iconTexture = bar.icon or bar.Icon or bar.candyBarIcon
+
+	if iconTexture then
+		iconTexture:Hide()
+	end
+end
+
+---@param key string
+---@param parent Frame
+---@return SmartRes2_MasqueButton button
+function module:GetOrCreateMasqueButton(key, parent)
+	local button = masqueButtons[key]
+
+	if button then
+		button:SetParent(parent)
+		return button
+	end
+
+	button = CreateFrame("Button", nil, parent) --[[@as SmartRes2_MasqueButton]]
+	button:EnableMouse(false)
+	button:SetFrameStrata("MEDIUM")
+	button:SetFrameLevel(111)
+
+	button.Icon = button:CreateTexture(nil, "ARTWORK")
+	button.Icon:SetAllPoints(button)
+
+	button.Normal = button:CreateTexture(nil, "BORDER")
+	button.Normal:SetAllPoints(button)
+	button:SetNormalTexture(button.Normal)
+
+	masqueButtons[key] = button
+
+	return button
+end
+
+---@param state SmartRes2_BarState
+---@param bar SmartRes2_CandyBar
+function module:ApplyMasqueIcon(state, bar)
+	local key = state.key
+	local group = self:GetMasqueGroup()
+	local button = masqueButtons[key]
+
+	if not group or not state.icon or GetProfileDB().behavior.iconPosition == "NONE" then
+		if button then
+			self:RemoveMasqueButton(key)
+		end
+
+		return
+	end
+
+	HideCandyBarIconTexture(bar)
+
+	button = self:GetOrCreateMasqueButton(key, bar)
+	button:ClearAllPoints()
+	button:SetSize(BAR_HEIGHT, BAR_HEIGHT)
+
+	if GetProfileDB().behavior.iconPosition == "RIGHT" then
+		button:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
+	else
+		button:SetPoint("LEFT", bar, "LEFT", 0, 0)
+	end
+
+	button.Icon:SetTexture(state.icon)
+	button.Icon:SetAllPoints(button)
+	button.Normal:SetAllPoints(button)
+	button:Show()
+
+	local regions = masqueRegions[key]
+	if not regions then
+		regions = {
+			Icon = button.Icon,
+			Normal = button.Normal,
+		}
+		masqueRegions[key] = regions
+	else
+		regions.Icon = button.Icon
+		regions.Normal = button.Normal
+	end
+
+	group:AddButton(button, regions, "Item", true)
+	group:ReSkin()
+end
+
+---@param key string
+function module:RemoveMasqueButton(key)
+	local button = masqueButtons[key]
+
+	if not button then
+		return
+	end
+
+	if masqueGroup then
+		masqueGroup:RemoveButton(button)
+	end
+
+	masqueRegions[key] = nil
+	masqueButtons[key] = nil
+
+	button:Hide()
+	button:SetParent(nil)
+end
+
+function module:RefreshMasqueButtons()
+	if not IsMasqueEnabled() then
+		for key in next, masqueButtons do
+			self:RemoveMasqueButton(key)
+		end
+
+		return
+	end
+
+	for _, state in next, barStates do
+		local bar = candyBars[state.key]
+
+		if bar then
+			self:ApplyMasqueIcon(state, bar)
+		end
+	end
+
+	if masqueGroup then
+		masqueGroup:ReSkin()
+	end
+end
+
+-- --------------------------------------------------------------------
+-- Individual bar border frames
+-- --------------------------------------------------------------------
+
+---@param key string
+---@return SmartRes2_BarBorderFrame frame
+function module:GetOrCreateBarBorderFrame(key)
+	local frame = barBorderFrames[key]
+
+	if frame then
+		return frame
+	end
+
+	local template = BackdropTemplateMixin and "BackdropTemplate" or nil
+	frame = CreateFrame("Frame", nil, self:CreateContainerFrame(), template) --[[@as SmartRes2_BarBorderFrame]]
+	frame:SetFrameStrata("MEDIUM")
+	frame:SetFrameLevel(109)
+	frame:EnableMouse(false)
+
+	barBorderFrames[key] = frame
+
+	return frame
+end
+
+---@param frame SmartRes2_BarBorderFrame
+function module:ApplyBarBorderSettings(frame)
+	local profile = GetProfileDB()
+	local borderThickness = GetBarBorderThickness()
+
+	frame:SetParent(self:CreateContainerFrame())
+	frame:SetSize(GetBarFrameWidth(), GetBarFrameHeight())
+
+	if not frame.SetBackdrop or borderThickness <= 0 then
+		if frame.SetBackdrop then
+			frame:SetBackdrop(nil)
+		end
+		return
+	end
+
+	local border = LibSharedMedia:Fetch(LibSharedMedia.MediaType.BORDER, profile.media.barBorder, true)
+
+	if not border then
+		frame:SetBackdrop(nil)
+		return
+	end
+
+	frame:SetBackdrop({
+		edgeFile = border,
+		edgeSize = borderThickness,
+		insets = {
+			left = borderThickness,
+			right = borderThickness,
+			top = borderThickness,
+			bottom = borderThickness,
+		},
+	})
+	frame:SetBackdropBorderColor(1, 1, 1, 1)
+end
+
+-- --------------------------------------------------------------------
 -- CandyBar rendering
 -- --------------------------------------------------------------------
 
@@ -638,6 +976,29 @@ local function GetFontFile()
 	return LibSharedMedia:Fetch(LibSharedMedia.MediaType.FONT, profile.media.font) --[[@as string]]
 end
 
+---@return string flags
+local function GetFontFlags()
+	local profile = GetProfileDB()
+	local media = profile.media
+	local flags = {}
+
+	if media.fontSlug then
+		flags[#flags + 1] = "SLUG"
+	end
+
+	if media.fontMonochrome then
+		flags[#flags + 1] = "MONOCHROME"
+	end
+
+	if media.fontOutline == "OUTLINE" then
+		flags[#flags + 1] = "OUTLINE"
+	elseif media.fontOutline == "THICKOUTLINE" then
+		flags[#flags + 1] = "THICKOUTLINE"
+	end
+
+	return table_concat(flags, ",")
+end
+
 ---@param key string
 ---@return SmartRes2_CandyBar bar
 function module:GetOrCreateCandyBar(key)
@@ -647,11 +1008,9 @@ function module:GetOrCreateCandyBar(key)
 		return bar
 	end
 
-	local profile = GetProfileDB()
-
-	bar = LibCandyBar:New(GetStatusBarTexture(), profile.frame.width, BAR_HEIGHT) --[[@as SmartRes2_CandyBar]]
+	bar = LibCandyBar:New(GetStatusBarTexture(), GetBarWidth(), BAR_HEIGHT) --[[@as SmartRes2_CandyBar]]
 	bar:Set("SmartRes2Key", key)
-	bar:SetParent(self:CreateContainerFrame())
+	bar:SetParent(self:GetOrCreateBarBorderFrame(key))
 	bar:SetFrameStrata("MEDIUM")
 	bar:SetFrameLevel(110)
 	bar:EnableMouse(false)
@@ -668,19 +1027,37 @@ function module:ApplyCandyBarSettings(state, bar)
 	local color = GetBarColor(state)
 	local icon = state.icon
 
-	bar:SetParent(self:CreateContainerFrame())
-	bar:SetSize(profile.frame.width, BAR_HEIGHT)
+	local borderFrame = self:GetOrCreateBarBorderFrame(state.key)
+	local borderThickness = GetBarBorderThickness()
+
+	self:ApplyBarBorderSettings(borderFrame)
+
+	bar:SetParent(borderFrame)
+	bar:ClearAllPoints()
+	bar:SetPoint("TOPLEFT", borderFrame, "TOPLEFT", borderThickness, -borderThickness)
+	bar:SetSize(GetBarWidth(), BAR_HEIGHT)
 	bar:SetTexture(GetStatusBarTexture())
 	bar:SetFill(profile.behavior.fill)
 	bar:SetColor(color.r, color.g, color.b, color.a)
 	bar:SetBackgroundColor(BAR_BACKGROUND_R, BAR_BACKGROUND_G, BAR_BACKGROUND_B, BAR_BACKGROUND_A)
-	bar:SetTextColor(BAR_TEXT_R, BAR_TEXT_G, BAR_TEXT_B, BAR_TEXT_A)
-	bar:SetFont(GetFontFile(), profile.media.fontSize, profile.media.fontFlags)
+	bar:SetTextColor(profile.text.color.r, profile.text.color.g, profile.text.color.b, profile.text.color.a)
+	bar:SetFont(GetFontFile(), profile.media.fontSize, GetFontFlags())
 	bar:SetLabel(FormatBarLabel(state))
 	bar:SetTimeVisibility(profile.behavior.showTime)
 	bar:SetLabelVisibility(profile.behavior.showLabel)
-	bar:SetShadowOffset(1, -1)
-	bar:SetShadowColor(0, 0, 0, 1)
+
+	if profile.text.shadow then
+		bar:SetShadowOffset(profile.text.shadowOffsetX, profile.text.shadowOffsetY)
+		bar:SetShadowColor(
+			profile.text.shadowColor.r,
+			profile.text.shadowColor.g,
+			profile.text.shadowColor.b,
+			profile.text.shadowColor.a
+		)
+	else
+		bar:SetShadowOffset(0, 0)
+		bar:SetShadowColor(0, 0, 0, 0)
+	end
 
 	if not icon or profile.behavior.iconPosition == "NONE" then
 		bar:SetIcon(nil)
@@ -688,6 +1065,8 @@ function module:ApplyCandyBarSettings(state, bar)
 		bar:SetIcon(icon)
 		bar:SetIconPosition(profile.behavior.iconPosition)
 	end
+
+	self:ApplyMasqueIcon(state, bar)
 end
 
 ---@param state SmartRes2_BarState
@@ -729,33 +1108,39 @@ function module:LayoutCandyBars()
 	self:BuildSortedBars()
 
 	local previousBar
-	local maxBars = profile.behavior.maxBars
+	local maxBars = math_min(profile.behavior.maxBars, GetMaxVisibleBars())
 	local growUp = profile.frame.growDirection == "UP"
+	local offsetX = GetBarOffsetX()
+	local firstBarOffsetY = GetFirstBarOffsetY()
 
 	for index, state in next, sortedBars do
 		local bar = candyBars[state.key]
+		local borderFrame = barBorderFrames[state.key]
 
-		if bar then
-			bar:ClearAllPoints()
-			bar:SetSize(profile.frame.width, BAR_HEIGHT)
+		if bar and borderFrame then
+			borderFrame:ClearAllPoints()
+			borderFrame:SetSize(GetBarFrameWidth(), GetBarFrameHeight())
+			bar:SetSize(GetBarWidth(), BAR_HEIGHT)
 
 			if index <= maxBars then
 				if not previousBar then
 					if growUp then
-						bar:SetPoint("BOTTOMLEFT", self.containerFrame, "BOTTOMLEFT", 0, 0)
+						borderFrame:SetPoint("BOTTOMLEFT", self.containerFrame, "BOTTOMLEFT", offsetX, firstBarOffsetY)
 					else
-						bar:SetPoint("TOPLEFT", self.containerFrame, "TOPLEFT", 0, 0)
+						borderFrame:SetPoint("TOPLEFT", self.containerFrame, "TOPLEFT", offsetX, firstBarOffsetY)
 					end
 				elseif growUp then
-					bar:SetPoint("BOTTOMLEFT", previousBar, "TOPLEFT", 0, BAR_SPACING)
+					borderFrame:SetPoint("BOTTOMLEFT", previousBar, "TOPLEFT", 0, GetBarSpacing())
 				else
-					bar:SetPoint("TOPLEFT", previousBar, "BOTTOMLEFT", 0, -BAR_SPACING)
+					borderFrame:SetPoint("TOPLEFT", previousBar, "BOTTOMLEFT", 0, -GetBarSpacing())
 				end
 
+				borderFrame:Show()
 				bar:Show()
-				previousBar = bar
+				previousBar = borderFrame
 			else
 				bar:Hide()
+				borderFrame:Hide()
 			end
 		end
 	end
@@ -786,12 +1171,21 @@ end
 ---@param key string
 function module:StopBar(key)
 	local bar = candyBars[key]
+	local borderFrame = barBorderFrames[key]
 
 	barStates[key] = nil
 	candyBars[key] = nil
+	barBorderFrames[key] = nil
 
 	if bar then
 		bar:Stop("SmartRes2_StopBar")
+	end
+
+	self:RemoveMasqueButton(key)
+
+	if borderFrame then
+		borderFrame:Hide()
+		borderFrame:SetParent(nil)
 	end
 end
 
@@ -906,9 +1300,19 @@ function module:OnCandyBarStopped(callback, bar, reason)
 	local state
 
 	if key then
+		local borderFrame = barBorderFrames[key]
+
 		state = barStates[key]
 		barStates[key] = nil
 		candyBars[key] = nil
+		barBorderFrames[key] = nil
+
+		self:RemoveMasqueButton(key)
+
+		if borderFrame then
+			borderFrame:Hide()
+			borderFrame:SetParent(nil)
+		end
 	end
 
 	if state and state.transitionToWaiting and reason ~= "SmartRes2_StopBar" then
@@ -1016,8 +1420,6 @@ function module:OnInitialize()
 
 	self:SetEnabledState(db.enabled)
 
-	RegisterMedia()
-
 	addon:RegisterModuleOptions(self:GetName(), self:GetOptions())
 end
 
@@ -1048,6 +1450,10 @@ function module:OnDisable()
 
 	LibCandyBar.UnregisterCallback(self, "LibCandyBar_Stop")
 
+	for key in next, masqueButtons do
+		self:RemoveMasqueButton(key)
+	end
+
 	if self.containerFrame then
 		self.containerFrame:Hide()
 	end
@@ -1064,6 +1470,7 @@ function module:RefreshConfig()
 
 	if self:IsEnabled() then
 		self:RefreshContainerFrame()
+		self:RefreshMasqueButtons()
 	end
 
 	-- Later, this will also re-apply theme and additional text/font appearance
@@ -1073,10 +1480,6 @@ end
 -- --------------------------------------------------------------------
 -- Public-to-addon helpers
 -- --------------------------------------------------------------------
-
-function module:IsMasqueAvailable()
-	return hasMasque
-end
 
 ---@return SmartRes2_BarsProfileDB|nil profile
 function module:GetProfile()

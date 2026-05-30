@@ -26,13 +26,15 @@
 
 local HIGHLIGHT_FONT_COLOR = HIGHLIGHT_FONT_COLOR
 local NORMAL_FONT_COLOR = NORMAL_FONT_COLOR
+local OKAY = OKAY
+local StaticPopupDialogs = StaticPopupDialogs
+local StaticPopup_Show = StaticPopup_Show
 
 local C_Spell = C_Spell
 local LibStub = LibStub
 local pairs = pairs
 local type = type
 local UnitClassBase = UnitClassBase
-local wipe = wipe
 
 -- --------------------------------------------------------------------
 -- Libraries
@@ -43,9 +45,15 @@ local LibDBIcon = LibStub("LibDBIcon-1.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 local AceDB = LibStub("AceDB-3.0")
+local LibSharedMedia = LibStub("LibSharedMedia-3.0")
+local Masque, MasqueAPIVersion = LibStub("Masque", true)
 
 ---@class SmartRes2: AceAddon, AceConsole-3.0, AceEvent-3.0, LibAboutPanel-2.0, LibResInfo-2.0
 ---@field db SmartRes2DB
+---@field LSM any
+---@field Masque any|nil
+---@field MasqueAPIVersion number|nil
+---@field IsMasqueAvailable fun(self: SmartRes2): boolean
 ---@field GetMassResurrectionIcon fun(self: SmartRes2): number|string|nil
 ---@field GetOptions fun(self: SmartRes2): table
 ---@field TogglePreviewBars fun(self: SmartRes2)
@@ -57,6 +65,10 @@ local addon = LibStub("AceAddon-3.0"):NewAddon(
 	"LibAboutPanel-2.0",
 	"LibResInfo-2.0"
 )
+
+addon.LSM = LibSharedMedia
+addon.Masque = Masque
+addon.MasqueAPIVersion = MasqueAPIVersion
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 
@@ -78,6 +90,18 @@ addon:SetDefaultModuleLibraries(
 -- --------------------------------------------------------------------
 -- Constants
 -- --------------------------------------------------------------------
+
+local SMARTRES2_DB_VERSION = 1
+local DB_RESET_POPUP = "SMARTRES2_DB_RESET"
+
+StaticPopupDialogs[DB_RESET_POPUP] = {
+	text = L["SmartRes2 settings were reset because this version uses a new settings layout."],
+	button1 = OKAY,
+	timeout = 0,
+	whileDead = true,
+	hideOnEscape = true,
+	preferredIndex = 3,
+}
 
 local DEFAULT_ICON_SPELL_ID = 2006 -- Priest: Resurrection
 local MASS_RESURRECTION_ICON_SPELL_ID = 83968 -- Mass Resurrection
@@ -114,6 +138,7 @@ local defaults = {
 	},
 	profile = {
 		enabled = true,
+		useMasque = true,
 	},
 }
 
@@ -161,31 +186,237 @@ function addon:GetMassResurrectionIcon()
 	return GetSpellIcon(MASS_RESURRECTION_ICON_SPELL_ID) or MASS_RESURRECTION_ICON
 end
 
----@param source table
----@param target table
-local function CopyDefaults(source, target)
-	for key, value in pairs(source) do
-		if type(value) == "table" then
-			target[key] = target[key] or {}
-			CopyDefaults(value, target[key])
-		else
-			target[key] = value
-		end
-	end
+---@return boolean available
+function addon:IsMasqueAvailable()
+	return self.Masque ~= nil
 end
 
--- Global settings are not profile-scoped AceDB data. When the user opts into
--- resetting globals alongside profile changes, preserve that opt-in so the
--- setting does not disable itself after the first reset.
-local function ResetGlobalDB()
-	if not global then return end
+local function RegisterMedia()
+	-- Register only SmartRes2-owned media here. LibSharedMedia already registers
+	-- Blizzard defaults such as "Blizzard", "Solid", "Blizzard Tooltip", and
+	-- locale-aware default fonts.
+	--
+	-- Example for later:
+	-- addon.LSM:Register(
+	--     addon.LSM.MediaType.FONT,
+	--     "SmartRes2 Olde English",
+	--     [[Interface\AddOns\SmartRes2\Media\Fonts\OldeEnglish.ttf]]
+	-- )
+end
 
-	local resetGlobalOnProfileChange = global.resetGlobalOnProfileChange
+local function RegisterMasqueSkins()
+	local Masque = addon.Masque
 
-	wipe(global)
-	CopyDefaults(defaults.global, global)
+	if not Masque then
+		return
+	end
 
-	global.resetGlobalOnProfileChange = resetGlobalOnProfileChange
+	Masque:AddSkin("SmartRes2: Neuron", {
+		API_VERSION = addon.MasqueAPIVersion,
+		Shape = "Square",
+
+		-- Info
+		Description = "The Neuron Masque skin bundled with SmartRes2.",
+		Author = "Soyier; bundled with SmartRes2",
+		Websites = {
+			"https://www.curseforge.com/wow/addons/masque-neuron",
+			"https://github.com/brittyazel/Masque_Neuron",
+		},
+
+		-- Skin
+		Backdrop = {
+			Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Backdrop]],
+			Width = 42,
+			Height = 42,
+			Color = {0, 0, 0, 0.6},
+			DrawLayer = "BACKGROUND",
+			DrawLevel = -1,
+			Point = "CENTER",
+			RelPoint = "CENTER",
+			OffsetX = 0,
+			OffsetY = 0,
+			UseColor = true,
+		},
+
+		Icon = {
+			Width = 29,
+			Height = 29,
+			TexCoords = {0.08, 0.92, 0.08, 0.92},
+			DrawLayer = "BACKGROUND",
+			DrawLevel = 0,
+			Point = "CENTER",
+			RelPoint = "CENTER",
+			OffsetX = 0,
+			OffsetY = 0,
+		},
+
+		SlotIcon = "Icon",
+
+		Normal = {
+			Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Normal]],
+			Width = 42,
+			Height = 42,
+			Color = {0.2, 0.2, 0.2, 1},
+		},
+
+		Pushed = {
+			Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Overlay]],
+			Width = 42,
+			Height = 42,
+			BlendMode = "BLEND",
+			DrawLayer = "ARTWORK",
+			DrawLevel = 0,
+			Point = "CENTER",
+			RelPoint = "CENTER",
+			OffsetX = 0,
+			OffsetY = 0,
+			Color = {1, 1, 1, 0.5},
+		},
+
+		Flash = {
+			Texture = [[Interface\Buttons\UI-QuickslotRed]],
+			Width = 42,
+			Height = 42,
+			TexCoords = {0.2, 0.8, 0.2, 0.8},
+			Color = {1, 1, 1, 0.75},
+			BlendMode = "BLEND",
+			DrawLayer = "ARTWORK",
+			DrawLevel = 1,
+			Point = "CENTER",
+			RelPoint = "CENTER",
+			OffsetX = 0,
+			OffsetY = 0,
+		},
+
+		HotKey = {
+			JustifyH = "RIGHT",
+			JustifyV = "MIDDLE",
+			DrawLayer = "ARTWORK",
+			Width = 42,
+			Height = 10,
+			Point = "TOPRIGHT",
+			RelPoint = "TOPRIGHT",
+			OffsetX = -3,
+			OffsetY = -4,
+		},
+
+		Count = {
+			JustifyH = "RIGHT",
+			JustifyV = "MIDDLE",
+			DrawLayer = "ARTWORK",
+			Width = 42,
+			Height = 10,
+			Point = "BOTTOMRIGHT",
+			RelPoint = "BOTTOMRIGHT",
+			OffsetX = -3,
+			OffsetY = 4,
+		},
+
+		Duration = {
+			JustifyH = "CENTER",
+			JustifyV = "MIDDLE",
+			DrawLayer = "ARTWORK",
+			Width = 42,
+			Height = 10,
+			Point = "TOP",
+			RelPoint = "BOTTOM",
+			OffsetX = 0,
+			OffsetY = -2,
+		},
+
+		Checked = {
+			Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Border]],
+			Width = 42,
+			Height = 42,
+			BlendMode = "ADD",
+			DrawLayer = "OVERLAY",
+			DrawLevel = 0,
+			Color = {1, 1, 1, 0.5},
+			Point = "CENTER",
+			RelPoint = "CENTER",
+			OffsetX = 0,
+			OffsetY = 0,
+		},
+
+		SlotHighlight = "Checked",
+
+		Name = {
+			Width = 42,
+			Height = 10,
+			JustifyH = "CENTER",
+			JustifyV = "BOTTOM",
+			OffsetY = 3,
+		},
+
+		Border = {
+			Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Border]],
+			Width = 42,
+			Height = 42,
+			BlendMode = "ADD",
+			DrawLayer = "OVERLAY",
+			DrawLevel = 0,
+			Point = "CENTER",
+			RelPoint = "CENTER",
+			OffsetX = 0,
+			OffsetY = 0,
+		},
+
+		DebuffBorder = "Border",
+		EnchantBorder = "Border",
+		IconBorder = "Border",
+
+		Gloss = {
+			Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Gloss]],
+			Width = 42,
+			Height = 42,
+			BlendMode = "ADD",
+			Color = {1, 1, 1, 0.15},
+		},
+
+		AutoCastable = {
+			Texture = [[Interface\Buttons\UI-AutoCastableOverlay]],
+			BlendMode = "BLEND",
+			DrawLayer = "OVERLAY",
+			DrawLevel = 1,
+			Width = 42,
+			Height = 42,
+			Point = "CENTER",
+			RelPoint = "CENTER",
+			OffsetX = 0.5,
+			OffsetY = -0.5,
+		},
+
+		Highlight = {
+			Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Highlight]],
+			Width = 37,
+			Height = 37,
+			BlendMode = "ADD",
+			DrawLayer = "HIGHLIGHT",
+			Color = {1, 1, 1, 0.75},
+			Point = "CENTER",
+			RelPoint = "CENTER",
+			OffsetX = 0.5,
+			OffsetY = -0.5,
+		},
+
+		AutoCastShine = {
+			Width = 32,
+			Height = 32,
+			OffsetX = 1,
+			OffsetY = -1,
+			AboveNormal = true,
+		},
+
+		Cooldown = {
+			Width = 28,
+			Height = 28,
+			Color = {0, 0, 0, 0.6},
+			Point = "CENTER",
+			RelPoint = "CENTER",
+			OffsetX = 0,
+			OffsetY = 0,
+		},
+	})
 end
 
 -- AceDB namespaces are created by modules when those modules are written.
@@ -210,12 +441,26 @@ end
 function addon:OnInitialize()
 	self.db = AceDB:New("SmartRes2DB", defaults, true) --[[@as SmartRes2DB]]
 
+	db = self.db.profile
+	global = self.db.global
+
+	local oldVersion = global.settingsVersion
+	if (not oldVersion) or (oldVersion < SMARTRES2_DB_VERSION) then
+		StaticPopup_Show(DB_RESET_POPUP)
+		self.db:ResetDB(DEFAULT)
+
+		db = self.db.profile
+		global = self.db.global
+	end
+
+	global.settingsVersion = SMARTRES2_DB_VERSION
+
+	RegisterMedia()
+	RegisterMasqueSkins()
+
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
-
-	db = self.db.profile
-	global = self.db.global
 
 	self:SetEnabledState(db.enabled)
 
@@ -260,7 +505,11 @@ function addon:RefreshConfig()
 	global = self.db.global
 
 	if global and global.resetGlobalOnProfileChange then
-		ResetGlobalDB()
+		self.db:ResetDB(DEFAULT)
+
+		db = self.db.profile
+		global = self.db.global
+		global.settingsVersion = SMARTRES2_DB_VERSION
 	end
 
 	if db.enabled then
@@ -328,22 +577,22 @@ end
 -- Modules call this to add their AceConfig option tables to SmartRes2's main
 -- options table. The module name is used as the options key, but the module
 -- itself still owns its own defaults and DB namespace.
----@param optionsName string
+---@param moduleName string
 ---@param moduleOptions table
-function addon:RegisterModuleOptions(optionsName, moduleOptions)
-	if type(optionsName) ~= "string" then
-		error(("bad argument #1, expected string optionsName, got %s"):format(type(optionsName)), 2)
+function addon:RegisterModuleOptions(moduleName, moduleOptions)
+	if type(moduleName) ~= "string" then
+		error(("bad argument #1, expected string 'moduleName', got %s"):format(type(moduleName)), 2)
 	end
 
 	if type(moduleOptions) ~= "table" then
-		error(("bad argument #2, expected table moduleOptions, got %s"):format(type(moduleOptions)), 2)
+		error(("bad argument #2, expected table 'moduleOptions', got %s"):format(type(moduleOptions)), 2)
 	end
 
 	options = options or self:GetOptions()
-	options.args[optionsName] = moduleOptions
+	options.args[moduleName] = moduleOptions
 
 	if moduleOptions.disabled == nil then
-		options.args[optionsName].disabled = function()
+		options.args[moduleName].disabled = function()
 			return not self.db.profile.enabled
 		end
 	end
