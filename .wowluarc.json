@@ -8,8 +8,7 @@
     ".github/",
     ".gitignore",
     ".pkgmeta",
-    "Media/",
-    "Modules/Chat/"
+    "Media/"
   ],
   "library": ["Libs/"],
   "framexml": true,

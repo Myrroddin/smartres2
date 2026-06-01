@@ -7,32 +7,31 @@
 -- - Create the addon object.
 -- - Initialize saved variables and profile callbacks.
 -- - Register options, profiles, About panel, slash commands, and Broker.
--- - Manage module lifecycle once modules exist.
--- - Provide shared addon services used by later files.
+-- - Manage module lifecycle.
+-- - Provide shared addon services used by modules.
+-- - Register SmartRes2-owned media and bundled Masque skins.
+-- - Provide future keybinding entry points.
 --
--- Core does not:
--- - Track resurrection casts directly.
--- - Expose resurrection/cast-state APIs.
--- - Bind keys dynamically.
--- - Scan the full spellbook.
---
--- LibResInfo-2.0 owns resurrection state. SmartRes2 embeds it so Core
--- and later files/modules can consume its APIs/callbacks.
+-- Runtime boundary:
+-- - LibResInfo-2.0 owns resurrection detection and cast state.
+-- - Bars consumes LibResInfo callbacks and displays resurrection state.
+-- - Chat will consume LibResInfo callbacks later for announcements.
+-- - Smart keybinding logic will live in Core/additional files later, but
+--   combat resurrection targeting must remain manually chosen by the player.
 -- --------------------------------------------------------------------
 
 -- --------------------------------------------------------------------
 -- Lua / Blizzard API upvalues
 -- --------------------------------------------------------------------
 
+local C_Spell = C_Spell
 local HIGHLIGHT_FONT_COLOR = HIGHLIGHT_FONT_COLOR
+local IsInGroup = IsInGroup
+local LibStub = LibStub
 local NORMAL_FONT_COLOR = NORMAL_FONT_COLOR
 local OKAY = OKAY
 local StaticPopupDialogs = StaticPopupDialogs
 local StaticPopup_Show = StaticPopup_Show
-
-local C_Spell = C_Spell
-local LibStub = LibStub
-local pairs = pairs
 local type = type
 local UnitClassBase = UnitClassBase
 
@@ -47,6 +46,28 @@ local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 local AceDB = LibStub("AceDB-3.0")
 local LibSharedMedia = LibStub("LibSharedMedia-3.0")
 local Masque, MasqueAPIVersion = LibStub("Masque", true)
+
+---@class SmartRes2MinimapDB
+---@field hide boolean
+---@field lock boolean
+---@field showInCompartment boolean
+---@field lockOnDegree boolean
+---@field minimapPos number
+
+---@class SmartRes2GlobalDB
+---@field settingsVersion number|nil
+---@field resetGlobalOnProfileChange boolean
+---@field useClassIconForBroker boolean
+---@field minimap SmartRes2MinimapDB
+
+---@class SmartRes2ProfileDB
+---@field enabled boolean
+---@field useMasque boolean
+---@field notifySelf boolean
+
+---@class SmartRes2DB: AceDBObject-3.0
+---@field profile SmartRes2ProfileDB
+---@field global SmartRes2GlobalDB
 
 ---@class SmartRes2: AceAddon, AceConsole-3.0, AceEvent-3.0, LibAboutPanel-2.0, LibResInfo-2.0
 ---@field db SmartRes2DB
@@ -139,6 +160,7 @@ local defaults = {
 	profile = {
 		enabled = true,
 		useMasque = true,
+		notifySelf = true,
 	},
 }
 
@@ -146,52 +168,126 @@ local defaults = {
 -- File-scope state
 -- --------------------------------------------------------------------
 
----@type table|nil
+---@type SmartRes2ProfileDB|nil
 local db
 
----@type table|nil
+---@type SmartRes2GlobalDB|nil
 local global
 
 ---@type table|nil
 local options
 
+-- Forward declarations for local helpers that are defined later but called
+-- during OnInitialize(). Lua resolves locals lexically, so these names must
+-- exist before addon:OnInitialize() is compiled.
+local RegisterMedia
+local RegisterMasqueSkins
+
 -- --------------------------------------------------------------------
--- Local helpers
+-- Addon lifecycle
 -- --------------------------------------------------------------------
 
----@param spellID number
----@return number|string|nil icon
-local function GetSpellIcon(spellID)
-	return C_Spell.GetSpellTexture(spellID)
-end
+-- Create SmartRes2's root AceDB database, perform one-time saved-variable
+-- migration/reset work, register shared media/skins, and build the root options
+-- table. Core owns global options; modules register their own option groups.
+function addon:OnInitialize()
+	self.db = AceDB:New("SmartRes2DB", defaults, true) --[[@as SmartRes2DB]]
 
----@param classFilename string|nil
----@param useDefault boolean|nil
----@return number|string|nil icon
-function addon:GetResurrectionIconForClass(classFilename, useDefault)
-	local spellID = classFilename and classResIconSpellIDs[classFilename]
-	local icon = spellID and GetSpellIcon(spellID)
+	db = self.db.profile
+	global = self.db.global
 
-	if icon then
-		return icon
+	local oldVersion = global.settingsVersion
+	if (not oldVersion) or (oldVersion < SMARTRES2_DB_VERSION) then
+		StaticPopup_Show(DB_RESET_POPUP)
+		self.db:ResetDB(DEFAULT)
+
+		db = self.db.profile
+		global = self.db.global
 	end
 
-	if useDefault ~= false then
-		return GetSpellIcon(DEFAULT_ICON_SPELL_ID)
+	global.settingsVersion = SMARTRES2_DB_VERSION
+
+	RegisterMedia()
+	RegisterMasqueSkins()
+
+	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
+	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
+	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
+
+	self:SetEnabledState(db.enabled)
+
+	options = self:GetOptions()
+	options.args = options.args or {}
+
+	options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
+	options.args.profiles.order = 900
+
+	-- LibDualSpec augments the AceDB profile UI. Do not force-enable or
+	-- force-disable dual spec here; users expect manual control over their
+	-- profile behavior.
+	local DualSpec = LibStub:GetLibrary("LibDualSpec-1.0", true)
+	if DualSpec then
+		DualSpec:EnhanceDatabase(self.db, "SmartRes2")
+		DualSpec:EnhanceOptions(options.args.profiles, self.db)
 	end
+
+	options.args.aboutPanel = self:AboutOptionsTable("SmartRes2")
+	options.args.aboutPanel.order = 1000
+
+	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
+	AceConfigDialog:AddToBlizOptions("SmartRes2")
+
+	self:RegisterChatCommand("smartres2", "ChatCommand")
+	self:RegisterChatCommand("smartres", "ChatCommand")
+	self:RegisterChatCommand("sr", "ChatCommand")
+
+	self:InitializeBroker()
 end
 
----@return number|string|nil icon
-function addon:GetMassResurrectionIcon()
-	return GetSpellIcon(MASS_RESURRECTION_ICON_SPELL_ID) or MASS_RESURRECTION_ICON
+-- Keep module state in sync with the root addon enable state.
+function addon:OnEnable()
+	self:RefreshModules()
 end
 
----@return boolean available
-function addon:IsMasqueAvailable()
-	return self.Masque ~= nil
+function addon:OnDisable()
+	self:DisableModules()
 end
 
-local function RegisterMedia()
+-- Profile changes can reset global settings, enable/disable modules, refresh
+-- module option state, update the minimap button, and repaint the broker icon.
+function addon:RefreshConfig()
+	db = self.db.profile
+	global = self.db.global
+
+	if global and global.resetGlobalOnProfileChange then
+		self.db:ResetDB(DEFAULT)
+
+		db = self.db.profile
+		global = self.db.global
+		global.settingsVersion = SMARTRES2_DB_VERSION
+	end
+
+	if db.enabled then
+		self:RefreshModules()
+		self:RefreshModuleConfigs()
+	else
+		self:DisableModules()
+	end
+
+	if global then
+		LibDBIcon:Refresh("SmartRes2", global.minimap)
+	end
+
+	self:RefreshBrokerIcon()
+
+	AceConfigRegistry:NotifyChange("SmartRes2")
+end
+
+-- --------------------------------------------------------------------
+-- Shared media and bundled skins
+-- --------------------------------------------------------------------
+
+function RegisterMedia()
 	-- Register only SmartRes2-owned media here. LibSharedMedia already registers
 	-- Blizzard defaults such as "Blizzard", "Solid", "Blizzard Tooltip", and
 	-- locale-aware default fonts.
@@ -204,7 +300,7 @@ local function RegisterMedia()
 	-- )
 end
 
-local function RegisterMasqueSkins()
+function RegisterMasqueSkins()
 	local Masque = addon.Masque
 
 	if not Masque then
@@ -419,6 +515,46 @@ local function RegisterMasqueSkins()
 	})
 end
 
+-- --------------------------------------------------------------------
+-- Icon helpers
+-- --------------------------------------------------------------------
+
+---@param spellID number
+---@return number|string|nil icon
+local function GetSpellIcon(spellID)
+	return C_Spell.GetSpellTexture(spellID)
+end
+
+---@param classFilename string|nil
+---@param useDefault boolean|nil
+---@return number|string|nil icon
+function addon:GetResurrectionIconForClass(classFilename, useDefault)
+	local spellID = classFilename and classResIconSpellIDs[classFilename]
+	local icon = spellID and GetSpellIcon(spellID)
+
+	if icon then
+		return icon
+	end
+
+	if useDefault ~= false then
+		return GetSpellIcon(DEFAULT_ICON_SPELL_ID)
+	end
+end
+
+---@return number|string|nil icon
+function addon:GetMassResurrectionIcon()
+	return GetSpellIcon(MASS_RESURRECTION_ICON_SPELL_ID) or MASS_RESURRECTION_ICON
+end
+
+---@return boolean available
+function addon:IsMasqueAvailable()
+	return self.Masque ~= nil
+end
+
+-- --------------------------------------------------------------------
+-- Module management
+-- --------------------------------------------------------------------
+
 -- AceDB namespaces are created by modules when those modules are written.
 -- Until then, modules without namespaces are treated as enabled. Once Chat
 -- and Bars exist, their own namespace defaults should include profile.enabled.
@@ -433,104 +569,6 @@ local function IsModuleProfileEnabled(moduleName)
 
 	return true
 end
-
--- --------------------------------------------------------------------
--- Addon lifecycle
--- --------------------------------------------------------------------
-
-function addon:OnInitialize()
-	self.db = AceDB:New("SmartRes2DB", defaults, true) --[[@as SmartRes2DB]]
-
-	db = self.db.profile
-	global = self.db.global
-
-	local oldVersion = global.settingsVersion
-	if (not oldVersion) or (oldVersion < SMARTRES2_DB_VERSION) then
-		StaticPopup_Show(DB_RESET_POPUP)
-		self.db:ResetDB(DEFAULT)
-
-		db = self.db.profile
-		global = self.db.global
-	end
-
-	global.settingsVersion = SMARTRES2_DB_VERSION
-
-	RegisterMedia()
-	RegisterMasqueSkins()
-
-	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
-	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
-	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
-
-	self:SetEnabledState(db.enabled)
-
-	options = self:GetOptions()
-	options.args = options.args or {}
-
-	options.args.profiles = LibStub("AceDBOptions-3.0"):GetOptionsTable(self.db)
-	options.args.profiles.order = 900
-
-	-- LibDualSpec augments the AceDB profile UI. Do not force-enable or
-	-- force-disable dual spec here; users expect manual control over their
-	-- profile behavior.
-	local DualSpec = LibStub:GetLibrary("LibDualSpec-1.0", true)
-	if DualSpec then
-		DualSpec:EnhanceDatabase(self.db, "SmartRes2")
-		DualSpec:EnhanceOptions(options.args.profiles, self.db)
-	end
-
-	options.args.aboutPanel = self:AboutOptionsTable("SmartRes2")
-	options.args.aboutPanel.order = 1000
-
-	LibStub("AceConfig-3.0"):RegisterOptionsTable("SmartRes2", options)
-	AceConfigDialog:AddToBlizOptions("SmartRes2")
-
-	self:RegisterChatCommand("smartres2", "ChatCommand")
-	self:RegisterChatCommand("smartres", "ChatCommand")
-	self:RegisterChatCommand("sr", "ChatCommand")
-
-	self:InitializeBroker()
-end
-
-function addon:OnEnable()
-	self:RefreshModules()
-end
-
-function addon:OnDisable()
-	self:DisableModules()
-end
-
-function addon:RefreshConfig()
-	db = self.db.profile
-	global = self.db.global
-
-	if global and global.resetGlobalOnProfileChange then
-		self.db:ResetDB(DEFAULT)
-
-		db = self.db.profile
-		global = self.db.global
-		global.settingsVersion = SMARTRES2_DB_VERSION
-	end
-
-	if db.enabled then
-		self:RefreshModules()
-		self:RefreshModuleConfigs()
-	else
-		self:DisableModules()
-	end
-
-	if global then
-		LibDBIcon:Refresh("SmartRes2", global.minimap)
-	end
-
-	self:RefreshBrokerIcon()
-
-	AceConfigRegistry:NotifyChange("SmartRes2")
-end
-
--- --------------------------------------------------------------------
--- Modules
--- --------------------------------------------------------------------
 
 -- Enable or disable loaded modules from their AceDB namespace state.
 -- This is safe before modules exist: IterateModules() simply has nothing
@@ -601,7 +639,7 @@ function addon:RegisterModuleOptions(moduleName, moduleOptions)
 end
 
 -- --------------------------------------------------------------------
--- Slash commands
+-- Slash commands and preview bars
 -- --------------------------------------------------------------------
 
 function addon:ChatCommand()
@@ -630,6 +668,22 @@ end
 -- Broker / minimap
 -- --------------------------------------------------------------------
 
+---@return number|string|nil icon
+function addon:GetBrokerIcon()
+	if global and global.useClassIconForBroker then
+		return self:GetResurrectionIconForClass(UnitClassBase("player"))
+	end
+
+	return self:GetResurrectionIconForClass(nil)
+end
+
+function addon:RefreshBrokerIcon()
+	local button = LibDBIcon:GetMinimapButton("SmartRes2")
+	if button and button.icon then
+		button.icon:SetTexture(self:GetBrokerIcon())
+	end
+end
+
 function addon:InitializeBroker()
 	---@type LibDataBroker.QuickLauncher
 	local brokerObjectData = {
@@ -657,19 +711,14 @@ function addon:InitializeBroker()
 	LibDBIcon:Register("SmartRes2", brokerObject, self.db.global.minimap)
 end
 
----@return number|string|nil icon
-function addon:GetBrokerIcon()
-	if global and global.useClassIconForBroker then
-		return self:GetResurrectionIconForClass(UnitClassBase("player"))
-	end
+-- --------------------------------------------------------------------
+-- Inform the player of useful or important information
+-- --------------------------------------------------------------------
 
-	return self:GetResurrectionIconForClass(nil)
-end
-
-function addon:RefreshBrokerIcon()
-	local button = LibDBIcon:GetMinimapButton("SmartRes2")
-	if button and button.icon then
-		button.icon:SetTexture(self:GetBrokerIcon())
+---@param message string
+function addon:NotifySelf(message)
+	if db and db.notifySelf then
+		self:Print(message)
 	end
 end
 
@@ -677,7 +726,15 @@ end
 -- Future keybinding entry points
 -- --------------------------------------------------------------------
 
+-- These are intentionally small placeholders until the smart target-selection
+-- pass. The group checks are useful now because keybinds can be pressed before
+-- the real implementation exists.
+
 function addon:CastSmartResurrection()
+	if not IsInGroup() then
+		self:NotifySelf(L["You are not in a group and cannot use this feature."])
+		return
+	end
 	-- Implemented later in the keybinding/spell-selection pass.
 end
 
@@ -687,5 +744,9 @@ function addon:PrepareCombatResurrection()
 end
 
 function addon:CastMassResurrection()
+	if not IsInGroup() then
+		self:NotifySelf(L["You are not in a group and cannot use this feature."])
+		return
+	end
 	-- Implemented later in the keybinding/spell-selection pass.
 end

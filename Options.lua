@@ -50,6 +50,7 @@ local LibStub = LibStub
 ---@class SmartRes2ProfileDB
 ---@field enabled boolean
 ---@field useMasque boolean
+---@field notifySelf boolean
 
 ---@class SmartRes2DB: AceDBObject-3.0
 ---@field profile SmartRes2ProfileDB
@@ -177,8 +178,8 @@ function addon:GetOptions()
 					resetGlobalOnProfileChange = {
 						order = 20,
 						type = "toggle",
-						name = L["Reset Global Settings With Profiles"],
-						desc = L["Reset global settings, such as minimap options, when profile settings change."],
+						name = L["Reset Minimap"],
+						desc = L["Reset minimap settings when profile settings change."],
 						get = function()
 							return GetGlobalDB().resetGlobalOnProfileChange
 						end,
@@ -200,10 +201,22 @@ function addon:GetOptions()
 							GetProfileDB().useMasque = value
 						end,
 					},
+					notifySelf = {
+						order = 40,
+						type = "toggle",
+						name = L["Notify Self"],
+						desc = L["Inform yourself of SmartRes2 system messages."],
+						get = function()
+							return GetProfileDB().notifySelf
+						end,
+						set = function(_, value)
+							GetProfileDB().notifySelf = value
+						end,
+					},
 				},
 			},
 			minimap = {
-				order = 40,
+				order = 60,
 				type = "group",
 				name = MINIMAP_LABEL,
 				args = {
@@ -330,7 +343,7 @@ function addon:GetOptions()
 				},
 			},
 			keybindings = {
-				order = 50,
+				order = 70,
 				type = "group",
 				name = L["Key Bindings"],
 				args = {

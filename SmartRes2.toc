@@ -79,7 +79,7 @@ Locales\zhTW.lua
 
 Core.lua
 Options.lua
-# Modules\Chat\Chat.lua
-# Modules\Chat\ChatOptions.lua
+Modules\Chat\Chat.lua
+Modules\Chat\ChatOptions.lua
 Modules\Bars\Bars.lua
 Modules\Bars\BarsOptions.lua

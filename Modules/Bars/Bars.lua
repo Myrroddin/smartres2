@@ -11,20 +11,18 @@
 -- - Create and configure the Bars container frame.
 -- - Create, style, sort, and lay out LibCandyBar preview/runtime bars.
 --
--- Current boundary:
--- - This file creates the visible container frame.
--- - This file creates permanent preview/test bars for user styling.
--- - It does not consume LibResInfo callbacks yet.
+-- Runtime boundary:
+-- - LibResInfo-2.0 owns resurrection detection and cast state.
+-- - Bars consumes LibResInfo callbacks and displays that state.
+-- - Active single-target and mass resurrection bars are keyed by casterGUID.
+-- - Waiting-to-accept bars are keyed by targetGUID and never reset/extend
+--   once created.
+-- - Preview/test bars share the same rendering path but remain independent
+--   from live LibResInfo state.
 --
 -- Future responsibilities:
--- - Track active cast bars keyed by casterGUID.
--- - Track waiting-to-accept bars keyed by targetGUID.
--- - Keep hidden bars tracked when maxBars hides them.
--- - Apply individual user settings and future Themes presets.
---
--- LibResInfo-2.0 owns resurrection state. Bars only displays that state.
--- Themes will eventually copy preset batches into Bars settings, but Bars
--- remains the module that applies those settings to frames and bars.
+-- - Add any remaining live edge-case handling found during gameplay testing.
+-- - Apply future Themes presets by copying batches into ordinary Bars settings.
 -- --------------------------------------------------------------------
 
 -- --------------------------------------------------------------------
@@ -34,8 +32,8 @@
 local BackdropTemplateMixin = BackdropTemplateMixin
 local CreateFrame = CreateFrame
 local GetTime = GetTime
-local QUEUED_STATUS_WAITING = QUEUED_STATUS_WAITING
 local LibStub = LibStub
+local QUEUED_STATUS_WAITING = QUEUED_STATUS_WAITING
 local math_floor = math.floor
 local math_max = math.max
 local math_min = math.min
@@ -45,6 +43,8 @@ local string_format = string.format
 local table_concat = table.concat
 local table_sort = table.sort
 local UIParent = UIParent
+local UnitNameFromGUID = UnitNameFromGUID
+local UNKNOWN = UNKNOWN
 
 -- --------------------------------------------------------------------
 -- Addon / module
@@ -174,6 +174,20 @@ local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 ---@class SmartRes2_BarsDB: AceDBObject-3.0
 ---@field profile SmartRes2_BarsProfileDB
 
+---@class SmartRes2_ResCastInfo
+---@field castGUID string
+---@field casterGUID string
+---@field castTime number
+---@field spellID integer
+---@field targetGUID string|nil
+---@field textureID integer|nil
+---@field endTime number
+
+---@class SmartRes2_ResTargetInfo
+---@field targetGUID string
+---@field fastestCasterGUID string|nil
+---@field fastestResType "SINGLE"|"MASS"|nil
+
 ---@class SmartRes2_BarState
 ---@field key string
 ---@field source "preview"|"runtime"
@@ -200,6 +214,8 @@ local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 ---@field ShowTestBars fun(self: SmartRes2_Bars)
 ---@field ClearTestBars fun(self: SmartRes2_Bars)
 ---@field HasTestBars fun(self: SmartRes2_Bars): boolean
+---@field RegisterCallback fun(self: SmartRes2_Bars, eventName: string, method?: string, arg?: any)
+---@field UnregisterAllResInfoCallbacks fun(self: SmartRes2_Bars)
 local module = addon:NewModule("Bars")
 
 -- --------------------------------------------------------------------
@@ -230,8 +246,8 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 -- first.
 local PENDING_TIMEOUT_SECONDS = 60
 
-local BAR_HEIGHT = 20
-local BAR_SPACING = 4
+local MIN_BAR_HEIGHT = 20
+local BAR_VERTICAL_PADDING = 6
 local BAR_BACKGROUND_R = 0
 local BAR_BACKGROUND_G = 0
 local BAR_BACKGROUND_B = 0
@@ -341,8 +357,7 @@ local defaults = {
 			barSpacing = 0,
 		},
 
-		-- Bar state colors. These are intentionally distinct for quick scanning
-		-- and to remain usable for players with red/green color blindness.
+		-- Bar state colors. These are intentionally distinct for quick scanning.
 		colors = {
 			good = {
 				r = 0.486,
@@ -384,8 +399,17 @@ local defaults = {
 ---@type SmartRes2_BarsProfileDB|nil
 local db
 
+-- All preview and live bars are tracked here. Active cast bars use casterGUID
+-- keys; waiting bars use targetGUID keys. The source field separates preview
+-- from runtime state without duplicating the rendering pipeline.
 ---@type table<string, SmartRes2_BarState>
 local barStates = {}
+
+-- Runtime-only guard for waiting bars. Once a target is waiting to accept a
+-- resurrection, later finished collision casts must not reset or extend that
+-- 60 second waiting timer.
+---@type table<string, boolean>
+local waitingToAccept = {}
 
 ---@type table<string, SmartRes2_CandyBar>
 local candyBars = {}
@@ -406,7 +430,82 @@ local masqueGroup
 local sortedBars = {}
 
 -- --------------------------------------------------------------------
--- Pixel snapping
+-- Module lifecycle
+-- --------------------------------------------------------------------
+
+-- Create the Bars AceDB namespace, cache the profile table, and register the
+-- Bars options table with Core. This runs once after all Lua files are loaded,
+-- so module:GetOptions() can live in BarsOptions.lua.
+function module:OnInitialize()
+	self.db = addon.db:RegisterNamespace(self:GetName(), defaults) --[[@as SmartRes2_BarsDB]]
+
+	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
+	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
+	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
+
+	db = self.db.profile
+
+	self:SetEnabledState(db.enabled)
+
+	addon:RegisterModuleOptions(self:GetName(), self:GetOptions())
+end
+
+-- Enable visual rendering and live LibResInfo callback handling. Preview bars
+-- and runtime bars use the same AddOrUpdateBar/StopBar path, so the callbacks
+-- below only translate LibResInfo data into SmartRes2_BarState records.
+function module:OnEnable()
+	self:RefreshContainerFrame()
+
+	LibCandyBar.RegisterCallback(self, "LibCandyBar_Stop", "OnCandyBarStopped")
+
+	self:RegisterCallback("ResCast_Started", "OnSingleResCastStarted")
+	self:RegisterCallback("ResCast_Stopped", "OnSingleResCastStopped")
+	self:RegisterCallback("ResCast_Finished", "OnSingleResCastFinished")
+	self:RegisterCallback("MassResCast_Started", "OnMassResCastStarted")
+	self:RegisterCallback("MassResCast_Stopped", "OnMassResCastStopped")
+	self:RegisterCallback("MassResCast_Finished", "OnMassResCastFinished")
+	self:RegisterCallback("FastestRes_Changed", "OnFastestResChanged")
+	self:RegisterCallback("ResTargetGUID_Resolved", "OnResTargetGUIDResolved")
+	self:RegisterCallback("ResTargetGUID_IsAlive", "OnResTargetGUIDIsAlive")
+end
+
+-- Disable every visual/runtime hook owned by Bars. ClearBars() removes both
+-- preview and live bars, while UnregisterAllResInfoCallbacks() prevents stale
+-- LibResInfo callbacks after the module is disabled.
+function module:OnDisable()
+	self:ClearBars()
+
+	LibCandyBar.UnregisterCallback(self, "LibCandyBar_Stop")
+	self:UnregisterAllResInfoCallbacks()
+
+	for key in next, masqueButtons do
+		self:RemoveMasqueButton(key)
+	end
+
+	for targetGUID in next, waitingToAccept do
+		waitingToAccept[targetGUID] = nil
+	end
+
+	if self.containerFrame then
+		self.containerFrame:Hide()
+	end
+end
+
+-- Re-read the current profile after profile changes/copies/resets and reapply
+-- visual settings to existing bars. Live bars remain tracked while their style
+-- changes; Masque can skin new/refreshing icons but may not reskin already
+-- running icons in every client/addon combination.
+function module:RefreshConfig()
+	db = self.db.profile
+
+	if self:IsEnabled() then
+		self:RefreshContainerFrame()
+		self:RefreshMasqueButtons()
+	end
+end
+
+-- --------------------------------------------------------------------
+-- Pixel snapping and layout math
 -- --------------------------------------------------------------------
 
 -- Rounds a frame-local value to the nearest whole pixel. SmartRes2 uses this
@@ -450,8 +549,17 @@ local function GetBarWidth()
 end
 
 ---@return number height
+local function GetBarHeight()
+	local profile = GetProfileDB()
+
+	-- Keep bars readable when users choose larger fonts, but do not shrink below
+	-- SmartRes2's original compact 20px inner bar height.
+	return math_max(MIN_BAR_HEIGHT, profile.media.fontSize + BAR_VERTICAL_PADDING)
+end
+
+---@return number height
 local function GetBarFrameHeight()
-	return BAR_HEIGHT + (GetBarBorderThickness() * 2)
+	return GetBarHeight() + (GetBarBorderThickness() * 2)
 end
 
 ---@return number spacing
@@ -621,6 +729,113 @@ local function CompareBarStates(a, b)
 	end
 
 	return (a.targetGUID or a.key) < (b.targetGUID or b.key)
+end
+
+-- --------------------------------------------------------------------
+-- LibResInfo runtime state helpers
+-- --------------------------------------------------------------------
+
+-- LibResInfo gives Bars GUIDs, spell timing, and spell texture IDs. These
+-- helpers keep that data translation in one place so the actual callbacks stay
+-- short and easy to compare against API.md.
+
+---@param casterGUID string
+---@return string name
+local function GetCasterName(casterGUID)
+	-- LibResInfo callbacks always provide a real caster GUID. If this ever fails
+	-- during gameplay testing, the bug is in name resolution, not bar state.
+	return UnitNameFromGUID(casterGUID)
+end
+
+---@param targetGUID string|nil
+---@return string name
+local function GetTargetName(targetGUID)
+	-- LibResInfo uses the literal "UNKNOWN" placeholder until a single-target
+	-- resurrection target can be resolved. Show Blizzard's localized UNKNOWN
+	-- string until ResTargetGUID_Resolved provides a usable GUID.
+	if not targetGUID or targetGUID == "UNKNOWN" then
+		return UNKNOWN
+	end
+
+	return UnitNameFromGUID(targetGUID) or UNKNOWN
+end
+
+---@param casterGUID string
+---@param targetGUID string
+---@param casterInfo SmartRes2_ResCastInfo
+---@param targetInfo SmartRes2_ResTargetInfo|nil
+---@return SmartRes2_BarState state
+local function BuildSingleCastState(casterGUID, targetGUID, casterInfo, targetInfo)
+	local endTime = casterInfo.endTime or GetTime()
+	local duration = casterInfo.castTime or 1
+	local fastestCasterGUID = targetInfo and targetInfo.fastestCasterGUID
+	local fastestResType = targetInfo and targetInfo.fastestResType
+
+	return {
+		key = casterGUID,
+		source = "runtime",
+		kind = "single",
+		casterGUID = casterGUID,
+		casterName = GetCasterName(casterGUID),
+		targetGUID = targetGUID,
+		targetName = GetTargetName(targetGUID),
+		startTime = endTime - duration,
+		duration = duration,
+		endTime = endTime,
+		isCollision = fastestCasterGUID ~= nil and (fastestCasterGUID ~= casterGUID or fastestResType ~= "SINGLE"),
+		isMass = false,
+		isWaiting = false,
+		icon = casterInfo.textureID,
+	}
+end
+
+---@param casterGUID string
+---@param casterInfo SmartRes2_ResCastInfo
+---@return SmartRes2_BarState state
+local function BuildMassCastState(casterGUID, casterInfo)
+	local endTime = casterInfo.endTime or GetTime()
+	local duration = casterInfo.castTime or 1
+
+	return {
+		key = casterGUID,
+		source = "runtime",
+		kind = "mass",
+		casterGUID = casterGUID,
+		casterName = GetCasterName(casterGUID),
+		targetGUID = nil,
+		targetName = L["Multiple Targets"],
+		startTime = endTime - duration,
+		duration = duration,
+		endTime = endTime,
+		isCollision = false,
+		isMass = true,
+		isWaiting = false,
+		icon = casterInfo.textureID,
+	}
+end
+
+---@param targetGUID string
+---@param targetName string
+---@return SmartRes2_BarState state
+local function BuildWaitingState(targetGUID, targetName)
+	local now = GetTime()
+
+	return {
+		key = targetGUID,
+		source = "runtime",
+		kind = "waiting",
+		casterGUID = nil,
+		casterName = nil,
+		targetGUID = targetGUID,
+		targetName = targetName,
+		startTime = now,
+		duration = PENDING_TIMEOUT_SECONDS,
+		endTime = now + PENDING_TIMEOUT_SECONDS,
+		isCollision = false,
+		isMass = false,
+		isWaiting = true,
+		icon = nil,
+	}
 end
 
 -- --------------------------------------------------------------------
@@ -829,7 +1044,7 @@ function module:ApplyMasqueIcon(state, bar)
 
 	button = self:GetOrCreateMasqueButton(key, bar)
 	button:ClearAllPoints()
-	button:SetSize(BAR_HEIGHT, BAR_HEIGHT)
+	button:SetSize(GetBarHeight(), GetBarHeight())
 
 	if GetProfileDB().behavior.iconPosition == "RIGHT" then
 		button:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
@@ -959,8 +1174,12 @@ function module:ApplyBarBorderSettings(frame)
 end
 
 -- --------------------------------------------------------------------
--- CandyBar rendering
+-- CandyBar rendering and bar lifecycle
 -- --------------------------------------------------------------------
+
+-- This section owns the shared rendering pipeline. Preview bars, live cast
+-- bars, and waiting bars all become SmartRes2_BarState records and flow through
+-- AddOrUpdateBar(), RefreshCandyBar(), LayoutCandyBars(), and StopBar().
 
 ---@return string texture
 local function GetStatusBarTexture()
@@ -1008,7 +1227,7 @@ function module:GetOrCreateCandyBar(key)
 		return bar
 	end
 
-	bar = LibCandyBar:New(GetStatusBarTexture(), GetBarWidth(), BAR_HEIGHT) --[[@as SmartRes2_CandyBar]]
+	bar = LibCandyBar:New(GetStatusBarTexture(), GetBarWidth(), GetBarHeight()) --[[@as SmartRes2_CandyBar]]
 	bar:Set("SmartRes2Key", key)
 	bar:SetParent(self:GetOrCreateBarBorderFrame(key))
 	bar:SetFrameStrata("MEDIUM")
@@ -1035,7 +1254,7 @@ function module:ApplyCandyBarSettings(state, bar)
 	bar:SetParent(borderFrame)
 	bar:ClearAllPoints()
 	bar:SetPoint("TOPLEFT", borderFrame, "TOPLEFT", borderThickness, -borderThickness)
-	bar:SetSize(GetBarWidth(), BAR_HEIGHT)
+	bar:SetSize(GetBarWidth(), GetBarHeight())
 	bar:SetTexture(GetStatusBarTexture())
 	bar:SetFill(profile.behavior.fill)
 	bar:SetColor(color.r, color.g, color.b, color.a)
@@ -1120,7 +1339,7 @@ function module:LayoutCandyBars()
 		if bar and borderFrame then
 			borderFrame:ClearAllPoints()
 			borderFrame:SetSize(GetBarFrameWidth(), GetBarFrameHeight())
-			bar:SetSize(GetBarWidth(), BAR_HEIGHT)
+			bar:SetSize(GetBarWidth(), GetBarHeight())
 
 			if index <= maxBars then
 				if not previousBar then
@@ -1170,8 +1389,13 @@ end
 
 ---@param key string
 function module:StopBar(key)
+	local state = barStates[key]
 	local bar = candyBars[key]
 	local borderFrame = barBorderFrames[key]
+
+	if state and state.isWaiting and state.targetGUID then
+		waitingToAccept[state.targetGUID] = nil
+	end
 
 	barStates[key] = nil
 	candyBars[key] = nil
@@ -1303,6 +1527,11 @@ function module:OnCandyBarStopped(callback, bar, reason)
 		local borderFrame = barBorderFrames[key]
 
 		state = barStates[key]
+
+		if state and state.isWaiting and state.targetGUID then
+			waitingToAccept[state.targetGUID] = nil
+		end
+
 		barStates[key] = nil
 		candyBars[key] = nil
 		barBorderFrames[key] = nil
@@ -1406,80 +1635,134 @@ function module:RefreshContainerFrame()
 end
 
 -- --------------------------------------------------------------------
--- Module lifecycle
+-- LibResInfo callback handlers
 -- --------------------------------------------------------------------
 
-function module:OnInitialize()
-	self.db = addon.db:RegisterNamespace(self:GetName(), defaults) --[[@as SmartRes2_BarsDB]]
+-- These callbacks should stay thin: translate LibResInfo callback arguments
+-- into bar state changes, then delegate all visual work to the common bar
+-- lifecycle/rendering helpers above.
 
-	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
-	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
-	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
-
-	db = self.db.profile
-
-	self:SetEnabledState(db.enabled)
-
-	addon:RegisterModuleOptions(self:GetName(), self:GetOptions())
+---@param callback string
+---@param casterGUID string
+---@param targetGUID string
+---@param casterInfo SmartRes2_ResCastInfo
+---@param targetInfo SmartRes2_ResTargetInfo
+function module:OnSingleResCastStarted(callback, casterGUID, targetGUID, casterInfo, targetInfo)
+	self:AddOrUpdateBar(BuildSingleCastState(casterGUID, targetGUID, casterInfo, targetInfo))
 end
 
-function module:OnEnable()
-	self:RefreshContainerFrame()
-
-	LibCandyBar.RegisterCallback(self, "LibCandyBar_Stop", "OnCandyBarStopped")
-
-	-- LibResInfo separates single-target and mass resurrection callbacks
-	-- because the data and lifecycle differ. Keep callback handlers explicit
-	-- for readability, then delegate shared bar creation, sorting, visibility,
-	-- and rendering work to common helpers.
-	--
-	-- Future examples:
-	-- self:RegisterCallback("ResCast_Started", "OnResCastStarted")
-	-- self:RegisterCallback("ResCast_Stopped", "OnResCastStopped")
-	-- self:RegisterCallback("ResCast_Finished", "OnResCastFinished")
-	-- self:RegisterCallback("MassResCast_Started", "OnMassResCastStarted")
-	-- self:RegisterCallback("MassResCast_Stopped", "OnMassResCastStopped")
-	-- self:RegisterCallback("MassResCast_Finished", "OnMassResCastFinished")
-	-- self:RegisterCallback("FastestRes_Changed", "OnFastestResChanged")
-	-- self:RegisterCallback("ResTargetGUID_Resolved", "OnResTargetGUIDResolved")
-	-- self:RegisterCallback("ResTargetGUID_IsAlive", "OnResTargetGUIDIsAlive")
+---@param callback string
+---@param casterGUID string
+---@param targetGUID string
+---@param casterInfo SmartRes2_ResCastInfo|nil
+---@param targetInfo SmartRes2_ResTargetInfo|nil
+function module:OnSingleResCastStopped(callback, casterGUID, targetGUID, casterInfo, targetInfo)
+	self:StopBar(casterGUID)
+	self:RefreshTargetCollisionStates(targetGUID, targetInfo)
 end
 
-function module:OnDisable()
-	self:ClearBars()
+---@param callback string
+---@param casterGUID string
+---@param targetGUID string
+---@param casterInfo SmartRes2_ResCastInfo
+---@param targetInfo SmartRes2_ResTargetInfo
+function module:OnSingleResCastFinished(callback, casterGUID, targetGUID, casterInfo, targetInfo)
+	self:StopBar(casterGUID)
 
-	LibCandyBar.UnregisterCallback(self, "LibCandyBar_Stop")
-
-	for key in next, masqueButtons do
-		self:RemoveMasqueButton(key)
+	-- Waiting bars are target-lifecycle bars. Once created, they must not be
+	-- reset, extended, or replaced by later finished collision casts.
+	if targetGUID == "UNKNOWN" or waitingToAccept[targetGUID] then
+		return
 	end
 
-	if self.containerFrame then
-		self.containerFrame:Hide()
-	end
-
-	-- Bars will unregister LibResInfo callbacks and hide/release bars here once
-	-- real resurrection rendering exists.
-	--
-	-- LibResInfo-2.0 provides UnregisterAllResInfoCallbacks through embedding,
-	-- but wait to call it until Bars actually registers LibResInfo callbacks.
+	waitingToAccept[targetGUID] = true
+	self:AddOrUpdateBar(BuildWaitingState(targetGUID, GetTargetName(targetGUID)))
 end
 
-function module:RefreshConfig()
-	db = self.db.profile
+---@param callback string
+---@param casterGUID string
+---@param casterInfo SmartRes2_ResCastInfo
+function module:OnMassResCastStarted(callback, casterGUID, casterInfo)
+	self:AddOrUpdateBar(BuildMassCastState(casterGUID, casterInfo))
+end
 
-	if self:IsEnabled() then
-		self:RefreshContainerFrame()
-		self:RefreshMasqueButtons()
+---@param callback string
+---@param casterGUID string
+---@param casterInfo SmartRes2_ResCastInfo|nil
+function module:OnMassResCastStopped(callback, casterGUID, casterInfo)
+	self:StopBar(casterGUID)
+end
+
+---@param callback string
+---@param casterGUID string
+---@param casterInfo SmartRes2_ResCastInfo
+function module:OnMassResCastFinished(callback, casterGUID, casterInfo)
+	self:StopBar(casterGUID)
+end
+
+---@param targetGUID string
+---@param targetInfo SmartRes2_ResTargetInfo|nil
+function module:RefreshTargetCollisionStates(targetGUID, targetInfo)
+	if not targetGUID or targetGUID == "UNKNOWN" or not targetInfo then
+		return
 	end
 
-	-- Later, this will also re-apply theme and additional text/font appearance
-	-- settings.
+	for _, state in next, barStates do
+		if state.source == "runtime" and not state.isWaiting and not state.isMass and state.targetGUID == targetGUID then
+			state.isCollision = targetInfo.fastestCasterGUID ~= nil
+				and (targetInfo.fastestCasterGUID ~= state.casterGUID or targetInfo.fastestResType ~= "SINGLE")
+			self:RefreshCandyBar(state)
+		end
+	end
+end
+
+---@param callback string
+---@param targetGUID string
+---@param targetInfo SmartRes2_ResTargetInfo
+function module:OnFastestResChanged(callback, targetGUID, targetInfo)
+	self:RefreshTargetCollisionStates(targetGUID, targetInfo)
+end
+
+---@param callback string
+---@param casterGUID string
+---@param targetGUID string
+---@param casterInfo SmartRes2_ResCastInfo
+---@param targetInfo SmartRes2_ResTargetInfo
+function module:OnResTargetGUIDResolved(callback, casterGUID, targetGUID, casterInfo, targetInfo)
+	-- Replace the temporary UNKNOWN target with the resolved target name/GUID,
+	-- then recalculate collision color for all active single-target bars aimed
+	-- at that target.
+	local state = barStates[casterGUID]
+
+	if state and state.source == "runtime" and not state.isMass and not state.isWaiting then
+		state.targetGUID = targetGUID
+		state.targetName = GetTargetName(targetGUID)
+		state.endTime = casterInfo.endTime
+		state.duration = casterInfo.castTime
+		state.startTime = casterInfo.endTime - casterInfo.castTime
+		state.icon = casterInfo.textureID
+		state.isCollision = targetInfo.fastestCasterGUID ~= nil
+			and (targetInfo.fastestCasterGUID ~= casterGUID or targetInfo.fastestResType ~= "SINGLE")
+		self:RefreshCandyBar(state)
+	end
+
+	self:RefreshTargetCollisionStates(targetGUID, targetInfo)
+end
+
+---@param callback string
+---@param targetGUID string
+function module:OnResTargetGUIDIsAlive(callback, targetGUID)
+	if waitingToAccept[targetGUID] then
+		self:StopBar(targetGUID)
+	end
 end
 
 -- --------------------------------------------------------------------
 -- Public-to-addon helpers
 -- --------------------------------------------------------------------
+
+-- These are intentionally tiny accessors for Core, options, and later modules.
+-- Keep gameplay/rendering logic above so public surface area stays obvious.
 
 ---@return SmartRes2_BarsProfileDB|nil profile
 function module:GetProfile()
