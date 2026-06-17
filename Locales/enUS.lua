@@ -4,12 +4,12 @@ File revision: @file-revision@
 Date updated: @file-date-iso@
 ]]--
 
-local silent = true
+local debug = false
 --@debug@
-silent = false
+debug = true
 --@end-debug@
 
-local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true, silent)
+local L = LibStub("AceLocale-3.0"):NewLocale("SmartRes2", "enUS", true, debug) --[[@as table]]
 
 L["%s does not know a mass res spell and cannot bind this key"] = true
 L["%s does not know a res spell and cannot bind this key"] = true
@@ -238,3 +238,15 @@ L["The afterlife denied your application. Welcome back."] = true
 L["I am pulling everyone back from the brink. Try not to sprint back there."] = true
 L["Rise, champions. The repair bill is not done with you yet."] = true
 L["I found the whole group in the lost and found. Resurrecting now."] = true
+L["You do not know a resurrection spell."] = true
+L["You do not have enough power to cast that spell."] = true
+L["You cannot cast that spell right now."] = true
+L["Your pet is already alive."] = true
+L["No valid resurrection target found."] = true
+L["A mass resurrection is in progress. Exiting as there is nothing to do."] = true
+L["Font Style"] = true
+L["High Quality"] = true
+L["High Quality & Thin Outline"] = true
+L["Monochrome & Thin Outline"] = true
+L["Monochrome & Thick Outline"] = true
+L["High Quality is compatible with Thin Outline. Incompatible with Thick Outline, Monochrome, and Font Shadow."] = true

@@ -1,4 +1,4 @@
-## Interface: 120005, 50503, 38001, 20505, 11508
+## Interface: 120007, 50504, 38001, 20505, 11508
 ## Title: SmartRes2
 ## Notes: Co-ordinated targetless Party and Raid wipe recovery. Evolved
 ## Notes-deDE: @localization(locale="deDE", key="Notes")@

@@ -43,9 +43,7 @@ if not lib then return end
 ---| "UnitSelfRes_Consumed"
 
 ---@class CallbackHandlerRegistry
----@field RegisterCallback fun(self: table, eventName: LibResInfoCallback, method?: string|function)
----@field UnregisterCallback fun(self: table, eventName: LibResInfoCallback)
----@field UnregisterAllCallbacks fun(self: CallbackHandlerRegistry, target: table)
+---@field Fire fun(self: CallbackHandlerRegistry, eventName: LibResInfoCallback, ...: any)
 
 ---@class NamePlateFrame
 ---@field unitToken string
@@ -83,11 +81,9 @@ lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib,
 	"UnregisterCallback",
 	"UnregisterAllResInfoCallbacks"
 )
-lib.embeds = lib.embeds or {}
 
-function lib:UnregisterAllResInfoCallbacks()
-	self.callbacks:UnregisterAllCallbacks(self)
-end
+---@type table<table, true>
+lib.embeds = lib.embeds or {}
 
 -- -------------------------------------------------------------------
 -- Event frame
@@ -107,44 +103,40 @@ frame:RegisterEvent("PLAYER_LOGIN")
 -- WoW API
 -- -------------------------------------------------------------------
 
-local UnitGUID = UnitGUID
-local UnitCastingInfo = UnitCastingInfo
-local UnitName = UnitName
-local UnitTokenFromGUID = UnitTokenFromGUID
-local UnitSpellTargetName = UnitSpellTargetName
-local UnitHealth = UnitHealth
-local UnitExists = UnitExists
-local UnitIsDeadOrGhost = UnitIsDeadOrGhost
-local UnitAffectingCombat = UnitAffectingCombat
-
-local GetTime = GetTime
-local GetNumGroupMembers = GetNumGroupMembers
-local IsInRaid = IsInRaid
-local IsInInstance = IsInInstance
-local IsPlayerNeutral = IsPlayerNeutral
-local UnitFactionGroup = UnitFactionGroup
-local InCombatLockdown = InCombatLockdown
-
-local GetNamePlates = C_NamePlate.GetNamePlates
 local After = C_Timer.After
-local GetUnitAuraBySpellID = C_UnitAuras.GetUnitAuraBySpellID
+local GetNamePlates = C_NamePlate.GetNamePlates
+local GetNumGroupMembers = GetNumGroupMembers
 local GetSelfResurrectOptions = C_DeathInfo.GetSelfResurrectOptions
-
-local wipe = table.wipe
-local pairs = pairs
+local GetTime = GetTime
+local GetUnitAuraBySpellID = C_UnitAuras.GetUnitAuraBySpellID
+local InCombatLockdown = InCombatLockdown
+local IsInInstance = IsInInstance
+local IsInRaid = IsInRaid
+local IsPlayerNeutral = IsPlayerNeutral
 local next = next
+local pairs = pairs
 local type = type
+local UnitAffectingCombat = UnitAffectingCombat
+local UnitCastingInfo = UnitCastingInfo
+local UnitExists = UnitExists
+local UnitFactionGroup = UnitFactionGroup
+local UnitGUID = UnitGUID
+local UnitHealth = UnitHealth
+local UnitIsDeadOrGhost = UnitIsDeadOrGhost
+local UnitName = UnitName
+local UnitSpellTargetName = UnitSpellTargetName
+local UnitTokenFromGUID = UnitTokenFromGUID
+local wipe = table.wipe
 
 -- -------------------------------------------------------------------
 -- Constants
 -- -------------------------------------------------------------------
 
-local UNKNOWN_TARGET_GUID = "UNKNOWN"
-local UNKNOWN_TARGET_CLEANUP_TIMEOUT = 10
-
-local PLAYER_GUID
-local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
 local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
+local PLAYER_GUID
+local UNKNOWN_TARGET_CLEANUP_TIMEOUT = 10
+local UNKNOWN_TARGET_GUID = "UNKNOWN"
 
 -- -------------------------------------------------------------------
 -- Internal state
@@ -176,6 +168,7 @@ local selfResInfo = {}
 -- Spell tables
 -- -------------------------------------------------------------------
 
+---@type table<integer, true>
 local SINGLE_TARGET_RES_SPELLS = {
 	-- Priest
 	[2006]		= true,		-- Resurrection Rank 1
@@ -259,26 +252,31 @@ local SINGLE_TARGET_RES_SPELLS = {
 	[339643]	= true,		-- Gift of Life (Mi'kai's Deathscythe)
 }
 
+---@type table<integer, true>
 local MASS_RES_SPELLS = {
-	-- Paladin
-	[212056]	= true,		-- Absolution
-
-	-- Shaman
-	[212048]	= true,		-- Ancestral Vision
-
 	-- Priest
 	[212036]	= true,		-- Mass Resurrection
-
-	-- Monk
-	[212051]	= true,		-- Reawaken
 
 	-- Druid
 	[212040]	= true,		-- Revitalize
 
+	-- Shaman
+	[212048]	= true,		-- Ancestral Vision
+
+	-- Monk
+	[212051]	= true,		-- Reawaken
+
+	-- Paladin
+	[212056]	= true,		-- Absolution
+
 	-- Evoker
 	[361178]	= true,		-- Mass Return
+
+	-- Guild Perk (Mists)
+	[83968]		= true,		-- Mass Resurrection
 }
 
+---@type table<integer, true>
 local SELF_RES_AURAS = {
 	[20707]		= true,		-- Soulstone Resurrection Rank 1
 	[20762]		= true,		-- Soulstone Resurrection Rank 2
@@ -295,8 +293,11 @@ local SELF_RES_AURAS = {
 	[280007]	= true,		-- Drust Soulcatcher
 }
 
+---@type table<string, boolean>
 local events = {
 	["INCOMING_RESURRECT_CHANGED"]	= true,
+	["PLAYER_ALIVE"]				= true,
+	["PLAYER_UNGHOST"]				= true,
 	["RESURRECT_REQUEST"]			= true,
 	["UNIT_AURA"]					= true,
 	["UNIT_HEALTH"]					= true,
@@ -307,8 +308,6 @@ local events = {
 	["UNIT_SPELLCAST_START"]		= true,
 	["UNIT_SPELLCAST_STOP"]			= true,
 	["UNIT_SPELLCAST_SUCCEEDED"]	= true,
-	["PLAYER_ALIVE"]				= true,
-	["PLAYER_UNGHOST"]				= true,
 }
 
 -- -------------------------------------------------------------------
@@ -461,22 +460,31 @@ local function UpdateAllFastestCasterGUIDs()
 	return changedTargetInfo
 end
 
--- Used by public target queries when the queried unit is dead and mass-res
--- casts are active. Mass-res casts do not attach to individual targets.
-local function GetFastestMassResCasterGUID()
+-- Find the mass resurrection cast which will complete first.
+--
+-- Returns the caster GUID and remaining cast time in seconds.
+-- Remaining time is clamped to zero to avoid negative values from
+-- event timing or delayed queries.
+local function GetFastestMassResInfo()
 	local fastestCasterGUID
-	local fastestEndTime
+	local fastestRemainingTime
 
 	for casterGUID, casterInfo in pairs(massResCasterInfo) do
 		if type(casterInfo) == "table" and casterInfo.endTime then
-			if not fastestEndTime or casterInfo.endTime < fastestEndTime then
+			local remainingTime = casterInfo.endTime - GetTime()
+
+			if remainingTime < 0 then
+				remainingTime = 0
+			end
+
+			if not fastestRemainingTime or remainingTime < fastestRemainingTime then
 				fastestCasterGUID = casterGUID
-				fastestEndTime = casterInfo.endTime
+				fastestRemainingTime = remainingTime
 			end
 		end
 	end
 
-	return fastestCasterGUID
+	return fastestCasterGUID, fastestRemainingTime
 end
 
 -- Lightweight GUID-shape check for public APIs. This intentionally avoids
@@ -1350,39 +1358,50 @@ end
 -- -------------------------------------------------------------------
 
 ---@param unit string unitID, GUID, unit name, or name-realm
----@return string|false casterGUID Returns false if no active resurrection exists.
----@return ResType|nil resType
-function lib:GetFastestCasterForUnit(unit)
+---@return (true, string, number, ResType) | (false, nil, nil, nil) isBeingResurrected, fastestGUID, fastestRemainingTime, fastestResType
+function lib:IsUnitBeingResurrected(unit)
 	local targetGUID = ResolvePublicUnitArg(unit)
 	if not targetGUID then
-		return false, nil
+		return false, nil, nil, nil
 	end
 
 	local targetInfo = resTargetInfo[targetGUID]
+	local fastestGUID = targetInfo and targetInfo.fastestCasterGUID
+	local fastestResType = targetInfo and targetInfo.fastestResType
 
-	if targetInfo and targetInfo.fastestCasterGUID and targetInfo.fastestResType then
-		return targetInfo.fastestCasterGUID, targetInfo.fastestResType
-	end
+	if not fastestGUID or not fastestResType then
+		local unitID = UnitTokenFromGUID(targetGUID)
 
-	local unitID = UnitTokenFromGUID(targetGUID)
+		if unitID and UnitIsDeadOrGhost(unitID) then
+			local fastestMassResGUID, fastestRemainingTime = GetFastestMassResInfo()
 
-	if unitID and UnitIsDeadOrGhost(unitID) then
-		local casterGUID = GetFastestMassResCasterGUID()
-
-		if casterGUID then
-			return casterGUID, "MASS"
+			if fastestMassResGUID then
+				return true, fastestMassResGUID, fastestRemainingTime, "MASS"
+			end
 		end
+
+		return false, nil, nil, nil
 	end
 
-	return false, nil
+	local casterInfo = fastestResType == "MASS" and massResCasterInfo[fastestGUID] or resCasterInfo[fastestGUID]
+	local fastestRemainingTime = casterInfo and casterInfo.endTime and (casterInfo.endTime - GetTime()) or 0
+
+	if fastestRemainingTime < 0 then
+		fastestRemainingTime = 0
+	end
+
+	return true, fastestGUID, fastestRemainingTime, fastestResType
 end
 
----@param unit string unitID, GUID, unit name, or name-realm
----@return boolean isBeingResurrected
-function lib:IsUnitBeingResurrected(unit)
-	local casterGUID = self:GetFastestCasterForUnit(unit)
+---@return (true, string, number) | (false, nil, nil) isBeingCast, fastestMassResGUID, fastestRemainingTime
+function lib:IsMassResBeingCast()
+	local fastestMassResGUID, fastestRemainingTime = GetFastestMassResInfo()
 
-	return casterGUID ~= false
+	if fastestMassResGUID then
+		return true, fastestMassResGUID, fastestRemainingTime
+	end
+
+	return false, nil, nil
 end
 
 ---@param unit string unitID, GUID, unit name, or name-realm
@@ -1504,29 +1523,29 @@ end
 -- -------------------------------------------------------------------
 
 ---@alias LibResInfoMixin
----| "RegisterCallback"
----| "UnregisterCallback"
----| "UnregisterAllResInfoCallbacks"
----| "GetFastestCasterForUnit"
----| "IsUnitBeingResurrected"
----| "UnitCanSelfResurrect"
----| "GetResurrectionCastInfo"
----| "GetCasterInfo"
----| "GetTargetInfo"
 ---| "GetAllCastersForUnit"
+---| "GetCasterInfo"
+---| "GetResurrectionCastInfo"
+---| "GetTargetInfo"
+---| "IsMassResBeingCast"
+---| "IsUnitBeingResurrected"
+---| "RegisterCallback"
+---| "UnitCanSelfResurrect"
+---| "UnregisterAllResInfoCallbacks"
+---| "UnregisterCallback"
 
 ---@type LibResInfoMixin[]
 local mixins = {
-	"RegisterCallback",
-	"UnregisterCallback",
-	"UnregisterAllResInfoCallbacks",
-	"GetFastestCasterForUnit",
-	"IsUnitBeingResurrected",
-	"UnitCanSelfResurrect",
-	"GetResurrectionCastInfo",
-	"GetCasterInfo",
-	"GetTargetInfo",
 	"GetAllCastersForUnit",
+	"GetCasterInfo",
+	"GetResurrectionCastInfo",
+	"GetTargetInfo",
+	"IsMassResBeingCast",
+	"IsUnitBeingResurrected",
+	"RegisterCallback",
+	"UnitCanSelfResurrect",
+	"UnregisterAllResInfoCallbacks",
+	"UnregisterCallback",
 }
 
 ---@param target table

@@ -20,26 +20,19 @@ local BACKGROUND = BACKGROUND
 local DISABLE = DISABLE
 local EMBLEM_BORDER = EMBLEM_BORDER
 local EMBLEM_BORDER_COLOR = EMBLEM_BORDER_COLOR
-local FONT_SIZE = FONT_SIZE
 local ENABLE = ENABLE
+local FONT_SIZE = FONT_SIZE
 local GENERAL_LABEL = GENERAL_LABEL
+local LibStub = LibStub
 local NONE = NONE
 local TEXTURES_SUBHEADER = TEXTURES_SUBHEADER
-local LibStub = LibStub
 
 -- --------------------------------------------------------------------
 -- Addon / module
 -- --------------------------------------------------------------------
 
----@class SmartRes2: AceAddon
----@field LSM any
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 
----@class SmartRes2_Bars: AceAddon
----@field db SmartRes2_BarsDB
----@field ClearTestBars fun(self: SmartRes2_Bars)
----@field RefreshConfig fun(self: SmartRes2_Bars)
----@field ShowTestBars fun(self: SmartRes2_Bars)
 local module = addon:GetModule("Bars")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
@@ -74,10 +67,26 @@ local framePointValues = {
 	BOTTOMRIGHT = L["Bottom Right"],
 }
 
-local fontOutlineValues = {
-	NONE = NONE,
-	OUTLINE = L["Thin Outline"],
-	THICKOUTLINE = L["Thick Outline"],
+local fontStyleValues = {
+	[""] = NONE,
+	["SLUG"] = L["High Quality"],
+	["OUTLINE"] = L["Thin Outline"],
+	["SLUG, OUTLINE"] = L["High Quality & Thin Outline"],
+	["THICKOUTLINE"] = L["Thick Outline"],
+	["MONOCHROME"] = L["Monochrome"],
+	["MONOCHROME, OUTLINE"] = L["Monochrome & Thin Outline"],
+	["MONOCHROME, THICKOUTLINE"] = L["Monochrome & Thick Outline"],
+}
+
+local fontStyleSorting = {
+	"",
+	"SLUG",
+	"OUTLINE",
+	"SLUG, OUTLINE",
+	"THICKOUTLINE",
+	"MONOCHROME",
+	"MONOCHROME, OUTLINE",
+	"MONOCHROME, THICKOUTLINE",
 }
 
 local function IsModuleDisabled()
@@ -88,15 +97,24 @@ local function IsShortTextDisabled()
 	return IsModuleDisabled() or not module.db.profile.behavior.showLabel
 end
 
+local function IsFontSlugStyle()
+	local fontStyle = module.db.profile.media.fontStyle
+
+	return fontStyle == "SLUG" or fontStyle == "SLUG, OUTLINE"
+end
+
+local function IsFontShadowToggleDisabled()
+	return IsModuleDisabled() or IsFontSlugStyle()
+end
+
 local function IsFontShadowDisabled()
-	return IsModuleDisabled() or not module.db.profile.text.shadow
+	return IsFontShadowToggleDisabled() or not module.db.profile.text.shadow
 end
 
 -- --------------------------------------------------------------------
 -- Options table
 -- --------------------------------------------------------------------
 
----@return table options
 function module:GetOptions()
 	if options then
 		return options
@@ -686,47 +704,24 @@ function module:GetOptions()
 							module:RefreshConfig()
 						end,
 					},
-					fontOutline = {
+					fontStyle = {
 						order = 80,
 						type = "select",
 						style = "dropdown",
-						name = L["Font Outline"],
-						values = fontOutlineValues,
+						name = L["Font Style"],
+						desc = L["High Quality is compatible with Thin Outline. Incompatible with Thick Outline, Monochrome, and Font Shadow."],
+						values = fontStyleValues,
+						sorting = fontStyleSorting,
 						get = function()
-							return module.db.profile.media.fontOutline
+							return module.db.profile.media.fontStyle
 						end,
 						set = function(_, value)
-							module.db.profile.media.fontOutline = value
-							module:RefreshConfig()
-						end,
-					},
-					fontSlug = {
-						order = 90,
-						type = "toggle",
-						name = L["High Quality Font Rendering"],
-						desc = L["Use Blizzard's high-quality font renderer when supported by this game client."],
-						get = function()
-							return module.db.profile.media.fontSlug
-						end,
-						set = function(_, value)
-							module.db.profile.media.fontSlug = value
-							module:RefreshConfig()
-						end,
-					},
-					fontMonochrome = {
-						order = 100,
-						type = "toggle",
-						name = L["Monochrome"],
-						get = function()
-							return module.db.profile.media.fontMonochrome
-						end,
-						set = function(_, value)
-							module.db.profile.media.fontMonochrome = value
+							module.db.profile.media.fontStyle = value
 							module:RefreshConfig()
 						end,
 					},
 					fontColor = {
-						order = 110,
+						order = 90,
 						type = "color",
 						name = L["Font Color"],
 						hasAlpha = true,
@@ -745,9 +740,10 @@ function module:GetOptions()
 						end,
 					},
 					fontShadow = {
-						order = 120,
+						order = 100,
 						type = "toggle",
 						name = L["Font Shadow"],
+						disabled = IsFontShadowToggleDisabled,
 						get = function()
 							return module.db.profile.text.shadow
 						end,
@@ -757,7 +753,7 @@ function module:GetOptions()
 						end,
 					},
 					fontShadowColor = {
-						order = 130,
+						order = 110,
 						type = "color",
 						name = L["Font Shadow Color"],
 						disabled = IsFontShadowDisabled,
@@ -777,7 +773,7 @@ function module:GetOptions()
 						end,
 					},
 					fontShadowOffsetX = {
-						order = 140,
+						order = 120,
 						type = "range",
 						name = L["Font Shadow X Offset"],
 						disabled = IsFontShadowDisabled,
@@ -794,7 +790,7 @@ function module:GetOptions()
 						end,
 					},
 					fontShadowOffsetY = {
-						order = 150,
+						order = 130,
 						type = "range",
 						name = L["Font Shadow Y Offset"],
 						disabled = IsFontShadowDisabled,
@@ -811,7 +807,7 @@ function module:GetOptions()
 						end,
 					},
 					texturesHeader = {
-						order = 160,
+						order = 140,
 						type = "header",
 						name = TEXTURES_SUBHEADER,
 					},
@@ -830,7 +826,7 @@ function module:GetOptions()
 						end,
 					},
 					barBorder = {
-						order = 180,
+						order = 150,
 						type = "select",
 						dialogControl = "LSM30_Border",
 						name = L["Bar Border"],
@@ -844,7 +840,7 @@ function module:GetOptions()
 						end,
 					},
 					barBorderThickness = {
-						order = 190,
+						order = 160,
 						type = "range",
 						name = L["Bar Border Thickness"],
 						min = 0,
@@ -860,7 +856,7 @@ function module:GetOptions()
 						end,
 					},
 					barSpacing = {
-						order = 200,
+						order = 170,
 						type = "range",
 						name = L["Bar Spacing"],
 						desc = L["Extra spacing between bars. SmartRes2 also accounts for bar border thickness so borders do not overlap."],

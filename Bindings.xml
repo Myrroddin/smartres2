@@ -1,0 +1,5 @@
+<Bindings>
+    <Binding category="BINDING_HEADER_SMARTRES2" name="SMARTRES2_SINGLE_RES">
+        SmartRes2_CastSmartResurrection()
+    </Binding>
+</Bindings>

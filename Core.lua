@@ -24,30 +24,48 @@
 -- Lua / Blizzard API upvalues
 -- --------------------------------------------------------------------
 
-local C_Spell = C_Spell
+local _G = _G
+local CastSpellByID = C_Spell.CastSpellByID
+local GetNumGroupMembers = GetNumGroupMembers
+local GetSpellInfo = C_Spell.GetSpellInfo
+local GetSpellTexture = C_Spell.GetSpellTexture
 local HIGHLIGHT_FONT_COLOR = HIGHLIGHT_FONT_COLOR
 local IsInGroup = IsInGroup
+local IsInRaid = IsInRaid
+local IsSpellInRange = C_Spell.IsSpellInRange
+local IsSpellKnown = C_SpellBook.IsSpellKnown
+local IsSpellUsable = C_Spell.IsSpellUsable
 local LibStub = LibStub
 local NORMAL_FONT_COLOR = NORMAL_FONT_COLOR
 local OKAY = OKAY
+local PickupSpell = C_Spell.PickupSpell
+local POWER_TYPE = Enum.PowerType
 local StaticPopupDialogs = StaticPopupDialogs
 local StaticPopup_Show = StaticPopup_Show
 local type = type
 local UnitClassBase = UnitClassBase
+local UnitExists = UnitExists
+local UnitGroupRolesAssigned = UnitGroupRolesAssigned
+local UnitIsDead = UnitIsDead
+local UnitIsGhost = UnitIsGhost
+local UnitIsPlayer = UnitIsPlayer
+local UnitIsUnit = UnitIsUnit
+local UnitIsVisible = UnitIsVisible
+local UnitPowerMax = UnitPowerMax
 
 -- --------------------------------------------------------------------
 -- Libraries
 -- --------------------------------------------------------------------
 
-local LibDataBroker = LibStub("LibDataBroker-1.1")
-local LibDBIcon = LibStub("LibDBIcon-1.0")
 local AceConfigDialog = LibStub("AceConfigDialog-3.0")
 local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 local AceDB = LibStub("AceDB-3.0")
+local LibDataBroker = LibStub("LibDataBroker-1.1")
+local LibDBIcon = LibStub("LibDBIcon-1.0")
 local LibSharedMedia = LibStub("LibSharedMedia-3.0")
 local Masque, MasqueAPIVersion = LibStub("Masque", true)
 
----@class SmartRes2MinimapDB
+---@class SmartRes2MinimapDB: LibDBIcon.button.DB
 ---@field hide boolean
 ---@field lock boolean
 ---@field showInCompartment boolean
@@ -71,14 +89,9 @@ local Masque, MasqueAPIVersion = LibStub("Masque", true)
 
 ---@class SmartRes2: AceAddon, AceConsole-3.0, AceEvent-3.0, LibAboutPanel-2.0, LibResInfo-2.0
 ---@field db SmartRes2DB
----@field LSM any
 ---@field Masque any|nil
 ---@field MasqueAPIVersion number|nil
----@field IsMasqueAvailable fun(self: SmartRes2): boolean
----@field GetMassResurrectionIcon fun(self: SmartRes2): number|string|nil
----@field GetOptions fun(self: SmartRes2): table
----@field TogglePreviewBars fun(self: SmartRes2)
----@field GetResurrectionIconForClass fun(self: SmartRes2, classFilename: string|nil, useDefault?: boolean): number|string|nil
+
 local addon = LibStub("AceAddon-3.0"):NewAddon(
 	"SmartRes2",
 	"AceEvent-3.0",
@@ -92,12 +105,9 @@ addon.Masque = Masque
 addon.MasqueAPIVersion = MasqueAPIVersion
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
+BINDING_HEADER_SMARTRES2 = "SmartRes2"
+BINDING_NAME_SMARTRES2_SINGLE_RES = L["Single Target Res Key"]
 
----@class SmartRes2_Bars: AceAddon
----@field db SmartRes2_BarsDB
----@field ClearTestBars fun(self: SmartRes2_Bars)
----@field HasTestBars fun(self: SmartRes2_Bars): boolean
----@field ShowTestBars fun(self: SmartRes2_Bars)
 
 -- All modules should have AceEvent, AceConsole, and LibResInfo mixed in by
 -- default. LibAboutPanel intentionally remains Core-only because modules do
@@ -112,8 +122,22 @@ addon:SetDefaultModuleLibraries(
 -- Constants
 -- --------------------------------------------------------------------
 
-local SMARTRES2_DB_VERSION = 1
 local DB_RESET_POPUP = "SMARTRES2_DB_RESET"
+local DEFAULT_ICON_SPELL_ID = 2006 -- Priest: Resurrection
+local HUNTER_REVIVE_PET_SPELL_ID = 982 -- Revive Pet
+local MANA_POWER_TYPE = POWER_TYPE.Mana or 0
+local MASS_RESURRECTION_RETAIL_SPELL_INFO = GetSpellInfo(212036) -- Mass Resurrection
+local MASS_RESURRECTION_MISTS_SPELL_INFO = GetSpellInfo(83968) -- Mass Resurrection
+local MASS_RESURRECTION_FALLBACK_SPELL_INFO = GetSpellInfo(DEFAULT_ICON_SPELL_ID) -- Resurrection
+
+local MASS_RESURRECTION_SPELL_INFO = MASS_RESURRECTION_RETAIL_SPELL_INFO
+	or MASS_RESURRECTION_MISTS_SPELL_INFO
+	or MASS_RESURRECTION_FALLBACK_SPELL_INFO
+
+local MASS_RESURRECTION_ICON = MASS_RESURRECTION_SPELL_INFO and MASS_RESURRECTION_SPELL_INFO.iconID
+local MASS_RESURRECTION_ICON_SPELL_ID = MASS_RESURRECTION_SPELL_INFO and MASS_RESURRECTION_SPELL_INFO.spellID
+local PLAYER_CLASS_FILENAME = UnitClassBase("player")
+local SMARTRES2_DB_VERSION = 1
 
 StaticPopupDialogs[DB_RESET_POPUP] = {
 	text = L["SmartRes2 settings were reset because this version uses a new settings layout."],
@@ -123,10 +147,6 @@ StaticPopupDialogs[DB_RESET_POPUP] = {
 	hideOnEscape = true,
 	preferredIndex = 3,
 }
-
-local DEFAULT_ICON_SPELL_ID = 2006 -- Priest: Resurrection
-local MASS_RESURRECTION_ICON_SPELL_ID = 83968 -- Mass Resurrection
-local MASS_RESURRECTION_ICON = [[Interface\Icons\Spell_Holy_PrayerOfHealing02]]
 
 -- Broker/minimap icon spellIDs are intentionally non-combat resurrection
 -- spell icons. Combat resurrection priority is situational and should not
@@ -168,13 +188,10 @@ local defaults = {
 -- File-scope state
 -- --------------------------------------------------------------------
 
----@type SmartRes2ProfileDB|nil
 local db
 
----@type SmartRes2GlobalDB|nil
 local global
 
----@type table|nil
 local options
 
 -- Forward declarations for local helpers that are defined later but called
@@ -301,13 +318,11 @@ function RegisterMedia()
 end
 
 function RegisterMasqueSkins()
-	local Masque = addon.Masque
-
-	if not Masque then
+	if not addon.Masque then
 		return
 	end
 
-	Masque:AddSkin("SmartRes2: Neuron", {
+	addon.Masque:AddSkin("SmartRes2: Neuron", {
 		API_VERSION = addon.MasqueAPIVersion,
 		Shape = "Square",
 
@@ -519,15 +534,10 @@ end
 -- Icon helpers
 -- --------------------------------------------------------------------
 
----@param spellID number
----@return number|string|nil icon
 local function GetSpellIcon(spellID)
-	return C_Spell.GetSpellTexture(spellID)
+	return GetSpellTexture(spellID)
 end
 
----@param classFilename string|nil
----@param useDefault boolean|nil
----@return number|string|nil icon
 function addon:GetResurrectionIconForClass(classFilename, useDefault)
 	local spellID = classFilename and classResIconSpellIDs[classFilename]
 	local icon = spellID and GetSpellIcon(spellID)
@@ -541,12 +551,10 @@ function addon:GetResurrectionIconForClass(classFilename, useDefault)
 	end
 end
 
----@return number|string|nil icon
 function addon:GetMassResurrectionIcon()
 	return GetSpellIcon(MASS_RESURRECTION_ICON_SPELL_ID) or MASS_RESURRECTION_ICON
 end
 
----@return boolean available
 function addon:IsMasqueAvailable()
 	return self.Masque ~= nil
 end
@@ -558,8 +566,6 @@ end
 -- AceDB namespaces are created by modules when those modules are written.
 -- Until then, modules without namespaces are treated as enabled. Once Chat
 -- and Bars exist, their own namespace defaults should include profile.enabled.
----@param moduleName string
----@return boolean enabled
 local function IsModuleProfileEnabled(moduleName)
 	local moduleDB = addon.db:GetNamespace(moduleName, true)
 
@@ -603,7 +609,7 @@ end
 -- :RefreshConfig().
 function addon:RefreshModuleConfigs()
 	for _, module in self:IterateModules() do
-		local moduleObject = module --[[@as table]]
+		local moduleObject = module
 		local refreshConfig = moduleObject["RefreshConfig"]
 
 		if type(refreshConfig) == "function" then
@@ -615,8 +621,6 @@ end
 -- Modules call this to add their AceConfig option tables to SmartRes2's main
 -- options table. The module name is used as the options key, but the module
 -- itself still owns its own defaults and DB namespace.
----@param moduleName string
----@param moduleOptions table
 function addon:RegisterModuleOptions(moduleName, moduleOptions)
 	if type(moduleName) ~= "string" then
 		error(("bad argument #1, expected string 'moduleName', got %s"):format(type(moduleName)), 2)
@@ -651,7 +655,7 @@ function addon:TogglePreviewBars()
 		return
 	end
 
-	local barsModule = self:GetModule("Bars", true) --[[@as SmartRes2_Bars|nil]]
+	local barsModule = self:GetModule("Bars", true)
 
 	if not barsModule or not barsModule.db or not barsModule.db.profile.enabled or not barsModule:IsEnabled() then
 		return
@@ -668,10 +672,9 @@ end
 -- Broker / minimap
 -- --------------------------------------------------------------------
 
----@return number|string|nil icon
 function addon:GetBrokerIcon()
 	if global and global.useClassIconForBroker then
-		return self:GetResurrectionIconForClass(UnitClassBase("player"))
+		return self:GetResurrectionIconForClass(PLAYER_CLASS_FILENAME)
 	end
 
 	return self:GetResurrectionIconForClass(nil)
@@ -685,12 +688,11 @@ function addon:RefreshBrokerIcon()
 end
 
 function addon:InitializeBroker()
-	---@type LibDataBroker.QuickLauncher
 	local brokerObjectData = {
-		type = "launcher" --[[@as "launcher"]],
+		type = "launcher",
 		tocname = "SmartRes2",
 		label = "SmartRes2",
-		icon = (self:GetBrokerIcon() or "") --[[@as string]],
+		icon = (self:GetBrokerIcon() or ""),
 		OnClick = function(_, button)
 			if button == "RightButton" then
 				AceConfigDialog:Open("SmartRes2")
@@ -715,7 +717,6 @@ end
 -- Inform the player of useful or important information
 -- --------------------------------------------------------------------
 
----@param message string
 function addon:NotifySelf(message)
 	if db and db.notifySelf then
 		self:Print(message)
@@ -723,29 +724,273 @@ function addon:NotifySelf(message)
 end
 
 -- --------------------------------------------------------------------
--- Future keybinding entry points
+-- Smart resurrection spell selection
 -- --------------------------------------------------------------------
 
--- These are intentionally small placeholders until the smart target-selection
--- pass. The group checks are useful now because keybinds can be pressed before
--- the real implementation exists.
+
+local normalSingleResSpellIDs = {
+	DRUID = {
+		50769, -- Revive
+	},
+	EVOKER = {
+		361227, -- Return
+	},
+	MONK = {
+		115178, -- Resuscitate
+	},
+	PALADIN = {
+		7328, -- Redemption Rank 1
+		10322, -- Redemption Rank 2
+		10324, -- Redemption Rank 3
+		20772, -- Redemption Rank 4
+		20773, -- Redemption Rank 5
+		48949, -- Redemption Rank 6
+		48950, -- Redemption Rank 7
+	},
+	PRIEST = {
+		2006, -- Resurrection Rank 1
+		2010, -- Resurrection Rank 2
+		10880, -- Resurrection Rank 3
+		10881, -- Resurrection Rank 4
+		20770, -- Resurrection Rank 5
+		25435, -- Resurrection Rank 6
+		48171, -- Resurrection Rank 7
+	},
+	SHAMAN = {
+		2008, -- Ancestral Spirit Rank 1
+		20609, -- Ancestral Spirit Rank 2
+		20610, -- Ancestral Spirit Rank 3
+		20776, -- Ancestral Spirit Rank 4
+		20777, -- Ancestral Spirit Rank 5
+		25590, -- Ancestral Spirit Rank 6
+		49277, -- Ancestral Spirit Rank 7
+	},
+}
+
+local function IsKnownSpell(spellID)
+	return IsSpellKnown(spellID) == true
+end
+
+local function GetHighestKnownSpell(spellIDs)
+	if not spellIDs then
+		return nil
+	end
+
+	for index = #spellIDs, 1, -1 do
+		local spellID = spellIDs[index]
+
+		if IsKnownSpell(spellID) then
+			return spellID
+		end
+	end
+end
+
+local function IsUsableSpell(spellID)
+	local isUsable, insufficientPower = IsSpellUsable(spellID)
+
+	if insufficientPower then
+		addon:NotifySelf(L["You do not have enough power to cast that spell."])
+		return false
+	end
+
+	if not isUsable then
+		addon:NotifySelf(L["You cannot cast that spell right now."])
+		return false
+	end
+
+	return true
+end
+
+local function GetSmartResPriority(unit)
+	local role = UnitGroupRolesAssigned(unit)
+
+	if role == "HEALER" then
+		return 1
+	elseif role == "TANK" then
+		return 2
+	elseif role == "DAMAGER" then
+		return 3
+	elseif UnitPowerMax(unit, MANA_POWER_TYPE) > 0 then
+		return 4
+	end
+
+	return 5
+end
+
+local function IsEligibleSmartResTarget(unit, spellID)
+	if UnitIsUnit(unit, "player") then
+		return false
+	end
+
+	if not UnitExists(unit) or UnitIsPlayer(unit) ~= true then
+		return false
+	end
+
+	if UnitIsDead(unit) ~= true or UnitIsGhost(unit) then
+		return false
+	end
+
+	if UnitIsVisible(unit) ~= true then
+		return false
+	end
+
+	if IsSpellInRange(spellID, unit) ~= true then
+		return false
+	end
+
+	local isBeingResurrected = addon:IsUnitBeingResurrected(unit)
+	if isBeingResurrected then
+		return false
+	end
+
+	return true
+end
+
+local function FindBestSmartResTarget(spellID)
+	local bestUnit
+	local bestPriority
+	local bestIndex
+	local numGroupMembers = GetNumGroupMembers()
+
+	if IsInRaid() then
+		for index = 1, numGroupMembers do
+			local unit = "raid" .. index
+
+			if IsEligibleSmartResTarget(unit, spellID) then
+				local priority = GetSmartResPriority(unit)
+
+				if not bestPriority or priority < bestPriority or (priority == bestPriority and index < bestIndex) then
+					bestUnit = unit
+					bestPriority = priority
+					bestIndex = index
+				end
+			end
+		end
+	else
+		for index = 1, numGroupMembers - 1 do
+			local unit = "party" .. index
+
+			if IsEligibleSmartResTarget(unit, spellID) then
+				local priority = GetSmartResPriority(unit)
+
+				if not bestPriority or priority < bestPriority or (priority == bestPriority and index < bestIndex) then
+					bestUnit = unit
+					bestPriority = priority
+					bestIndex = index
+				end
+			end
+		end
+	end
+
+	return bestUnit
+end
+
+local function GetPlayerNormalSingleResSpellID()
+	if PLAYER_CLASS_FILENAME == "HUNTER" then
+		if IsKnownSpell(HUNTER_REVIVE_PET_SPELL_ID) then
+			return HUNTER_REVIVE_PET_SPELL_ID
+		end
+
+		return nil
+	end
+
+	return GetHighestKnownSpell(normalSingleResSpellIDs[PLAYER_CLASS_FILENAME])
+end
+
+local function CastHunterRevivePet()
+	if not IsKnownSpell(HUNTER_REVIVE_PET_SPELL_ID) then
+		addon:NotifySelf(L["You do not know a resurrection spell."])
+		return true
+	end
+
+	if UnitExists("pet") then
+		addon:NotifySelf(L["Your pet is already alive."])
+		return true
+	end
+
+	if not IsUsableSpell(HUNTER_REVIVE_PET_SPELL_ID) then
+		return true
+	end
+
+	CastSpellByID(HUNTER_REVIVE_PET_SPELL_ID)
+	return true
+end
+
+-- --------------------------------------------------------------------
+-- Keybinding entry points
+-- --------------------------------------------------------------------
+
+_G.SmartRes2_CastSmartResurrection = function()
+	addon:CastSmartResurrection()
+end
 
 function addon:CastSmartResurrection()
+	if PLAYER_CLASS_FILENAME == "HUNTER" then
+		CastHunterRevivePet()
+		return
+	end
+
 	if not IsInGroup() then
 		self:NotifySelf(L["You are not in a group and cannot use this feature."])
 		return
 	end
-	-- Implemented later in the keybinding/spell-selection pass.
+
+	if self:IsMassResBeingCast() then
+		self:NotifySelf(L["A mass resurrection is in progress. Exiting as there is nothing to do."])
+		return
+	end
+
+	local spellID = GetPlayerNormalSingleResSpellID()
+	if not spellID then
+		self:NotifySelf(L["You do not know a resurrection spell."])
+		return
+	end
+
+	if not IsUsableSpell(spellID) then
+		return
+	end
+
+	local targetUnit = FindBestSmartResTarget(spellID)
+	if not targetUnit then
+		self:NotifySelf(L["No valid resurrection target found."])
+		return
+	end
+
+	CastSpellByID(spellID, targetUnit)
+end
+
+function addon:PrepareManualResurrection()
+	local spellID = GetPlayerNormalSingleResSpellID()
+
+	if not spellID then
+		self:NotifySelf(L["You do not know a resurrection spell."])
+		return
+	end
+
+	if not IsUsableSpell(spellID) then
+		return
+	end
+
+	PickupSpell(spellID)
+end
+
+function addon:PreLoadCombatResurrection()
+	-- Implemented later. This must preload the combat resurrection spell
+	-- onto the cursor and must not auto-select a target.
 end
 
 function addon:PrepareCombatResurrection()
-	-- Implemented later. This must preload the combat resurrection spell
-	-- onto the cursor and must not auto-select a target.
+	self:PreLoadCombatResurrection()
 end
 
 function addon:CastMassResurrection()
 	if not IsInGroup() then
 		self:NotifySelf(L["You are not in a group and cannot use this feature."])
+		return
+	end
+
+	if self:IsMassResBeingCast() then
+		self:NotifySelf(L["A mass resurrection is in progress. Exiting as there is nothing to do."])
 		return
 	end
 	-- Implemented later in the keybinding/spell-selection pass.

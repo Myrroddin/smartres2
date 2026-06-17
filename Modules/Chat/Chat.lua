@@ -20,7 +20,6 @@
 -- Lua / Blizzard API upvalues
 -- --------------------------------------------------------------------
 
-local C_ChatInfo = C_ChatInfo
 local IsInGroup = IsInGroup
 local IsInRaid = IsInRaid
 local IsPlayerNeutral = IsPlayerNeutral
@@ -28,6 +27,7 @@ local LE_PARTY_CATEGORY_INSTANCE = LE_PARTY_CATEGORY_INSTANCE
 local LibStub = LibStub
 local math_random = math.random
 local pairs = pairs
+local SendChatMessage = C_ChatInfo.SendChatMessage
 local string_format = string.format
 local string_sub = string.sub
 local table_wipe = table.wipe
@@ -40,47 +40,15 @@ local UNKNOWN = UNKNOWN
 -- Addon / module
 -- --------------------------------------------------------------------
 
----@class SmartRes2: AceAddon, AceConsole-3.0
----@field db SmartRes2DB
----@field NotifySelf fun(self: SmartRes2, message: string)
----@field RegisterModuleOptions fun(self: SmartRes2, moduleName: string, moduleOptions: table)
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 
----@class SmartRes2_ResCastInfo
----@field casterGUID string
----@field targetGUID string|nil
----@field castTime number|nil
----@field spellID integer
----@field textureID integer|nil
----@field endTime number|nil
-
----@class SmartRes2_ResTargetInfo
----@field targetGUID string
----@field fastestCasterGUID string|nil
----@field fastestResType "SINGLE"|"MASS"|nil
-
----@class SmartRes2_ChatProfileDB
----@field enabled boolean
----@field notifyCollision "GROUP"|"WHISPER"|"NONE"
----@field singleResOutput "GROUP"|"INSTANCE_CHAT"|"RAID"|"PARTY"|"WHISPER"|"NONE"
----@field massResOutput "GROUP"|"INSTANCE_CHAT"|"RAID"|"PARTY"|"NONE"
----@field overrideSingleResMessage string|nil
----@field overrideMassResMessage string|nil
----@field deletedSingleMessages table<string, string>
----@field deletedMassMessages table<string, string>
----@field randomSingleMessages table<string, boolean>
----@field randomMassMessages table<string, boolean>
-
----@class SmartRes2_ChatDB: AceDBObject-3.0
----@field profile SmartRes2_ChatProfileDB
-
----@class SmartRes2_Chat: AceAddon, AceConsole-3.0, AceEvent-3.0, LibResInfo-2.0
----@field db SmartRes2_ChatDB
+---@class Chat: AceAddon, AceConsole-3.0, AceEvent-3.0, LibResInfo-2.0
+---@field db table
 ---@field randomSingleMessages string[]
 ---@field randomMassMessages string[]
----@field GetOptions fun(self: SmartRes2_Chat): table
----@field RegisterCallback fun(self: SmartRes2_Chat, eventName: string, method?: string, arg?: any)
----@field UnregisterAllResInfoCallbacks fun(self: SmartRes2_Chat)
+---@field RegisterCallback fun(self: Chat, eventName: string, method?: string, arg?: any)
+---@field UnregisterAllResInfoCallbacks fun(self: Chat)
+---@field UnregisterEvent fun(self: Chat, eventName: string)
 local module = addon:NewModule("Chat")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
@@ -150,18 +118,14 @@ local defaults = {
 -- File-scope state
 -- --------------------------------------------------------------------
 
----@type SmartRes2_ChatProfileDB|nil
 local db
 
----@type string|nil
 local PLAYER_GUID
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
 local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 
----@type table<string, SmartRes2_ResCastInfo>
 local activeSingleCasts = {}
 
----@type table<string, true>
 local collisionNotified = {}
 
 module.randomSingleMessages = {}
@@ -175,7 +139,7 @@ module.randomMassMessages = {}
 -- registers LibResInfo callbacks while enabled, so disabling the module also
 -- stops all outgoing chat behavior.
 function module:OnInitialize()
-	self.db = addon.db:RegisterNamespace(self:GetName(), defaults) --[[@as SmartRes2_ChatDB]]
+	self.db = addon.db:RegisterNamespace(self:GetName(), defaults)
 
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
@@ -222,8 +186,6 @@ end
 -- Message table helpers
 -- --------------------------------------------------------------------
 
----@param source table<string, boolean>
----@param destination string[]
 local function BuildEnabledMessageList(source, destination)
 	table_wipe(destination)
 
@@ -243,9 +205,6 @@ function module:RefreshMessageCaches()
 	BuildEnabledMessageList(db.randomMassMessages, self.randomMassMessages)
 end
 
----@param messages string[]
----@param fallback string
----@return string message
 local function GetRandomMessage(messages, fallback)
 	local count = #messages
 
@@ -256,8 +215,6 @@ local function GetRandomMessage(messages, fallback)
 	return messages[math_random(count)]
 end
 
----@param targetName string
----@return string message
 function module:GetSingleResMessage(targetName)
 	local message = db and db.overrideSingleResMessage
 		or GetRandomMessage(self.randomSingleMessages, L["I am resurrecting %s."])
@@ -265,7 +222,6 @@ function module:GetSingleResMessage(targetName)
 	return string_format(message, targetName)
 end
 
----@return string message
 function module:GetMassResMessage()
 	return db and db.overrideMassResMessage
 		or GetRandomMessage(self.randomMassMessages, L["I am casting mass resurrection."])
@@ -275,9 +231,6 @@ end
 -- Name and chat routing helpers
 -- --------------------------------------------------------------------
 
----@param unitGUID string|nil
----@param includeRealm boolean|nil
----@return string name
 local function GetNameFromGUID(unitGUID, includeRealm)
 	if not unitGUID or unitGUID == "UNKNOWN" then
 		return UNKNOWN
@@ -292,13 +245,10 @@ local function GetNameFromGUID(unitGUID, includeRealm)
 	return name or UNKNOWN
 end
 
----@param targetGUID string|nil
----@return string name
 local function GetTargetName(targetGUID)
 	return GetNameFromGUID(targetGUID, false)
 end
 
----@return string|nil chatType
 local function GetGroupChatType()
 	if LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
 		return "INSTANCE_CHAT"
@@ -309,9 +259,6 @@ local function GetGroupChatType()
 	end
 end
 
----@param channelKey string|nil
----@param allowWhisper boolean
----@return string|nil chatType
 local function ResolveChatType(channelKey, allowWhisper)
 	if not channelKey or channelKey == "NONE" then
 		return nil
@@ -350,9 +297,6 @@ local function ResolveChatType(channelKey, allowWhisper)
 	end
 end
 
----@param message string
----@param channelKey string|nil
----@param fallbackWhisperGUID string|nil
 function module:SendConfiguredMessage(message, channelKey, fallbackWhisperGUID)
 	local whisperTarget = fallbackWhisperGUID and GetNameFromGUID(fallbackWhisperGUID, true)
 	local allowWhisper = whisperTarget ~= nil and whisperTarget ~= UNKNOWN
@@ -366,10 +310,10 @@ function module:SendConfiguredMessage(message, channelKey, fallbackWhisperGUID)
 
 	if chatType == "WHISPER" then
 		if allowWhisper then
-			C_ChatInfo.SendChatMessage(message, "WHISPER", nil, whisperTarget)
+			SendChatMessage(message, "WHISPER", nil, whisperTarget)
 		end
 	else
-		C_ChatInfo.SendChatMessage(message, chatType)
+		SendChatMessage(message, chatType)
 	end
 end
 
@@ -377,17 +321,10 @@ end
 -- Collision notification helpers
 -- --------------------------------------------------------------------
 
----@param casterGUID string
----@param targetGUID string
----@return string key
 local function GetCollisionKey(casterGUID, targetGUID)
 	return casterGUID .. ":" .. targetGUID
 end
 
----@param casterGUID string
----@param targetGUID string
----@param targetInfo SmartRes2_ResTargetInfo|nil
----@return boolean isCollision
 local function IsCollision(casterGUID, targetGUID, targetInfo)
 	if not targetInfo or not targetInfo.fastestCasterGUID then
 		return false
@@ -400,9 +337,6 @@ local function IsCollision(casterGUID, targetGUID, targetInfo)
 	return targetInfo.fastestCasterGUID ~= casterGUID or targetInfo.fastestResType ~= "SINGLE"
 end
 
----@param casterGUID string
----@param targetGUID string
----@param targetInfo SmartRes2_ResTargetInfo|nil
 function module:NotifyCollision(casterGUID, targetGUID, targetInfo)
 	if not db or db.notifyCollision == "NONE" or not IsCollision(casterGUID, targetGUID, targetInfo) then
 		return
@@ -422,8 +356,6 @@ function module:NotifyCollision(casterGUID, targetGUID, targetInfo)
 	self:SendConfiguredMessage(message, db.notifyCollision, casterGUID)
 end
 
----@param targetGUID string
----@param targetInfo SmartRes2_ResTargetInfo
 function module:RefreshCollisionNotifications(targetGUID, targetInfo)
 	if targetGUID == "UNKNOWN" then
 		return
@@ -454,11 +386,6 @@ end
 -- LibResInfo callback handlers
 -- --------------------------------------------------------------------
 
----@param callback string
----@param casterGUID string
----@param targetGUID string
----@param casterInfo SmartRes2_ResCastInfo
----@param targetInfo SmartRes2_ResTargetInfo
 function module:OnSingleResCastStarted(callback, casterGUID, targetGUID, casterInfo, targetInfo)
 	if not db then
 		return
@@ -476,11 +403,6 @@ function module:OnSingleResCastStarted(callback, casterGUID, targetGUID, casterI
 	self:NotifyCollision(casterGUID, targetGUID, targetInfo)
 end
 
----@param callback string
----@param casterGUID string
----@param targetGUID string
----@param casterInfo SmartRes2_ResCastInfo|nil
----@param targetInfo SmartRes2_ResTargetInfo|nil
 function module:OnSingleResCastStopped(callback, casterGUID, targetGUID, casterInfo, targetInfo)
 	activeSingleCasts[casterGUID] = nil
 
@@ -489,11 +411,6 @@ function module:OnSingleResCastStopped(callback, casterGUID, targetGUID, casterI
 	end
 end
 
----@param callback string
----@param casterGUID string
----@param targetGUID string
----@param casterInfo SmartRes2_ResCastInfo
----@param targetInfo SmartRes2_ResTargetInfo
 function module:OnSingleResCastFinished(callback, casterGUID, targetGUID, casterInfo, targetInfo)
 	activeSingleCasts[casterGUID] = nil
 
@@ -502,9 +419,6 @@ function module:OnSingleResCastFinished(callback, casterGUID, targetGUID, caster
 	end
 end
 
----@param callback string
----@param casterGUID string
----@param casterInfo SmartRes2_ResCastInfo
 function module:OnMassResCastStarted(callback, casterGUID, casterInfo)
 	if not db then
 		return
@@ -516,21 +430,12 @@ function module:OnMassResCastStarted(callback, casterGUID, casterInfo)
 	end
 end
 
----@param callback string
----@param casterGUID string
----@param casterInfo SmartRes2_ResCastInfo|nil
 function module:OnMassResCastStopped(callback, casterGUID, casterInfo)
 end
 
----@param callback string
----@param casterGUID string
----@param casterInfo SmartRes2_ResCastInfo
 function module:OnMassResCastFinished(callback, casterGUID, casterInfo)
 end
 
----@param callback string
----@param targetGUID string
----@param targetInfo SmartRes2_ResTargetInfo
 function module:OnFastestResChanged(callback, targetGUID, targetInfo)
 	self:RefreshCollisionNotifications(targetGUID, targetInfo)
 end

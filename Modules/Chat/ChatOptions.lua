@@ -22,9 +22,9 @@ local CHAT_MSG_WHISPER_INFORM = CHAT_MSG_WHISPER_INFORM
 local CHAT_OPTIONS_LABEL = CHAT_OPTIONS_LABEL
 local DISABLE = DISABLE
 local ENABLE = ENABLE
+local LibStub = LibStub
 local MISCELLANEOUS = MISCELLANEOUS
 local NONE = NONE
-local LibStub = LibStub
 local PlaySoundFile = PlaySoundFile
 local string_format = string.format
 local string_match = string.match
@@ -33,15 +33,8 @@ local string_match = string.match
 -- Addon / module
 -- --------------------------------------------------------------------
 
----@class SmartRes2: AceAddon
----@field db SmartRes2DB
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 
----@class SmartRes2_Chat: AceAddon
----@field db SmartRes2_ChatDB
----@field randomSingleMessages string[]
----@field randomMassMessages string[]
----@field RefreshConfig fun(self: SmartRes2_Chat)
 local module = addon:GetModule("Chat")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
@@ -61,6 +54,7 @@ local options
 
 local singleOutputValues = {
 	GROUP = CHANNEL_CATEGORY_GROUP,
+	GUILD = CHAT_MSG_GUILD,
 	INSTANCE_CHAT = CHAT_MSG_INSTANCE_CHAT,
 	NONE = NONE,
 	PARTY = CHAT_MSG_PARTY,
@@ -70,6 +64,7 @@ local singleOutputValues = {
 
 local massOutputValues = {
 	GROUP = CHANNEL_CATEGORY_GROUP,
+	GUILD = CHAT_MSG_GUILD,
 	INSTANCE_CHAT = CHAT_MSG_INSTANCE_CHAT,
 	NONE = NONE,
 	PARTY = CHAT_MSG_PARTY,
@@ -86,24 +81,18 @@ local collisionOutputValues = {
 -- Local helpers
 -- --------------------------------------------------------------------
 
----@return SmartRes2_ChatProfileDB profile
 local function GetProfileDB()
 	return module.db.profile
 end
 
----@return boolean disabled
 local function IsModuleDisabled()
 	return not GetProfileDB().enabled
 end
 
----@param t table
----@return boolean empty
 local function TableIsEmpty(t)
 	return next(t) == nil
 end
 
----@param value string|nil
----@return string|nil value
 local function NormalizeInput(value)
 	if value then
 		value = value:trim()
@@ -114,8 +103,6 @@ local function NormalizeInput(value)
 	end
 end
 
----@param value string|nil
----@return true|string result
 local function ValidateSingleMessage(value)
 	value = NormalizeInput(value)
 
@@ -130,8 +117,6 @@ local function ValidateSingleMessage(value)
 	return true
 end
 
----@param value string|nil
----@return true|string result
 local function ValidateMassMessage(value)
 	value = NormalizeInput(value)
 
@@ -146,8 +131,6 @@ local function ValidateMassMessage(value)
 	return true
 end
 
----@param messageTable table<string, boolean>
----@return table<string, string> values
 local function BuildMessageValues(messageTable)
 	local values = {}
 
@@ -162,7 +145,6 @@ end
 -- Options table
 -- --------------------------------------------------------------------
 
----@return table options
 function module:GetOptions()
 	if options then
 		return options

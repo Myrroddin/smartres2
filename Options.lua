@@ -14,56 +14,25 @@
 -- Lua / Blizzard API upvalues
 -- --------------------------------------------------------------------
 
-local ENABLE = ENABLE
 local DISABLE = DISABLE
-local HIDE = HIDE
-local LOCK = LOCK
-local MINIMAP_LABEL = MINIMAP_LABEL
+local ENABLE = ENABLE
 local GENERAL_LABEL = GENERAL_LABEL
-
-local math_floor = math.floor
+local HIDE = HIDE
+local KEY_BINDINGS = KEY_BINDINGS
 local LibStub = LibStub
+local LOCK = LOCK
+local math_floor = math.floor
+local MINIMAP_LABEL = MINIMAP_LABEL
 
 -- --------------------------------------------------------------------
 -- Addon / libraries
 -- --------------------------------------------------------------------
 
----@class LibDBIcon-1.0
----@field IsButtonCompartmentAvailable fun(self: LibDBIcon-1.0): boolean?
----@field IsButtonInCompartment fun(self: LibDBIcon-1.0, buttonName: string): boolean
----@field AddButtonToCompartment fun(self: LibDBIcon-1.0, buttonName: string, customIcon?: string|number)
----@field RemoveButtonFromCompartment fun(self: LibDBIcon-1.0, buttonName: string)
-
----@class SmartRes2MinimapDB: LibDBIcon.button.DB
----@field hide boolean
----@field lock boolean
----@field showInCompartment boolean
----@field lockOnDegree boolean
----@field minimapPos number
-
----@class SmartRes2GlobalDB
----@field settingsVersion number
----@field resetGlobalOnProfileChange boolean
----@field useClassIconForBroker boolean
----@field minimap SmartRes2MinimapDB
-
----@class SmartRes2ProfileDB
----@field enabled boolean
----@field useMasque boolean
----@field notifySelf boolean
-
----@class SmartRes2DB: AceDBObject-3.0
----@field profile SmartRes2ProfileDB
----@field global SmartRes2GlobalDB
-
----@class SmartRes2: AceAddon
----@field db SmartRes2DB
----@field Masque any|nil
----@field IsMasqueAvailable fun(self: SmartRes2): boolean
----@field RefreshBrokerIcon fun(self: SmartRes2)
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
+---@class LibDBIcon-1.0
+---@field IsButtonCompartmentAvailable fun(self: LibDBIcon-1.0): boolean?
 local LibDBIcon = LibStub("LibDBIcon-1.0")
 
 -- --------------------------------------------------------------------
@@ -76,23 +45,18 @@ local DEFAULT_ICON = "Interface\\Icons\\Spell_holy_resurrection"
 -- Local helpers
 -- --------------------------------------------------------------------
 
----@return SmartRes2ProfileDB profileDB
 local function GetProfileDB()
 	return addon.db.profile
 end
 
----@return SmartRes2GlobalDB globalDB
 local function GetGlobalDB()
 	return addon.db.global
 end
 
----@return SmartRes2MinimapDB minimapDB
 local function GetMinimapDB()
 	return addon.db.global.minimap
 end
 
----@param value number
----@return number position
 local function GetRoundedMinimapPosition(value)
 	local minimapDB = GetMinimapDB()
 
@@ -126,7 +90,6 @@ end
 -- --------------------------------------------------------------------
 
 local options
----@return table options
 function addon:GetOptions()
 	if options then
 		return options
@@ -212,6 +175,17 @@ function addon:GetOptions()
 						set = function(_, value)
 							GetProfileDB().notifySelf = value
 						end,
+					},
+					keyBindingsHeader = {
+						order = 50,
+						type = "header",
+						name = KEY_BINDINGS,
+					},
+					keyBindingsDescription = {
+						order = 60,
+						type = "description",
+						name = L["SmartRes2 key bindings are configured in Blizzard's Key Bindings UI."],
+						fontSize = "medium",
 					},
 				},
 			},
@@ -339,19 +313,6 @@ function addon:GetOptions()
 						max = 360,
 						step = 1,
 						bigStep = 15,
-					},
-				},
-			},
-			keybindings = {
-				order = 70,
-				type = "group",
-				name = L["Key Bindings"],
-				args = {
-					keybindingInfo = {
-						order = 10,
-						type = "description",
-						name = L["SmartRes2 key bindings are configured in Blizzard's Key Bindings UI."],
-						fontSize = "medium",
 					},
 				},
 			},
