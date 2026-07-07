@@ -29,11 +29,7 @@ local MINIMAP_LABEL = MINIMAP_LABEL
 -- --------------------------------------------------------------------
 
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
-
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
----@class LibDBIcon-1.0
----@field IsButtonCompartmentAvailable fun(self: LibDBIcon-1.0): boolean?
-local LibDBIcon = LibStub("LibDBIcon-1.0")
 
 -- --------------------------------------------------------------------
 -- Constants
@@ -74,7 +70,7 @@ local function GetRoundedMinimapPosition(value)
 end
 
 local function RefreshMinimapButton()
-	LibDBIcon:Refresh("SmartRes2", GetMinimapDB())
+	addon.LibDBIcon:Refresh("SmartRes2", GetMinimapDB())
 end
 
 local function IsMasqueDisabled()
@@ -90,6 +86,7 @@ end
 -- --------------------------------------------------------------------
 
 local options
+---@class SmartRes2
 function addon:GetOptions()
 	if options then
 		return options
@@ -208,9 +205,9 @@ function addon:GetOptions()
 							minimapDB.hide = value
 
 							if value then
-								LibDBIcon:Hide("SmartRes2")
+								addon.LibDBIcon:Hide("SmartRes2")
 							else
-								LibDBIcon:Show("SmartRes2")
+								addon.LibDBIcon:Show("SmartRes2")
 							end
 
 							RefreshMinimapButton()
@@ -230,13 +227,13 @@ function addon:GetOptions()
 							minimapDB.lock = value
 
 							if value then
-								LibDBIcon:Lock("SmartRes2")
+								addon.LibDBIcon:Lock("SmartRes2")
 							else
-								LibDBIcon:Unlock("SmartRes2")
+								addon.LibDBIcon:Unlock("SmartRes2")
 							end
 
 							minimapDB.minimapPos = GetRoundedMinimapPosition(minimapDB.minimapPos)
-							LibDBIcon:SetButtonToPosition("SmartRes2", minimapDB.minimapPos)
+							addon.LibDBIcon:SetButtonToPosition("SmartRes2", minimapDB.minimapPos)
 							RefreshMinimapButton()
 						end,
 					},
@@ -254,7 +251,7 @@ function addon:GetOptions()
 							minimapDB.lockOnDegree = value
 							minimapDB.minimapPos = GetRoundedMinimapPosition(minimapDB.minimapPos)
 
-							LibDBIcon:SetButtonToPosition("SmartRes2", minimapDB.minimapPos)
+							addon.LibDBIcon:SetButtonToPosition("SmartRes2", minimapDB.minimapPos)
 							RefreshMinimapButton()
 						end,
 					},
@@ -277,10 +274,10 @@ function addon:GetOptions()
 						name = L["AddOn Compartment"],
 						desc = L["Show the minimap button in the addon compartment."],
 						disabled = function()
-							return not LibDBIcon:IsButtonCompartmentAvailable()
+							return not addon.LibDBIcon:IsButtonCompartmentAvailable()
 						end,
 						hidden = function()
-							return not LibDBIcon:IsButtonCompartmentAvailable()
+							return not addon.LibDBIcon:IsButtonCompartmentAvailable()
 						end,
 						get = function()
 							return GetMinimapDB().showInCompartment
@@ -306,7 +303,7 @@ function addon:GetOptions()
 
 							minimapDB.minimapPos = GetRoundedMinimapPosition(value)
 
-							LibDBIcon:SetButtonToPosition("SmartRes2", minimapDB.minimapPos)
+							addon.LibDBIcon:SetButtonToPosition("SmartRes2", minimapDB.minimapPos)
 							RefreshMinimapButton()
 						end,
 						min = 1,

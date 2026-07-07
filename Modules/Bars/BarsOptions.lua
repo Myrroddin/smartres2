@@ -32,11 +32,8 @@ local TEXTURES_SUBHEADER = TEXTURES_SUBHEADER
 -- --------------------------------------------------------------------
 
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
-
-local module = addon:GetModule("Bars")
-
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
-local LibSharedMedia = addon.LSM
+local module = addon:GetModule("Bars")
 
 -- --------------------------------------------------------------------
 -- File-scope state
@@ -431,7 +428,7 @@ function module:GetOptions()
 						type = "select",
 						dialogControl = "LSM30_Background",
 						name = BACKGROUND,
-						values = LibSharedMedia:HashTable(LibSharedMedia.MediaType.BACKGROUND),
+						values = addon.LSM:HashTable(addon.LSM.MediaType.BACKGROUND),
 						get = function()
 							return module.db.profile.frame.backdrop.background
 						end,
@@ -464,7 +461,7 @@ function module:GetOptions()
 						type = "select",
 						dialogControl = "LSM30_Border",
 						name = EMBLEM_BORDER,
-						values = LibSharedMedia:HashTable(LibSharedMedia.MediaType.BORDER),
+						values = addon.LSM:HashTable(addon.LSM.MediaType.BORDER),
 						get = function()
 							return module.db.profile.frame.backdrop.border
 						end,
@@ -679,7 +676,7 @@ function module:GetOptions()
 						type = "select",
 						dialogControl = "LSM30_Font",
 						name = L["Font"],
-						values = LibSharedMedia:HashTable(LibSharedMedia.MediaType.FONT),
+						values = addon.LSM:HashTable(addon.LSM.MediaType.FONT),
 						get = function()
 							return module.db.profile.media.font
 						end,
@@ -816,7 +813,7 @@ function module:GetOptions()
 						type = "select",
 						dialogControl = "LSM30_Statusbar",
 						name = L["Bar Texture"],
-						values = LibSharedMedia:HashTable(LibSharedMedia.MediaType.STATUSBAR),
+						values = addon.LSM:HashTable(addon.LSM.MediaType.STATUSBAR),
 						get = function()
 							return module.db.profile.media.statusBar
 						end,
@@ -830,7 +827,7 @@ function module:GetOptions()
 						type = "select",
 						dialogControl = "LSM30_Border",
 						name = L["Bar Border"],
-						values = LibSharedMedia:HashTable(LibSharedMedia.MediaType.BORDER),
+						values = addon.LSM:HashTable(addon.LSM.MediaType.BORDER),
 						get = function()
 							return module.db.profile.media.barBorder
 						end,

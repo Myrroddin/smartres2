@@ -34,10 +34,8 @@ local string_match = string.match
 -- --------------------------------------------------------------------
 
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
-
-local module = addon:GetModule("Chat")
-
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
+local module = addon:GetModule("Chat")
 
 -- --------------------------------------------------------------------
 -- Constants

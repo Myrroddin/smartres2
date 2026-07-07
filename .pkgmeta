@@ -16,19 +16,23 @@ externals:
   Libs/LibSharedMedia-3.0: https://repos.curseforge.com/wow/libsharedmedia-3-0/trunk/LibSharedMedia-3.0
   Libs/AceGUI-3.0-SharedMediaWidgets: https://repos.curseforge.com/wow/ace-gui-3-0-shared-media-widgets/trunk/AceGUI-3.0-SharedMediaWidgets
   Libs/LibDualSpec-1.0:
-    url: https://github.com/AdiAddons/LibDualSpec-1.0
+    url: https://github.com/AdiAddons/LibDualSpec-1.0.git
     curse-slug: libdualspec-1-0
   Libs/LibAboutPanel-2.0:
-    url: https://github.com/Myrroddin/libaboutpanel-2.0/LibAboutPanel-2.0
+    url: https://github.com/Myrroddin/libaboutpanel-2.0.git/LibAboutPanel-2.0
     curse-slug: libaboutpanel-2-0
   Libs/LibDataBroker-1.1:
-    url: https://github.com/tekkub/libdatabroker-1-1/
+    url: https://github.com/tekkub/libdatabroker-1-1.git
     curse-slug: libdatabroker-1-1
   Libs/LibResInfo-2.0:
-    url: https://github.com/Myrroddin/libresinfo-2.0/trunk/LibResInfo-2.0
+    url: https://github.com/Myrroddin/libresinfo-2.0.git/LibResInfo-2.0
     curse-slug: libresinfo-2-0
   Libs/LibDBIcon-1.0: https://repos.curseforge.com/wow/libdbicon-1-0/trunk/LibDBIcon-1.0
 
 ignore:
   - Libs/LibStub/tests
+  - Libs/LibStub/LibStub.toc
+  - Libs/LibDualSpec-1.0/LibDualSpec-1.0.toc
+  - Libs/LibDualSpec-1.0/LibStub.lua
+  - Libs/LibDataBroker-1.1/README.textile
   - README.md

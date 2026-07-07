@@ -1,0 +1,106 @@
+name: Suggestion / Improvement
+description: Suggest a feature, improvement, or enhancement for SmartRes2
+title: "[SUGGESTION] "
+labels: ["enhancement"]
+assignees:
+  - Myrroddin
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve SmartRes2! Share your ideas, feature requests, or suggestions for enhancements below.
+
+  - type: input
+    id: smartres_version
+    attributes:
+      label: SmartRes2 Version
+      description: Find this in the "About" tab of SmartRes2 options, or the `## Version:` line of SmartRes2.toc
+      placeholder: e.g., 2.4.5 or @project-version@
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: game_version
+    attributes:
+      label: Game Version(s)
+      description: Select all game versions where this suggestion would apply
+      options:
+        - label: Classic Era
+        - label: The Burning Crusade Anniversary
+        - label: Wrath of the Lich King Classic (Titan Reforged)
+        - label: Mists of Pandaria Classic
+        - label: Retail/mainline
+
+  - type: dropdown
+    id: game_locale
+    attributes:
+      label: Game Locale
+      description: Select your WoW game language
+      options:
+        - label: Select a locale...
+        - label: "(enUS) English"
+        - label: "(deDE) Deutsch"
+        - label: "(esES) Español"
+        - label: "(esMX) Español - México"
+        - label: "(frFR) Français"
+        - label: "(itIT) Italiano"
+        - label: "(koKR) 한국어"
+        - label: "(ptBR) Português Brasileiro"
+        - label: "(ruRU) Русский"
+        - label: "(zhCN) 简体中文"
+        - label: "(zhTW) 繁體中文"
+
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Describe Your Suggestion
+      description: What feature or improvement would you like to see? Be as detailed as possible.
+      placeholder: Tell us about your idea...
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use Case / Problem This Solves
+      description: Why would this feature be useful? What problem does it solve or what workflow does it improve?
+      placeholder: |
+        Example:
+        - Current issue: ...
+        - How this would help: ...
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Proposed Solution (Optional)
+      description: Do you have an idea for how this could be implemented? Any specific UI/UX preferences?
+      placeholder: Describe how you envision this working...
+
+  - type: checkboxes
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you found any workarounds or alternative approaches?
+      options:
+        - label: I've found a workaround (describe below)
+        - label: This is a common request from other players
+        - label: This would improve accessibility
+        - label: This would improve performance
+
+  - type: textarea
+    id: alternatives_details
+    attributes:
+      label: Alternative Details
+      description: If applicable, describe any workarounds or additional context
+      placeholder: Share any details about alternatives or related context...
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other relevant information
+      placeholder: |
+        - Screenshots or mockups (if applicable)
+        - References to similar features in other addons
+        - Any other relevant details...

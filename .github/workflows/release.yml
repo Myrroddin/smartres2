@@ -21,20 +21,19 @@ jobs:
     # we can run our steps on pretty much anything, but the "ubuntu-latest" image is a safe bet
     runs-on: ubuntu-latest
 
-    # specify the environment variables used by the packager, matching the secrets from the project on GitHub
+    # specify the environment variables used by the packager
     env:
-      CF_API_KEY: ${{ secrets.CF_API_KEY }}
+      CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
       WOWI_API_TOKEN: ${{ secrets.WOWI_API_TOKEN }}
       WAGO_API_TOKEN: ${{ secrets.WAGO_API_TOKEN }}
-      GITHUB_OAUTH: ${{ secrets.GITHUB_TOKEN }}  # "GITHUB_TOKEN" is a secret always provided to the workflow
-                                                 # for your own token, the name cannot start with "GITHUB_"
+      GITHUB_API_TOKEN: ${{ github.token }}
 
     # "steps" holds a list of all the steps needed to package and release our AddOn
     steps:
 
       # we first have to clone the AddOn project, this is a required step
       - name: Clone project
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0  # gets entire git history, needed for automatic changelogs
 

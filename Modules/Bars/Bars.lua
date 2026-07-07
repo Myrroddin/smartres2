@@ -33,12 +33,12 @@ local BackdropTemplateMixin = BackdropTemplateMixin
 local CreateFrame = CreateFrame
 local GetTime = GetTime
 local LibStub = LibStub
-local QUEUED_STATUS_WAITING = QUEUED_STATUS_WAITING
 local math_floor = math.floor
 local math_max = math.max
 local math_min = math.min
 local math_random = math.random
 local next = next
+local QUEUED_STATUS_WAITING = QUEUED_STATUS_WAITING
 local string_format = string.format
 local table_sort = table.sort
 local UIParent = UIParent
@@ -50,32 +50,18 @@ local UNKNOWN = UNKNOWN
 -- --------------------------------------------------------------------
 
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
-
--- This frame is both a normal Frame and a BackdropTemplate frame. Plain frames
--- do not always expose SetBackdrop methods, so the container is explicitly
--- created with "BackdropTemplate" and annotated as such for WoWLua-LS.
-
----@class Bars: AceAddon, AceEvent-3.0, AceConsole-3.0, LibResInfo-2.0
----@field db table
----@field RegisterCallback fun(self: Bars, eventName: string, method?: string, arg?: any)
----@field UnregisterAllResInfoCallbacks fun(self: Bars)
----@field HasTestBars fun(self: Bars): boolean
----@field ClearTestBars fun(self: Bars)
----@field ShowTestBars fun(self: Bars)
-
-local module = addon:NewModule("Bars")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
+---@class Bars: AceAddon, AceEvent-3.0, AceConsole-3.0, LibResInfo-2.0
+local module = addon:NewModule("Bars")
 
 -- --------------------------------------------------------------------
 -- Libraries
 -- --------------------------------------------------------------------
 
 ---@class LibCandyBar-3.0
----@field RegisterCallback fun(target: table, eventname: string, method: string, arg?: any)
----@field UnregisterCallback fun(target: table, eventname: string)
+---@field RegisterCallback fun(target: table, eventName: string, method: string, arg?: any)
+---@field UnregisterCallback fun(target: table, eventName: string)
 local LibCandyBar = LibStub("LibCandyBar-3.0")
-
-local LibSharedMedia = addon.LSM
 
 -- --------------------------------------------------------------------
 -- Constants
@@ -256,9 +242,9 @@ local masqueButtons = {}
 
 local masqueRegions = {}
 
-local masqueGroup
-
 local sortedBars = {}
+
+local masqueGroup
 
 -- --------------------------------------------------------------------
 -- Module lifecycle
@@ -677,8 +663,8 @@ function module:ApplyContainerBackdrop()
 	local backgroundTexture = self.containerBackground
 
 	if backgroundTexture then
-		local background = LibSharedMedia:Fetch(
-			LibSharedMedia.MediaType.BACKGROUND,
+		local background = addon.LSM:Fetch(
+			addon.LSM.MediaType.BACKGROUND,
 			backdropSettings.background,
 			true
 		)
@@ -700,8 +686,8 @@ function module:ApplyContainerBackdrop()
 		return
 	end
 
-	local border = LibSharedMedia:Fetch(
-		LibSharedMedia.MediaType.BORDER,
+	local border = addon.LSM:Fetch(
+		addon.LSM.MediaType.BORDER,
 		backdropSettings.border,
 		true
 	)
@@ -941,7 +927,7 @@ function module:ApplyBarBorderSettings(frame)
 		return
 	end
 
-	local border = LibSharedMedia:Fetch(LibSharedMedia.MediaType.BORDER, profile.media.barBorder, true)
+	local border = addon.LSM:Fetch(addon.LSM.MediaType.BORDER, profile.media.barBorder, true)
 
 	if not border then
 		frame:SetBackdrop(nil)
@@ -972,13 +958,13 @@ end
 local function GetStatusBarTexture()
 	local profile = GetProfileDB()
 
-	return LibSharedMedia:Fetch(LibSharedMedia.MediaType.STATUSBAR, profile.media.statusBar)
+	return addon.LSM:Fetch(addon.LSM.MediaType.STATUSBAR, profile.media.statusBar)
 end
 
 local function GetFontFile()
 	local profile = GetProfileDB()
 
-	return LibSharedMedia:Fetch(LibSharedMedia.MediaType.FONT, profile.media.font)
+	return addon.LSM:Fetch(addon.LSM.MediaType.FONT, profile.media.font)
 end
 
 local function IsFontSlugStyle(fontStyle)

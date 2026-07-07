@@ -1,0 +1,122 @@
+name: Bug Report
+description: Report a bug or issue with SmartRes2
+title: "[BUG] "
+labels: ["bug"]
+assignees:
+  - Myrroddin
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug! Please fill out the form below to help us understand and fix the issue.
+
+  - type: input
+    id: smartres_version
+    attributes:
+      label: SmartRes2 Version
+      description: Find this in the "About" tab of SmartRes2 options, or the `## Version:` line of SmartRes2.toc
+      placeholder: e.g., 2.4.5 or @project-version@
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: game_version
+    attributes:
+      label: Game Version(s)
+      description: Select all game versions where you encountered this bug
+      options:
+        - label: Classic Era
+        - label: The Burning Crusade Anniversary
+        - label: Wrath of the Lich King Classic (Titan Reforged)
+        - label: Mists of Pandaria Classic
+        - label: Retail/mainline
+    validations:
+      required: true
+
+  - type: dropdown
+    id: game_locale
+    attributes:
+      label: Game Locale
+      description: Select your WoW game language
+      options:
+        - label: Select a locale...
+        - label: "(enUS) English"
+        - label: "(deDE) Deutsch"
+        - label: "(esES) Español"
+        - label: "(esMX) Español - México"
+        - label: "(frFR) Français"
+        - label: "(itIT) Italiano"
+        - label: "(koKR) 한국어"
+        - label: "(ptBR) Português Brasileiro"
+        - label: "(ruRU) Русский"
+        - label: "(zhCN) 简体中文"
+        - label: "(zhTW) 繁體中文"
+    validations:
+      required: true
+
+  - type: textarea
+    id: bug_description
+    attributes:
+      label: Describe the bug
+      description: A clear and concise description of what the bug is
+      placeholder: Tell us what went wrong...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps_to_reproduce
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce the issue?
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_behavior
+    attributes:
+      label: Expected Behavior
+      description: What should happen instead?
+      placeholder: Describe what you expected to happen...
+    validations:
+      required: true
+
+  - type: textarea
+    id: bugsack_errors
+    attributes:
+      label: BugSack/Error Messages
+      description: Paste any error messages from BugSack here. Errors should be formatted as Lua code.
+      placeholder: |
+        Paste error output here...
+      render: lua
+
+  - type: textarea
+    id: addon_status
+    attributes:
+      label: Other Addons Status
+      description: Are other addons enabled? Did you try reproducing with SmartRes2 as the only addon? This helps identify addon conflicts.
+      placeholder: |
+        - Tested with only SmartRes2 enabled: [Yes/No]
+        - Other notable addons: [list any key addons]
+
+  - type: input
+    id: bug_started
+    attributes:
+      label: When Did This Bug Start?
+      description: e.g., after a recent update, always been present, etc.
+      placeholder: e.g., Started after v2.4.0 update, or always present
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: Additional Context
+      description: Any other information that might help us debug this issue
+      placeholder: |
+        - Screenshots or video recordings (if applicable)
+        - Custom SmartRes2 settings or configuration
+        - Server/realm information if relevant
+        - Any other relevant details...

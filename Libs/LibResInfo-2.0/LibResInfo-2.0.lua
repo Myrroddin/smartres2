@@ -20,70 +20,41 @@ Core rules:
 assert(LibStub, "LibResInfo-2.0 requires LibStub")
 assert(LibStub("CallbackHandler-1.0", true), "LibResInfo-2.0 requires CallbackHandler-1.0")
 
----@class LibResInfo-2.0: table
+---@class LibResInfo-2.0
+---@field RegisterCallback fun(target: table, eventName: LibResInfoCallbackName, method: string, arg?: any)
+---@field UnregisterCallback fun(target: table, eventName: LibResInfoCallbackName)
+---@field UnregisterAllResInfoCallbacks fun(target: table)
 local lib = LibStub:NewLibrary("LibResInfo-2.0", 1)
 if not lib then return end
 
----@alias ResType "SINGLE"|"MASS"
----@alias SelfResOptionTable table<string, SelfResOptionInfo>
----@alias ResCasterTable table<string, ResType>
-
 -- Callback names accepted by RegisterCallback and UnregisterCallback.
----@alias LibResInfoCallback
----| "ResCast_Started"
----| "ResCast_Finished"
----| "ResCast_Stopped"
----| "MassResCast_Started"
----| "MassResCast_Finished"
----| "MassResCast_Stopped"
----| "FastestRes_Changed"
----| "ResTargetGUID_Resolved"
----| "ResTargetGUID_IsAlive"
----| "UnitSelfRes_Available"
----| "UnitSelfRes_Consumed"
-
----@class CallbackHandlerRegistry
----@field Fire fun(self: CallbackHandlerRegistry, eventName: LibResInfoCallback, ...: any)
-
----@class NamePlateFrame
----@field unitToken string
-
----@class ResCastInfo
----@field castGUID? string
----@field casterGUID string
----@field castTime? number
----@field spellID integer
----@field targetGUID? string
----@field textureID? integer
----@field endTime? number
-
----@class ResTargetInfo
----@field targetGUID string
----@field fastestCasterGUID? string
----@field fastestResType? ResType
-
----@class SelfResurrectOption
----@field spellID? integer
----@field itemID? integer
----@field auraInstanceID? integer
----@field expirationTime? number
-
----@class SelfResOptionInfo
----@field unitGUID string
----@field spellID? integer
----@field itemID? integer
----@field auraInstanceID? integer
----@field expirationTime? number
-
----@type CallbackHandlerRegistry
 lib.callbacks = lib.callbacks or LibStub("CallbackHandler-1.0"):New(lib,
 	"RegisterCallback",
 	"UnregisterCallback",
 	"UnregisterAllResInfoCallbacks"
 )
 
----@type table<table, true>
 lib.embeds = lib.embeds or {}
+
+---@class LibResInfoSelfResurrectOption
+---@field spellID? integer
+---@field itemID? integer
+---@field auraInstanceID? integer
+---@field expirationTime? number
+
+---@alias LibResInfoCallbackName
+---| "ResCast_Started"
+---| "ResCast_Stopped"
+---| "ResCast_Finished"
+---| "MassResCast_Started"
+---| "MassResCast_Stopped"
+---| "MassResCast_Finished"
+---| "FastestRes_Changed"
+---| "ResTargetGUID_Resolved"
+---| "ResTargetGUID_IsAlive"
+---| "ResTargetGUID_WaitingTimeExpired"
+---| "UnitSelfRes_Available"
+---| "UnitSelfRes_Consumed"
 
 -- -------------------------------------------------------------------
 -- Event frame
@@ -104,6 +75,7 @@ frame:RegisterEvent("PLAYER_LOGIN")
 -- -------------------------------------------------------------------
 
 local After = C_Timer.After
+local GetCorpseRecoveryDelay = GetCorpseRecoveryDelay
 local GetNamePlates = C_NamePlate.GetNamePlates
 local GetNumGroupMembers = GetNumGroupMembers
 local GetSelfResurrectOptions = C_DeathInfo.GetSelfResurrectOptions
@@ -121,6 +93,7 @@ local UnitCastingInfo = UnitCastingInfo
 local UnitExists = UnitExists
 local UnitFactionGroup = UnitFactionGroup
 local UnitGUID = UnitGUID
+local UnitHasIncomingResurrection = UnitHasIncomingResurrection
 local UnitHealth = UnitHealth
 local UnitIsDeadOrGhost = UnitIsDeadOrGhost
 local UnitName = UnitName
@@ -135,6 +108,7 @@ local wipe = table.wipe
 local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
 local PLAYER_GUID
+local RES_WAITING_TIMEOUT = 60
 local UNKNOWN_TARGET_CLEANUP_TIMEOUT = 10
 local UNKNOWN_TARGET_GUID = "UNKNOWN"
 
@@ -143,32 +117,32 @@ local UNKNOWN_TARGET_GUID = "UNKNOWN"
 -- -------------------------------------------------------------------
 
 -- Active single-target resurrection casts, keyed by caster GUID.
----@type table<string, ResCastInfo>
 local resCasterInfo = {}
 
 -- Active mass resurrection casts, keyed by caster GUID.
----@type table<string, ResCastInfo>
 local massResCasterInfo = {}
 
 -- Active single-target resurrection casts, keyed by target GUID, then caster GUID.
 -- The UNKNOWN key is a temporary staging area for unresolved casts and is not
 -- treated as a real target for fastest-caster calculations.
----@type table<string, ResTargetInfo>
 local resTargetInfo = {}
 
 -- Targets whose resurrection cast finished, but whose alive state has not yet been observed.
----@type table<string, true>
 local ressedTargetGUIDs = {}
 
+-- Targets with active resurrection offers waiting to be accepted, keyed by target GUID.
+local resWaitingExpireTimes = {}
+
+-- Mass resurrection affected targets, keyed by caster GUID, then target GUID.
+local massResTargetGUIDs = {}
+
 -- Self-resurrection options, keyed by unit GUID, then option key.
----@type table<string, SelfResOptionTable>
 local selfResInfo = {}
 
 -- -------------------------------------------------------------------
 -- Spell tables
 -- -------------------------------------------------------------------
 
----@type table<integer, true>
 local SINGLE_TARGET_RES_SPELLS = {
 	-- Priest
 	[2006]		= true,		-- Resurrection Rank 1
@@ -252,7 +226,6 @@ local SINGLE_TARGET_RES_SPELLS = {
 	[339643]	= true,		-- Gift of Life (Mi'kai's Deathscythe)
 }
 
----@type table<integer, true>
 local MASS_RES_SPELLS = {
 	-- Priest
 	[212036]	= true,		-- Mass Resurrection
@@ -276,7 +249,6 @@ local MASS_RES_SPELLS = {
 	[83968]		= true,		-- Mass Resurrection
 }
 
----@type table<integer, true>
 local SELF_RES_AURAS = {
 	[20707]		= true,		-- Soulstone Resurrection Rank 1
 	[20762]		= true,		-- Soulstone Resurrection Rank 2
@@ -293,7 +265,6 @@ local SELF_RES_AURAS = {
 	[280007]	= true,		-- Drust Soulcatcher
 }
 
----@type table<string, boolean>
 local events = {
 	["INCOMING_RESURRECT_CHANGED"]	= true,
 	["PLAYER_ALIVE"]				= true,
@@ -418,12 +389,16 @@ local function UpdateFastestCasterGUID(targetGUID)
 		end
 	end
 
-	for casterGUID, casterInfo in pairs(massResCasterInfo) do
-		if type(casterInfo) == "table" and casterInfo.endTime then
-			if not fastestEndTime or casterInfo.endTime < fastestEndTime then
-				fastestCasterGUID = casterGUID
-				fastestResType = "MASS"
-				fastestEndTime = casterInfo.endTime
+	for casterGUID, targets in pairs(massResTargetGUIDs) do
+		if targets[targetGUID] then
+			local casterInfo = massResCasterInfo[casterGUID]
+
+			if casterInfo and casterInfo.endTime then
+				if not fastestEndTime or casterInfo.endTime < fastestEndTime then
+					fastestCasterGUID = casterGUID
+					fastestResType = "MASS"
+					fastestEndTime = casterInfo.endTime
+				end
 			end
 		end
 	end
@@ -480,6 +455,45 @@ local function GetFastestMassResInfo()
 			if not fastestRemainingTime or remainingTime < fastestRemainingTime then
 				fastestCasterGUID = casterGUID
 				fastestRemainingTime = remainingTime
+			end
+		end
+	end
+
+	return fastestCasterGUID, fastestRemainingTime
+end
+
+-- Determine whether a specific target GUID is currently affected by
+-- any tracked mass resurrection cast.
+local function IsTargetAffectedByMassRes(targetGUID)
+	if not targetGUID then return end
+
+	for _, targets in pairs(massResTargetGUIDs) do
+		if targets[targetGUID] then
+			return true
+		end
+	end
+end
+
+-- Find the fastest mass resurrection affecting a specific target.
+local function GetFastestMassResForTarget(targetGUID)
+	local fastestCasterGUID
+	local fastestRemainingTime
+
+	for casterGUID, targets in pairs(massResTargetGUIDs) do
+		if targets[targetGUID] then
+			local casterInfo = massResCasterInfo[casterGUID]
+
+			if casterInfo and casterInfo.endTime then
+				local remainingTime = casterInfo.endTime - GetTime()
+
+				if remainingTime < 0 then
+					remainingTime = 0
+				end
+
+				if not fastestRemainingTime or remainingTime < fastestRemainingTime then
+					fastestCasterGUID = casterGUID
+					fastestRemainingTime = remainingTime
+				end
 			end
 		end
 	end
@@ -603,6 +617,40 @@ local function PopulateSingleResInfo(unitID, casterGUID, castInfo)
 	return targetGUID, UpdateFastestCasterGUID(targetGUID)
 end
 
+-- Snapshot the dead units actually affected by a mass resurrection while the
+-- cast is still active.
+--
+-- UnitHasIncomingResurrection becomes false after the cast completes, so this
+-- cannot be delayed until UNIT_SPELLCAST_SUCCEEDED. The snapshot is keyed by
+-- caster GUID and later consumed when that caster's mass res finishes.
+local function SnapshotMassResTargets(casterGUID)
+	if not casterGUID then return end
+
+	massResTargetGUIDs[casterGUID] = {}
+
+	if UnitIsDeadOrGhost("player") and UnitHasIncomingResurrection("player") then
+		local playerGUID = UnitGUID("player")
+		if playerGUID then
+			massResTargetGUIDs[casterGUID][playerGUID] = true
+		end
+	end
+
+	local prefix = IsInRaid() and "raid" or "party"
+	local members = GetNumGroupMembers()
+
+	for i = 1, members do
+		local unitID = prefix .. i
+
+		if UnitExists(unitID) and UnitIsDeadOrGhost(unitID) and UnitHasIncomingResurrection(unitID) then
+			local targetGUID = UnitGUID(unitID)
+
+			if targetGUID then
+				massResTargetGUIDs[casterGUID][targetGUID] = true
+			end
+		end
+	end
+end
+
 -- Populate mass-res cast state.
 --
 -- Mass resurrection spells do not expose individual target GUIDs, so the cast
@@ -612,6 +660,7 @@ local function PopulateMassResInfo(casterGUID, castInfo)
 	massResCasterInfo[casterGUID] = massResCasterInfo[casterGUID] or {}
 
 	ApplyMassCastInfo(massResCasterInfo[casterGUID], casterGUID, castInfo)
+	SnapshotMassResTargets(casterGUID)
 
 	return UpdateAllFastestCasterGUIDs()
 end
@@ -740,6 +789,7 @@ local function RemoveMassResCast(casterGUID, updateFastest)
 	local removedCasterInfo = massResCasterInfo[casterGUID]
 
 	massResCasterInfo[casterGUID] = nil
+	massResTargetGUIDs[casterGUID] = nil
 
 	local changedTargetInfo
 	if updateFastest then
@@ -798,6 +848,53 @@ end
 -- Completed resurrection state
 -- -------------------------------------------------------------------
 
+-- Player resurrection offers can be delayed by corpse recovery. Blizzard only
+-- exposes that delay for the player, so other units use the normal timeout.
+local function GetResWaitingDuration(targetGUID)
+	local waitingDuration = RES_WAITING_TIMEOUT
+
+	if targetGUID == PLAYER_GUID then
+		waitingDuration = waitingDuration + (GetCorpseRecoveryDelay() or 0)
+	end
+
+	return waitingDuration
+end
+
+-- Clear waiting state without firing an expiry callback.
+-- Used when the target becomes alive before the waiting timer expires.
+local function ClearResWaitingTargetGUID(targetGUID)
+	if IsKnownTargetGUID(targetGUID) then
+		resWaitingExpireTimes[targetGUID] = nil
+	end
+end
+
+-- Start or refresh waiting state for a completed known resurrection target.
+-- A later completed res offer for the same target resets the waiting timer.
+--
+-- The scheduled callback verifies that the stored expire time still matches,
+-- so an older timer cannot clear or fire for a newer resurrection offer.
+local function MarkResWaitingTargetGUID(targetGUID)
+	if not IsKnownTargetGUID(targetGUID) then return end
+
+	local duration = GetResWaitingDuration(targetGUID)
+	local expireTime = GetTime() + duration
+
+	resWaitingExpireTimes[targetGUID] = expireTime
+
+	After(duration, function()
+		if resWaitingExpireTimes[targetGUID] ~= expireTime then return end
+
+		local unitID = UnitTokenFromGUID(targetGUID)
+		if unitID and UnitHealth(unitID) and UnitHealth(unitID) > 0 then
+			resWaitingExpireTimes[targetGUID] = nil
+			return
+		end
+
+		resWaitingExpireTimes[targetGUID] = nil
+		lib.callbacks:Fire("ResTargetGUID_WaitingTimeExpired", targetGUID)
+	end)
+end
+
 -- Watch a completed resurrection target until UNIT_HEALTH confirms life.
 --
 -- Only real GUIDs are tracked here. UNKNOWN is intentionally ignored because
@@ -805,31 +902,22 @@ end
 local function MarkRessedTargetGUID(targetGUID)
 	if IsKnownTargetGUID(targetGUID) then
 		ressedTargetGUIDs[targetGUID] = true
+		MarkResWaitingTargetGUID(targetGUID)
 	end
 end
 
--- A finished mass resurrection may affect any dead group member, but Blizzard
--- does not report the chosen targets. Watch all currently dead group members
--- and let UNIT_HEALTH confirm who actually becomes alive.
-local function MarkMassResTargets()
-	local playerGUID = UnitGUID("player")
+-- Mark the snapshotted mass-res targets as waiting after the mass resurrection
+-- cast completes.
+--
+-- The affected-unit snapshot was captured while UnitHasIncomingResurrection
+-- was still true. At finish time, only consume that saved data; do not rescan.
+local function MarkMassResTargets(casterGUID)
+	local targets = casterGUID and massResTargetGUIDs[casterGUID]
+	if not targets then return end
 
-	if playerGUID and UnitIsDeadOrGhost("player") then
-		ressedTargetGUIDs[playerGUID] = true
-	end
-
-	local prefix = IsInRaid() and "raid" or "party"
-	local members = GetNumGroupMembers()
-
-	for i = 1, members do
-		local unitID = prefix .. i
-
-		if UnitExists(unitID) and UnitIsDeadOrGhost(unitID) then
-			local targetGUID = UnitGUID(unitID)
-			if targetGUID then
-				ressedTargetGUIDs[targetGUID] = true
-			end
-		end
+	for targetGUID in pairs(targets) do
+		ressedTargetGUIDs[targetGUID] = true
+		MarkResWaitingTargetGUID(targetGUID)
 	end
 end
 
@@ -902,12 +990,11 @@ local function UpdatePlayerSelfResOptions()
 
 	local seen = {}
 
-	---@type SelfResurrectOption[]|nil
+	---@type LibResInfoSelfResurrectOption[]|nil
 	local options = GetSelfResurrectOptions()
 
 	if options then
 		for _, option in pairs(options) do
-			---@type SelfResOptionInfo
 			local optionInfo = {
 				unitGUID = unitGUID,
 			}
@@ -949,7 +1036,6 @@ local function UpdateUnitSelfResAuras(unitID)
 		local aura = GetUnitAuraBySpellID(unitID, spellID)
 
 		if aura then
-			---@type SelfResOptionInfo
 			local optionInfo = {
 				unitGUID = unitGUID,
 				spellID = spellID,
@@ -1046,8 +1132,10 @@ function lib:PLAYER_LOGIN()
 
 	wipe(resCasterInfo)
 	wipe(massResCasterInfo)
+	wipe(massResTargetGUIDs)
 	wipe(resTargetInfo)
 	wipe(ressedTargetGUIDs)
+	wipe(resWaitingExpireTimes)
 	wipe(selfResInfo)
 
 	RegisterEvents()
@@ -1102,6 +1190,7 @@ function lib:UNIT_SPELLCAST_SENT(_, unitID, targetID, castGUID, spellID)
 		massResCasterInfo[PLAYER_GUID] = massResCasterInfo[PLAYER_GUID] or {}
 
 		ApplyMassCastInfo(massResCasterInfo[PLAYER_GUID], PLAYER_GUID, castInfo)
+		SnapshotMassResTargets(PLAYER_GUID)
 
 		local fastestTargetInfo = UpdateAllFastestCasterGUIDs()
 
@@ -1314,7 +1403,7 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitID, castGUID, spellID)
 		if not casterInfo then return end
 		if casterInfo.castGUID and castGUID and casterInfo.castGUID ~= castGUID then return end
 
-		MarkMassResTargets()
+		MarkMassResTargets(casterGUID)
 
 		lib.callbacks:Fire("MassResCast_Finished", casterGUID, NormalizeCallbackTable(massResCasterInfo[casterGUID]))
 
@@ -1335,6 +1424,7 @@ function lib:UNIT_HEALTH(_, unitID)
 	if not UnitHealth(unitID) or UnitHealth(unitID) <= 0 then return end
 
 	ressedTargetGUIDs[targetGUID] = nil
+	ClearResWaitingTargetGUID(targetGUID)
 	RemoveTargetResInfo(targetGUID)
 
 	lib.callbacks:Fire("ResTargetGUID_IsAlive", targetGUID)
@@ -1357,8 +1447,11 @@ end
 -- Public APIs
 -- -------------------------------------------------------------------
 
----@param unit string unitID, GUID, unit name, or name-realm
----@return (true, string, number, ResType) | (false, nil, nil, nil) isBeingResurrected, fastestGUID, fastestRemainingTime, fastestResType
+---@param unit string
+---@return boolean isBeingResurrected
+---@return string|nil fastestGUID
+---@return number|nil fastestRemainingTime
+---@return "SINGLE"|"MASS"|nil fastestResType
 function lib:IsUnitBeingResurrected(unit)
 	local targetGUID = ResolvePublicUnitArg(unit)
 	if not targetGUID then
@@ -1373,7 +1466,7 @@ function lib:IsUnitBeingResurrected(unit)
 		local unitID = UnitTokenFromGUID(targetGUID)
 
 		if unitID and UnitIsDeadOrGhost(unitID) then
-			local fastestMassResGUID, fastestRemainingTime = GetFastestMassResInfo()
+			local fastestMassResGUID, fastestRemainingTime = GetFastestMassResForTarget(targetGUID)
 
 			if fastestMassResGUID then
 				return true, fastestMassResGUID, fastestRemainingTime, "MASS"
@@ -1393,7 +1486,9 @@ function lib:IsUnitBeingResurrected(unit)
 	return true, fastestGUID, fastestRemainingTime, fastestResType
 end
 
----@return (true, string, number) | (false, nil, nil) isBeingCast, fastestMassResGUID, fastestRemainingTime
+---@return boolean isMassResBeingCast
+---@return string|nil fastestMassResGUID
+---@return number|nil fastestRemainingTime
 function lib:IsMassResBeingCast()
 	local fastestMassResGUID, fastestRemainingTime = GetFastestMassResInfo()
 
@@ -1404,9 +1499,32 @@ function lib:IsMassResBeingCast()
 	return false, nil, nil
 end
 
----@param unit string unitID, GUID, unit name, or name-realm
----@return boolean canSelfRes
----@return SelfResOptionInfo|SelfResOptionTable|nil optionInfo
+---@param unit string
+---@return boolean hasResWaiting
+---@return number|nil remainingTime
+function lib:UnitHasResWaiting(unit)
+	local targetGUID = ResolvePublicUnitArg(unit)
+	if not targetGUID then
+		return false, nil
+	end
+
+	local expireTime = resWaitingExpireTimes[targetGUID]
+	if not expireTime then
+		return false, nil
+	end
+
+	local remainingTime = expireTime - GetTime()
+
+	if remainingTime <= 0 then
+		return false, nil
+	end
+
+	return true, remainingTime
+end
+
+---@param unit string
+---@return boolean canSelfResurrect
+---@return table|nil selfResInfo
 function lib:UnitCanSelfResurrect(unit)
 	local unitGUID = ResolvePublicUnitArg(unit)
 	if not unitGUID then
@@ -1441,10 +1559,10 @@ function lib:UnitCanSelfResurrect(unit)
 	return true, firstOption
 end
 
----@param unit string unitID, GUID, unit name, or name-realm
----@return number|false endTime Absolute cast end time, comparable to GetTime()
+---@param unit string
+---@return number|false endTime
 ---@return string|nil targetGUID
----@return ResType|nil resType
+---@return "SINGLE"|"MASS"|nil resType
 function lib:GetResurrectionCastInfo(unit)
 	local casterGUID = ResolvePublicUnitArg(unit)
 	if not casterGUID then
@@ -1464,8 +1582,8 @@ function lib:GetResurrectionCastInfo(unit)
 	return false, nil, nil
 end
 
----@param unit string unitID, GUID, unit name, or name-realm
----@return ResCastInfo|nil casterInfo
+---@param unit string
+---@return table|nil casterInfo
 function lib:GetCasterInfo(unit)
 	local casterGUID = ResolvePublicUnitArg(unit)
 	if not casterGUID then
@@ -1475,8 +1593,8 @@ function lib:GetCasterInfo(unit)
 	return resCasterInfo[casterGUID] or massResCasterInfo[casterGUID]
 end
 
----@param unit string unitID, GUID, unit name, or name-realm
----@return ResTargetInfo|nil targetInfo
+---@param unit string
+---@return table|nil targetInfo
 function lib:GetTargetInfo(unit)
 	local targetGUID = ResolvePublicUnitArg(unit)
 	if not targetGUID then
@@ -1486,8 +1604,8 @@ function lib:GetTargetInfo(unit)
 	return resTargetInfo[targetGUID]
 end
 
----@param unit string unitID, GUID, unit name, or name-realm
----@return ResCasterTable|nil casters
+---@param unit string
+---@return table<string, "SINGLE"|"MASS">|nil casters
 function lib:GetAllCastersForUnit(unit)
 	local targetGUID = ResolvePublicUnitArg(unit)
 	if not targetGUID then
@@ -1509,9 +1627,11 @@ function lib:GetAllCastersForUnit(unit)
 	local unitID = UnitTokenFromGUID(targetGUID)
 
 	if unitID and UnitIsDeadOrGhost(unitID) then
-		for casterGUID in pairs(massResCasterInfo) do
-			casters = casters or {}
-			casters[casterGUID] = "MASS"
+		for casterGUID, targets in pairs(massResTargetGUIDs) do
+			if targets[targetGUID] then
+				casters = casters or {}
+				casters[casterGUID] = "MASS"
+			end
 		end
 	end
 
@@ -1522,19 +1642,6 @@ end
 -- Embed mixins into target addon objects
 -- -------------------------------------------------------------------
 
----@alias LibResInfoMixin
----| "GetAllCastersForUnit"
----| "GetCasterInfo"
----| "GetResurrectionCastInfo"
----| "GetTargetInfo"
----| "IsMassResBeingCast"
----| "IsUnitBeingResurrected"
----| "RegisterCallback"
----| "UnitCanSelfResurrect"
----| "UnregisterAllResInfoCallbacks"
----| "UnregisterCallback"
-
----@type LibResInfoMixin[]
 local mixins = {
 	"GetAllCastersForUnit",
 	"GetCasterInfo",
@@ -1544,12 +1651,11 @@ local mixins = {
 	"IsUnitBeingResurrected",
 	"RegisterCallback",
 	"UnitCanSelfResurrect",
+	"UnitHasResWaiting",
 	"UnregisterAllResInfoCallbacks",
 	"UnregisterCallback",
 }
 
----@param target table
----@return table
 function lib:Embed(target)
 	for _, methodName in pairs(mixins) do
 		target[methodName] = self[methodName]

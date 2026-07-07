@@ -41,17 +41,10 @@ local UNKNOWN = UNKNOWN
 -- --------------------------------------------------------------------
 
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
-
----@class Chat: AceAddon, AceConsole-3.0, AceEvent-3.0, LibResInfo-2.0
----@field db table
----@field randomSingleMessages string[]
----@field randomMassMessages string[]
----@field RegisterCallback fun(self: Chat, eventName: string, method?: string, arg?: any)
----@field UnregisterAllResInfoCallbacks fun(self: Chat)
----@field UnregisterEvent fun(self: Chat, eventName: string)
-local module = addon:NewModule("Chat")
-
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
+---@class Chat: AceAddon, AceEvent-3.0, AceConsole-3.0, LibResInfo-2.0
+---@field db table
+local module = addon:NewModule("Chat")
 
 -- --------------------------------------------------------------------
 -- Saved variable defaults
