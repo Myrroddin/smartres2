@@ -5,33 +5,7 @@ This file contains the core implementation, inline localization table, and publi
 
 assert(LibStub, "LibAboutPanel-2.0 requires LibStub")
 
----@class LibAboutPanel-2.0.AceOption
----@field order integer
----@field name string
----@field type "description"|"input"
----@field desc string?
----@field fontSize "small"|"medium"|"large"?
----@field width "full"|number?
----@field get fun(): string?
-
----@class LibAboutPanel-2.0.AceOptionsTable
----@field name string
----@field type "group"
----@field args table<string, LibAboutPanel-2.0.AceOption>
-
----@class LibAboutPanel-2.0.AboutFrame : Frame
----@field name string
----@field parent string?
-
----@class LibAboutPanel-2.0: table
----@field embeds table<table, true> Tracks addon tables this library has been embedded into.
----@field aboutTable table<string, LibAboutPanel-2.0.AceOptionsTable> Cached AceConfig-compatible options tables, keyed by addon name.
----@field aboutFrame table<string, LibAboutPanel-2.0.AboutFrame> Cached Blizzard Settings frames, keyed by addon name.
----@field editbox EditBox Shared editbox used by clickable copy fields.
----@field CreateAboutPanel fun(self: LibAboutPanel-2.0, addon: string, parent?: string): LibAboutPanel-2.0.AboutFrame
----@field AboutOptionsTable fun(self: LibAboutPanel-2.0, addon: string): LibAboutPanel-2.0.AceOptionsTable
----@field Embed fun(self: LibAboutPanel-2.0, target: table): table
-local lib = LibStub:NewLibrary("LibAboutPanel-2.0", 118)
+local lib = LibStub:NewLibrary("LibAboutPanel-2.0", 120)
 if not lib then return end
 
 -- Localize frequently used Lua and WoW API functions for performance.
@@ -41,11 +15,7 @@ local GetLocale, CreateFrame = GetLocale, CreateFrame
 local GetAddOnMetadata = C_AddOns.GetAddOnMetadata -- retrieves .toc metadata like Title, Notes, Author, etc.
 
 -- Localization shim: returns the key itself if no translation exists.
----@type table<string, string>
 local L = setmetatable({}, {
-	---@param t table<string, string>
-	---@param k string
-	---@return string
 	__index = function(t, k)
 		local v = tostring(k)
 		rawset(t, k, v)
@@ -55,28 +25,171 @@ local L = setmetatable({}, {
 
 local locale = GetLocale() -- current game client locale
 
--- Inline localization blocks.
--- These packager tokens intentionally live in this file so the library can ship as a single Lua file.
 if locale == "deDE" then
---@localization(locale="deDE", format="lua_additive_table")@
+	L["About"] = "Über"
+	L["All Rights Reserved"] = "Alle Rechte vorbehalten"
+	L["Author"] = "Autor"
+	L["Click and press Ctrl-C to copy"] = "Klicken und Strg-C drücken, um zu kopieren"
+	L["Copyright"] = "Urheberrecht"
+	L["Credits"] = "Danksagungen"
+	L["Date"] = "Datum"
+	L["Developer Build"] = "Entwicklerversion"
+	L["Email"] = "E-Mail"
+	L["License"] = "Lizenz"
+	L["Localizations"] = "Übersetzungen"
+	L["on the %s realm"] = "auf dem Realm %s"
+	L["Repository"] = true
+	L["Website"] = "Webseite"
 elseif locale == "esES" then
---@localization(locale="esES", format="lua_additive_table")@
+	L["About"] = "Acerca de"
+	L["All Rights Reserved"] = "Todos los derechos reservados"
+	L["Author"] = "Autor"
+	L["Click and press Ctrl-C to copy"] = "Haz clic y pulsa Ctrl-C para copiar"
+	L["Copyright"] = true
+	L["Credits"] = "Créditos"
+	L["Date"] = "Fecha"
+	L["Developer Build"] = "Versión de desarrollo"
+	L["Email"] = "Correo electrónico"
+	L["License"] = "Licencia"
+	L["Localizations"] = "Localizaciones"
+	L["on the %s realm"] = "en el reino %s"
+	L["Repository"] = "Repositorio"
+	L["Website"] = "Sitio web"
 elseif locale == "esMX" then
---@localization(locale="esMX", format="lua_additive_table")@
+	L["About"] = "Acerca de"
+	L["All Rights Reserved"] = "Todos los derechos reservados"
+	L["Author"] = "Autor"
+	L["Click and press Ctrl-C to copy"] = "Haz clic y presiona Ctrl-C para copiar"
+	L["Copyright"] = "Derechos de autor"
+	L["Credits"] = "Créditos"
+	L["Date"] = "Fecha"
+	L["Developer Build"] = "Versión de desarrollo"
+	L["Email"] = "Correo electrónico"
+	L["License"] = "Licencia"
+	L["Localizations"] = "Localizaciones"
+	L["on the %s realm"] = "en el reino %s"
+	L["Repository"] = "Repositorio"
+	L["Website"] = "Sitio web"
 elseif locale == "frFR" then
---@localization(locale="frFR", format="lua_additive_table")@
+	L["About"] = "À propos"
+	L["All Rights Reserved"] = "Tous droits réservés"
+	L["Author"] = "Auteur"
+	L["Click and press Ctrl-C to copy"] = "Cliquez et appuyez sur Ctrl+C pour copier"
+	L["Copyright"] = true
+	L["Credits"] = "Crédits"
+	L["Date"] = true
+	L["Developer Build"] = "Version développeur"
+	L["Email"] = "E-mail"
+	L["License"] = "Licence"
+	L["Localizations"] = "Localisations"
+	L["on the %s realm"] = "sur le royaume %s"
+	L["Repository"] = "Dépôt"
+	L["Website"] = "Site web"
 elseif locale == "itIT" then
---@localization(locale="itIT", format="lua_additive_table")@
+	L["About"] = "Informazioni"
+	L["All Rights Reserved"] = "Tutti i diritti riservati"
+	L["Author"] = "Autore"
+	L["Click and press Ctrl-C to copy"] = "Fai clic e premi Ctrl-C per copiare"
+	L["Copyright"] = true
+	L["Credits"] = "Crediti"
+	L["Date"] = "Data"
+	L["Developer Build"] = "Versione di sviluppo"
+	L["Email"] = "E-mail"
+	L["License"] = "Licenza"
+	L["Localizations"] = "Localizzazioni"
+	L["on the %s realm"] = "nel reame %s"
+	L["Repository"] = true
+	L["Website"] = "Sito web"
 elseif locale == "koKR" then
---@localization(locale="koKR", format="lua_additive_table")@
+	L["About"] = "정보"
+	L["All Rights Reserved"] = "판권 소유"
+	L["Author"] = "작성자"
+	L["Click and press Ctrl-C to copy"] = "클릭 후 Ctrl-C를 눌러 복사하세요"
+	L["Copyright"] = "저작권"
+	L["Credits"] = "크레딧"
+	L["Date"] = "날짜"
+	L["Developer Build"] = "개발자 빌드"
+	L["Email"] = "이메일"
+	L["License"] = "라이선스"
+	L["Localizations"] = "현지화"
+	L["on the %s realm"] = "%s 서버에서"
+	L["Repository"] = "저장소"
+	L["Website"] = "웹사이트"
 elseif locale == "ptBR" then
---@localization(locale="ptBR", format="lua_additive_table")@
+	L["About"] = "Sobre"
+	L["All Rights Reserved"] = "Todos os direitos reservados"
+	L["Author"] = "Autor"
+	L["Click and press Ctrl-C to copy"] = "Clique e pressione Ctrl-C para copiar"
+	L["Copyright"] = "Direitos autorais"
+	L["Credits"] = "Créditos"
+	L["Date"] = "Data"
+	L["Developer Build"] = "Versão de desenvolvimento"
+	L["Email"] = "E-mail"
+	L["License"] = "Licença"
+	L["Localizations"] = "Localizações"
+	L["on the %s realm"] = "no reino %s"
+	L["Repository"] = "Repositório"
+	L["Website"] = "Site"
 elseif locale == "ruRU" then
---@localization(locale="ruRU", format="lua_additive_table")@
+	L["About"] = "О дополнении"
+	L["All Rights Reserved"] = "Все права защищены"
+	L["Author"] = "Автор"
+	L["Click and press Ctrl-C to copy"] = "Щёлкните и нажмите Ctrl-C, чтобы скопировать"
+	L["Copyright"] = "Авторские права"
+	L["Credits"] = "Благодарности"
+	L["Date"] = "Дата"
+	L["Developer Build"] = "Разработческая версия"
+	L["Email"] = "Эл. почта"
+	L["License"] = "Лицензия"
+	L["Localizations"] = "Локализации"
+	L["on the %s realm"] = "на сервере %s"
+	L["Repository"] = "Репозиторий"
+	L["Website"] = "Веб-сайт"
 elseif locale == "zhCN" then
---@localization(locale="zhCN", format="lua_additive_table")@
+	L["About"] = "关于"
+	L["All Rights Reserved"] = "版权所有"
+	L["Author"] = "作者"
+	L["Click and press Ctrl-C to copy"] = "点击并按下 Ctrl-C 以复制"
+	L["Copyright"] = "版权"
+	L["Credits"] = "致谢"
+	L["Date"] = "日期"
+	L["Developer Build"] = "开发者版本"
+	L["Email"] = "电子邮件"
+	L["License"] = "许可协议"
+	L["Localizations"] = "本地化"
+	L["on the %s realm"] = "在 %s 服务器"
+	L["Repository"] = "代码库"
+	L["Website"] = "网站"
 elseif locale == "zhTW" then
---@localization(locale="zhTW", format="lua_additive_table")@
+	L["About"] = "關於"
+	L["All Rights Reserved"] = "版權所有"
+	L["Author"] = "作者"
+	L["Click and press Ctrl-C to copy"] = "點擊並按下 Ctrl-C 以複製"
+	L["Copyright"] = "版權"
+	L["Credits"] = "銘謝"
+	L["Date"] = "日期"
+	L["Developer Build"] = "開發者版本"
+	L["Email"] = "電子郵件"
+	L["License"] = "授權條款"
+	L["Localizations"] = "在地化"
+	L["on the %s realm"] = "於 %s 伺服器"
+	L["Repository"] = "儲存庫"
+	L["Website"] = "網站"
+else
+	L["About"] = "About"
+	L["All Rights Reserved"] = "All Rights Reserved"
+	L["Author"] = "Author"
+	L["Click and press Ctrl-C to copy"] = "Click and press Ctrl-C to copy"
+	L["Copyright"] = "Copyright"
+	L["Credits"] = "Credits"
+	L["Date"] = "Date"
+	L["Developer Build"] = "Developer Build"
+	L["Email"] = "Email"
+	L["License"] = "License"
+	L["Localizations"] = "Localizations"
+	L["on the %s realm"] = "on the %s realm"
+	L["Repository"] = "Repository"
+	L["Website"] = "Website"
 end
 
 -- Persistent tables: preserve state across library upgrades and allow caching for performance.
@@ -89,8 +202,6 @@ lib.aboutFrame	= lib.aboutFrame or {}
 -- -----------------------------------------------------
 
 -- Converts a string to title case (e.g., "john DOE" -> "John Doe").
----@param str string
----@return string
 local function TitleCase(str)
 	return gsub(str, "(%a)(%a+)", function(a, b)
 		return upper(a) .. lower(b)
@@ -98,36 +209,30 @@ local function TitleCase(str)
 end
 
 -- Removes leading and trailing whitespace.
----@param text string?
----@return string?
-local function Trim(text)
-	if not text then return end
-	return text:gsub("^%s+", ""):gsub("%s+$", "")
+---@param input string?
+local function Trim(input)
+	if not input then return end
+	return input:gsub("^%s+", ""):gsub("%s+$", "")
 end
 
 -- Normalizes whitespace and removes hidden newline characters.
----@param text string?
----@return string?
-local function NormalizeWhitespace(text)
-	if not text then return end
+---@param input string?
+local function NormalizeWhitespace(input)
+	if not input then return end
 
 	-- Remove CR/LF from .toc metadata.
-	text = text:gsub("[\r\n]", "")
+	input = input:gsub("[\r\n]", "")
 
 	-- Trim edges.
-	text = Trim(text)
+	input = Trim(input)
 
 	-- Collapse internal whitespace.
-	text = text and text:gsub("%s+", " ")
+	input = input and input:gsub("%s+", " ")
 
-	return text
+	return input
 end
 
 -- Fetches metadata from the addon .toc, using localized fields if available.
----@param addon string
----@param field string
----@param localized boolean?
----@return string?
 local function GetMeta(addon, field, localized)
 	if localized and locale ~= "enUS" then
 		local v = GetAddOnMetadata(addon, field .. "-" .. locale)
@@ -136,30 +241,22 @@ local function GetMeta(addon, field, localized)
 	return GetAddOnMetadata(addon, field)
 end
 
----@param addon string
----@return string?
 local function GetTitle(addon)
 	local title = GetMeta(addon, "Title", true)
 	return NormalizeWhitespace(title)
 end
 
----@param addon string
----@return string?
 local function GetNotes(addon)
 	local notes = GetMeta(addon, "Notes", true)
 	return NormalizeWhitespace(notes)
 end
 
----@param addon string
----@return string?
 local function GetCredits(addon)
 	local credits = GetAddOnMetadata(addon, "X-Credits")
 	return NormalizeWhitespace(credits)
 end
 
 -- Retrieves category field from .toc.
----@param addon string
----@return string?
 local function GetCategory(addon)
 	local category = GetMeta(addon, "Category", true)
 
@@ -171,21 +268,17 @@ local function GetCategory(addon)
 end
 
 -- Parses and normalizes date fields from .toc, handling repo keyword expansion.
----@param addon string
----@return string?
 local function GetAddOnDate(addon)
 	local date = GetAddOnMetadata(addon, "X-Date") or GetAddOnMetadata(addon, "X-ReleaseDate")
 	if not date then return end
 
-	date = date:gsub("%$Date: (.-) %$", "%1")
-	date = date:gsub("%$LastChangedDate: (.-) %$", "%1")
+	date = gsub(date, "%$Date: (.-) %$", "%1")
+	date = gsub(date, "%$LastChangedDate: (.-) %$", "%1")
 
 	return NormalizeWhitespace(date)
 end
 
 -- Formats author field, appending guild/server/faction info if present.
----@param addon string
----@return string?
 local function GetAuthor(addon)
 	local author = GetAddOnMetadata(addon, "Author")
 	if not author then return end
@@ -212,8 +305,6 @@ local function GetAuthor(addon)
 end
 
 -- Parses version field, handling repo keywords and developer build tags.
----@param addon string
----@return string?
 local function GetVersion(addon)
 	local version = GetAddOnMetadata(addon, "Version")
 	if not version then return end
@@ -232,8 +323,6 @@ local function GetVersion(addon)
 end
 
 -- Normalizes and translates license/copyright fields.
----@param addon string
----@return string?
 local function GetLicense(addon)
 	local license = GetAddOnMetadata(addon, "X-License") or GetAddOnMetadata(addon, "X-Copyright")
 	if not license then return end
@@ -262,7 +351,6 @@ local function GetLicense(addon)
 end
 
 -- Maps locale abbreviations to Blizzard's global language constants.
----@type table<string, string>
 local localeMap = {
 	["enUS"] = LFG_LIST_LANGUAGE_ENUS, ["deDE"] = LFG_LIST_LANGUAGE_DEDE,
 	["esES"] = LFG_LIST_LANGUAGE_ESES, ["esMX"] = LFG_LIST_LANGUAGE_ESMX,
@@ -272,21 +360,17 @@ local localeMap = {
 	["zhTW"] = LFG_LIST_LANGUAGE_ZHTW
 }
 
----@param addon string
----@return string?
 local function GetLocalizations(addon)
 	local translations = GetAddOnMetadata(addon, "X-Localizations")
 	if translations then
 		for k, v in pairs(localeMap) do
-			translations = translations:gsub(k, v)
+			translations = gsub(translations, k, v)
 		end
 	end
 	return NormalizeWhitespace(translations)
 end
 
 -- Retrieves website and email fields, formatting for display/copy.
----@param addon string
----@return string?
 local function GetWebsite(addon)
 	local site = GetAddOnMetadata(addon, "X-Website")
 	if not site then return end
@@ -297,14 +381,20 @@ local function GetWebsite(addon)
 	return "|cff77ccff" .. gsub(normalizedSite, "https?://", "")
 end
 
----@param addon string
----@return string?
 local function GetEmail(addon)
 	local email = GetAddOnMetadata(addon, "X-Email") or GetAddOnMetadata(addon, "Email") or GetAddOnMetadata(addon, "eMail")
 	if not email then return end
 
 	local normalizedEmail = NormalizeWhitespace(email)
 	if not normalizedEmail then return end
+
+	normalizedEmail = gsub(normalizedEmail, "%s+[aA][tT]%s+", "@")
+	normalizedEmail = gsub(normalizedEmail, "%s+[dD][oO][tT]%s+", ".")
+
+	local localPart, domain = strmatch(normalizedEmail, "^([^@]+)@([^@]+)$")
+	if localPart and domain then
+		normalizedEmail = localPart .. "@" .. lower(domain)
+	end
 
 	return "|cff77ccff" .. normalizedEmail
 end
@@ -313,10 +403,6 @@ end
 -- Shared editbox UI for copying fields (email, website) in About panel.
 -- -----------------------------------------------------
 
----@class LibAboutPanel-2.0.CopyButton : Button
----@field value string
-
----@type EditBox
 local editbox = CreateFrame("EditBox", nil, nil, "InputBoxTemplate")
 editbox:Hide()
 editbox:SetFontObject("GameFontHighlightSmall")
@@ -330,7 +416,6 @@ editbox:SetScript("OnTextChanged", function(self)
 end)
 lib.editbox = editbox
 
----@param self LibAboutPanel-2.0.CopyButton
 local function OpenEditbox(self)
 	editbox:SetParent(self)
 	editbox:SetAllPoints(self)
@@ -338,7 +423,6 @@ local function OpenEditbox(self)
 	editbox:Show()
 end
 
----@param self Frame
 local function ShowTooltip(self)
 	GameTooltip:SetOwner(self, "ANCHOR_TOPRIGHT")
 	GameTooltip:SetText(L["Click and press Ctrl-C to copy"])
@@ -352,29 +436,28 @@ end
 -- Creates the About panel in Blizzard's Interface Options / Settings UI.
 -- -----------------------------------------------------
 
----Creates and caches a Blizzard Settings about panel for an addon.
+---Creates and caches a Blizzard Settings About panel for an addon.
 ---
 ---The addon parameter should be the addon's folder/.toc name. If parent is provided,
----the panel is registered as a child "About" panel under that parent addon.
+---the panel is registered as a child "About" panel under that parent options category.
 ---@param addon string Addon folder/.toc name.
----@param parent string? Parent addon name for child panels.
----@return LibAboutPanel-2.0.AboutFrame frame The created or cached about panel frame.
+---@param parent string? Parent options category name for child panels; must already be registered.
+---@return Frame frame The created or cached About panel frame.
 function lib:CreateAboutPanel(addon, parent)
 	if addon == self then
 		error("LibAboutPanel-2.0: 'addon' must be the addon's folder/.toc name, not self.", 2)
 	end
 
 	addon = addon:gsub(" ", "") -- some APIs don't like spaces in addon name
-	addon = parent or addon
 
-	local frame = lib.aboutFrame[addon]
+	local cacheKey = parent or addon
+	local frame = lib.aboutFrame[cacheKey]
 	if frame then return frame end -- reuse cached
 
 	frame = CreateFrame("Frame", addon.."AboutPanel", UIParent)
-	---@cast frame LibAboutPanel-2.0.AboutFrame
 	local title_str = frame:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
 	title_str:SetPoint("TOPLEFT", 16, -16)
-	title_str:SetText((parent and GetTitle(addon) or addon) .. " - " .. L["About"])
+	title_str:SetText(((parent and GetTitle(addon)) or addon) .. " - " .. L["About"])
 
 	-- Add notes paragraph if present.
 	local notes = GetNotes(addon)
@@ -393,9 +476,6 @@ function lib:CreateAboutPanel(addon, parent)
 	local i = 0
 	local prev_label = nil
 
-	---@param field string
-	---@param text string?
-	---@param editable boolean?
 	local function SetAboutInfo(field, text, editable)
 		if not text then return end
 		i = i + 1
@@ -413,7 +493,6 @@ function lib:CreateAboutPanel(addon, parent)
 		detail:SetText(text)
 
 		if editable then
-			---@type LibAboutPanel-2.0.CopyButton
 			local button = CreateFrame("Button", nil, frame)
 			button:SetAllPoints(detail)
 			button.value = text
@@ -437,9 +516,21 @@ function lib:CreateAboutPanel(addon, parent)
 	-- Register with Blizzard's modern Settings system.
 	frame.name = not parent and addon or L["About"]
 	frame.parent = parent
-	Settings.RegisterCanvasLayoutCategory(frame)
 
-	lib.aboutFrame[addon] = frame
+	local category
+	if parent then
+		local parentCategory = Settings.GetCategory(parent)
+		if not parentCategory then
+			error(format("LibAboutPanel-2.0: parent settings category %q is not registered.", parent), 2)
+		end
+		category = Settings.RegisterCanvasLayoutSubcategory(parentCategory, frame, frame.name)
+	else
+		category = Settings.RegisterCanvasLayoutCategory(frame, frame.name)
+		Settings.RegisterAddOnCategory(category)
+	end
+	category.ID = frame.name
+
+	lib.aboutFrame[cacheKey] = frame
 	return frame
 end
 
@@ -452,7 +543,7 @@ end
 ---This function only constructs the options table. The caller is responsible for
 ---registering it with AceConfig-3.0 and displaying it with AceConfigDialog-3.0.
 ---@param addon string Addon folder/.toc name.
----@return LibAboutPanel-2.0.AceOptionsTable optionsTable The created or cached options table.
+---@return table optionsTable The created or cached options table.
 function lib:AboutOptionsTable(addon)
 	if addon == self then
 		error("LibAboutPanel-2.0: 'addon' must be the addon's folder/.toc name, not self.", 2)
@@ -463,7 +554,6 @@ function lib:AboutOptionsTable(addon)
 	local Table = lib.aboutTable[addon]
 	if Table then return Table end
 
-	---@type LibAboutPanel-2.0.AceOptionsTable
 	Table = {
 		name = L["About"],
 		type = "group",
@@ -478,10 +568,6 @@ function lib:AboutOptionsTable(addon)
 	}
 
 	-- Helper to add fields.
-	---@param order integer
-	---@param label string
-	---@param text string?
-	---@param asInput boolean?
 	local function addField(order, label, text, asInput)
 		if not text then return end
 		if asInput then
@@ -527,17 +613,8 @@ end
 -- Embeds LibAboutPanel-2.0 API into target addon object for easy usage.
 -- -----------------------------------------------------
 
----@alias LibAboutPanelMixin
----| "CreateAboutPanel"
----| "AboutOptionsTable"
-
----@type LibAboutPanelMixin[]
 local mixins = { "CreateAboutPanel", "AboutOptionsTable" }
 
----Embeds LibAboutPanel-2.0's public API methods into a target addon object.
----@generic T: table
----@param target T Target addon object.
----@return T target The same target table, with LibAboutPanel-2.0 methods attached.
 function lib:Embed(target)
 	for _, name in pairs(mixins) do
 		target[name] = self[name]

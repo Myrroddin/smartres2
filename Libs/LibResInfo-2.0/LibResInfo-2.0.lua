@@ -1,5 +1,7 @@
 --[[--------------------------------------------------------------------
 LibResInfo-2.0
+Revision: @project-revision@
+Date: @project-date-iso@
 
 CLEU-free resurrection tracking library.
 
@@ -14,7 +16,8 @@ Core rules:
 - Caster identity must be a real GUID or the event is ignored.
 - Target identity is GUID-first, but may be "UNKNOWN" when Blizzard does
   not expose enough data to resolve it.
-- Spell and aura logic is ID-based; names are not used for logic.
+- Spell and aura logic is ID-based. Names are used only to resolve unit
+  identities when Blizzard does not provide a GUID directly.
 ----------------------------------------------------------------------]]
 
 assert(LibStub, "LibResInfo-2.0 requires LibStub")
@@ -82,6 +85,7 @@ local GetSelfResurrectOptions = C_DeathInfo.GetSelfResurrectOptions
 local GetTime = GetTime
 local GetUnitAuraBySpellID = C_UnitAuras.GetUnitAuraBySpellID
 local InCombatLockdown = InCombatLockdown
+local IsInGroup = IsInGroup
 local IsInInstance = IsInInstance
 local IsInRaid = IsInRaid
 local IsPlayerNeutral = IsPlayerNeutral
@@ -107,7 +111,7 @@ local wipe = table.wipe
 
 local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
-local PLAYER_GUID
+local PLAYER_GUID = UnitGUID("player")
 local RES_WAITING_TIMEOUT = 60
 local UNKNOWN_TARGET_CLEANUP_TIMEOUT = 10
 local UNKNOWN_TARGET_GUID = "UNKNOWN"
@@ -339,6 +343,48 @@ local function IsKnownTargetGUID(targetGUID)
 	return targetGUID and targetGUID ~= UNKNOWN_TARGET_GUID
 end
 
+-- Compare a name-only API or event value against both name forms exposed by
+-- a known unitID. Blizzard does not consistently document whether such values
+-- include the realm suffix, so both name and name-realm must be accepted.
+local function UnitMatchesName(unitID, name)
+	if not unitID or not name then return end
+
+	local unitName, unitRealm = UnitName(unitID)
+	if not unitName then return end
+
+	if name == unitName then
+		return true
+	end
+
+	if unitRealm and unitRealm ~= "" and name == unitName .. "-" .. unitRealm then
+		return true
+	end
+end
+
+-- Resolve a name or name-realm string against addressable player and group
+-- unitIDs, then return the matched unit's GUID. This supplements direct
+-- UnitGUID(name) resolution when Blizzard exposes only a name string.
+local function ResolveGroupUnitName(name)
+	if not name then return end
+
+	if UnitMatchesName("player", name) then
+		return PLAYER_GUID
+	end
+
+	local prefix = (IsInRaid() and "raid") or (IsInGroup() and "party")
+	if not prefix then return end
+
+	local members = GetNumGroupMembers()
+
+	for i = 1, members do
+		local unitID = prefix .. i
+
+		if UnitExists(unitID) and UnitMatchesName(unitID, name) then
+			return UnitGUID(unitID)
+		end
+	end
+end
+
 -- Build a callback-safe target table for UNKNOWN casts.
 --
 -- UNKNOWN is a staging marker, not a real target identity. Multiple casters
@@ -565,8 +611,8 @@ local function ApplySingleCastInfo(casterInfo, targetInfo, casterGUID, targetGUI
 	SetIfMissing(targetInfo, "endTime", castInfo.endTime)
 end
 
--- Mass-res casts are caster-only because Blizzard does not expose per-target
--- data for the cast. Target relevance is inferred later for known dead units.
+-- Mass-res cast data is caster-only because Blizzard does not expose targets
+-- through the cast itself. Affected target GUIDs are snapshotted separately.
 local function ApplyMassCastInfo(casterInfo, casterGUID, castInfo)
 	SetIfMissing(casterInfo, "castGUID", castInfo.castGUID)
 	SetIfMissing(casterInfo, "casterGUID", casterGUID)
@@ -597,15 +643,18 @@ end
 -- Populate single-target cast state from whatever Blizzard currently exposes.
 --
 -- UNIT_SPELLCAST_SENT can know the player's target before UNIT_SPELLCAST_START
--- has full cast timing, while observed casts may only expose a target name or
--- no target at all. This function merges partial data without overwriting
--- better data gathered from earlier events.
+-- has full cast timing, while observed casts may expose only name or name-realm,
+-- or no target at all. Resolve those names against addressable group units and
+-- merge partial data without overwriting better data from earlier events.
 local function PopulateSingleResInfo(unitID, casterGUID, castInfo)
 	local existingCasterInfo = resCasterInfo[casterGUID]
 	local existingTargetGUID = existingCasterInfo and existingCasterInfo.targetGUID
 
 	local targetName = UnitSpellTargetName(unitID)
-	local targetGUID = UnitGUID(targetName) or existingTargetGUID or UNKNOWN_TARGET_GUID
+	local targetGUID = UnitGUID(targetName)
+	or ResolveGroupUnitName(targetName)
+	or existingTargetGUID
+	or UNKNOWN_TARGET_GUID
 
 	resCasterInfo[casterGUID] = resCasterInfo[casterGUID] or {}
 	resTargetInfo[targetGUID] = resTargetInfo[targetGUID] or {}
@@ -629,13 +678,12 @@ local function SnapshotMassResTargets(casterGUID)
 	massResTargetGUIDs[casterGUID] = {}
 
 	if UnitIsDeadOrGhost("player") and UnitHasIncomingResurrection("player") then
-		local playerGUID = UnitGUID("player")
-		if playerGUID then
-			massResTargetGUIDs[casterGUID][playerGUID] = true
-		end
+		massResTargetGUIDs[casterGUID][PLAYER_GUID] = true
 	end
 
-	local prefix = IsInRaid() and "raid" or "party"
+	local prefix = (IsInRaid() and "raid") or (IsInGroup() and "party")
+	if not prefix then return end
+
 	local members = GetNumGroupMembers()
 
 	for i = 1, members do
@@ -653,9 +701,9 @@ end
 
 -- Populate mass-res cast state.
 --
--- Mass resurrection spells do not expose individual target GUIDs, so the cast
--- is tracked only by caster. Known dead group members are considered when
--- callers ask for the fastest caster for a specific dead unit.
+-- Mass resurrection spells do not expose individual target GUIDs through the
+-- cast data, so the cast is tracked by caster while its affected target GUIDs
+-- are snapshotted separately.
 local function PopulateMassResInfo(casterGUID, castInfo)
 	massResCasterInfo[casterGUID] = massResCasterInfo[casterGUID] or {}
 
@@ -985,9 +1033,6 @@ end
 local function UpdatePlayerSelfResOptions()
 	if not GetSelfResurrectOptions then return end
 
-	local unitGUID = PLAYER_GUID or UnitGUID("player")
-	if not unitGUID then return end
-
 	local seen = {}
 
 	---@type LibResInfoSelfResurrectOption[]|nil
@@ -996,7 +1041,7 @@ local function UpdatePlayerSelfResOptions()
 	if options then
 		for _, option in pairs(options) do
 			local optionInfo = {
-				unitGUID = unitGUID,
+				unitGUID = PLAYER_GUID,
 			}
 
 			SetIfPresent(optionInfo, "spellID", option.spellID)
@@ -1008,15 +1053,15 @@ local function UpdatePlayerSelfResOptions()
 
 			if optionKey then
 				seen[optionKey] = true
-				AddSelfResOption(unitGUID, optionInfo)
+				AddSelfResOption(PLAYER_GUID, optionInfo)
 			end
 		end
 	end
 
-	if selfResInfo[unitGUID] then
-		for optionKey in pairs(selfResInfo[unitGUID]) do
+	if selfResInfo[PLAYER_GUID] then
+		for optionKey in pairs(selfResInfo[PLAYER_GUID]) do
 			if not seen[optionKey] then
-				RemoveSelfResOption(unitGUID, optionKey)
+				RemoveSelfResOption(PLAYER_GUID, optionKey)
 			end
 		end
 	end
@@ -1065,24 +1110,6 @@ end
 -- -------------------------------------------------------------------
 -- External resurrection request helpers
 -- -------------------------------------------------------------------
-
--- RESURRECT_REQUEST gives an inviter name, not a GUID. Match that name against
--- visible nameplates so an external resurrection request can be attributed to
--- a real caster when possible.
-local function UnitMatchesName(unitID, name)
-	if not unitID or not name then return end
-
-	local unitName, unitRealm = UnitName(unitID)
-	if not unitName then return end
-
-	if name == unitName then
-		return true
-	end
-
-	if unitRealm and unitRealm ~= "" and name == unitName .. "-" .. unitRealm then
-		return true
-	end
-end
 
 -- RESURRECT_REQUEST is not paired with the normal target lifecycle. Once the
 -- observed caster's cast timer ends, synthesize the same finished callback path
@@ -1208,6 +1235,7 @@ end
 --
 -- For non-player casters, this is often the first event where we can see the
 -- caster GUID, spell ID, cast GUID, timing, icon, and sometimes target name.
+-- That target value may be either name or name-realm.
 -- Player casts are handled by UNIT_SPELLCAST_SENT to avoid duplicate started
 -- callbacks and to trust the player-specific target data from that event.
 function lib:UNIT_SPELLCAST_START(_, unitID)
@@ -1234,13 +1262,12 @@ end
 
 -- Fill in an UNKNOWN target when Blizzard later exposes incoming-res data.
 -- Blizzard sometimes reveals incoming-res target information after a cast was
--- first observed as UNKNOWN. When that happens, move only the matching caster's
--- staged entry to the real target GUID and notify consumers.
+-- first observed as UNKNOWN. Match either name form against the event unitID,
+-- then move only that caster's staged entry to the real target GUID and notify
+-- consumers.
 function lib:INCOMING_RESURRECT_CHANGED(_, targetID)
 	local targetGUID = UnitGUID(targetID)
 	if not targetGUID then return end
-
-	local targetName, targetRealm = UnitName(targetID)
 
 	for _, info in pairs(resCasterInfo) do
 		if info.targetGUID == UNKNOWN_TARGET_GUID then
@@ -1250,7 +1277,7 @@ function lib:INCOMING_RESURRECT_CHANGED(_, targetID)
 			if casterID then
 				local spellTargetName = UnitSpellTargetName(casterID)
 
-				if spellTargetName and (spellTargetName == targetName or spellTargetName == (targetRealm and targetName .. "-" .. targetRealm)) then
+				if UnitMatchesName(targetID, spellTargetName) then
 					info.targetGUID = targetGUID
 					ReplaceUnknownTargetGUID(targetGUID, casterGUID)
 
@@ -1261,10 +1288,10 @@ function lib:INCOMING_RESURRECT_CHANGED(_, targetID)
 	end
 end
 
--- External resurrection requests only target the player.
 -- External resurrection requests are special:
--- they target the player, may come from a visible nearby caster, and do not
--- necessarily give the same event sequence as group spellcast tracking.
+-- they target the player, provide the caster as name or name-realm, may come
+-- from a visible nearby caster, and do not necessarily give the same event
+-- sequence as group spellcast tracking.
 function lib:RESURRECT_REQUEST(_, inviterName)
 	if IsInInstance() then return end
 	if InCombatLockdown() or UnitAffectingCombat("player") then return end
@@ -1355,10 +1382,11 @@ end
 
 -- A resurrection cast successfully finishes, but the target may not be alive yet.
 --
--- The finished callback reports spellcast completion only. For known targets,
--- the GUID is moved into ressedTargetGUIDs so UNIT_HEALTH can later fire
--- ResTargetGUID_IsAlive. UNKNOWN targets are cleaned up after the callback
--- because there is no real GUID to watch.
+-- The finished callback reports spellcast completion only. An untracked
+-- single-target success first attempts to resolve its name or name-realm value
+-- against addressable group units. Known targets are then watched until
+-- UNIT_HEALTH can fire ResTargetGUID_IsAlive; UNKNOWN targets are cleaned up
+-- after the callback because there is no real GUID to watch.
 function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitID, castGUID, spellID)
 	local casterGUID = UnitGUID(unitID)
 	if not casterGUID then return end
@@ -1369,7 +1397,16 @@ function lib:UNIT_SPELLCAST_SUCCEEDED(_, unitID, castGUID, spellID)
 
 		if casterInfo and casterInfo.castGUID and castGUID and casterInfo.castGUID ~= castGUID then return end
 
-		local targetGUID = wasTracked and (casterInfo.targetGUID or UNKNOWN_TARGET_GUID) or (UnitGUID(UnitSpellTargetName(unitID)) or UNKNOWN_TARGET_GUID)
+		local targetName
+
+		if not wasTracked then
+			targetName = UnitSpellTargetName(unitID)
+		end
+
+		local targetGUID = wasTracked and (casterInfo.targetGUID or UNKNOWN_TARGET_GUID)
+		or UnitGUID(targetName)
+		or ResolveGroupUnitName(targetName)
+		or UNKNOWN_TARGET_GUID
 
 		if not wasTracked then
 			local castInfo = {

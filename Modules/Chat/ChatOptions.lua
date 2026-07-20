@@ -14,7 +14,6 @@
 -- --------------------------------------------------------------------
 
 local CHANNEL_CATEGORY_GROUP = CHANNEL_CATEGORY_GROUP
-local CHAT_MSG_GUILD = CHAT_MSG_GUILD
 local CHAT_MSG_INSTANCE_CHAT = CHAT_MSG_INSTANCE_CHAT
 local CHAT_MSG_PARTY = CHAT_MSG_PARTY
 local CHAT_MSG_RAID = CHAT_MSG_RAID
@@ -22,12 +21,12 @@ local CHAT_MSG_WHISPER_INFORM = CHAT_MSG_WHISPER_INFORM
 local CHAT_OPTIONS_LABEL = CHAT_OPTIONS_LABEL
 local DISABLE = DISABLE
 local ENABLE = ENABLE
+local GENERAL_LABEL = GENERAL_LABEL
 local LibStub = LibStub
-local MISCELLANEOUS = MISCELLANEOUS
 local NONE = NONE
 local PlaySoundFile = PlaySoundFile
 local string_format = string.format
-local string_match = string.match
+local string_gmatch = string.gmatch
 
 -- --------------------------------------------------------------------
 -- Addon / module
@@ -43,6 +42,7 @@ local module = addon:GetModule("Chat")
 
 local RESTORE_MESSAGES_ICON = [[Interface\AddOns\SmartRes2\Media\Icons\Undo.tga]]
 local RESTORE_MESSAGES_SOUND = [[Interface\AddOns\SmartRes2\Media\Sounds\clickselect2.ogg]]
+local FORMAT_TOKEN_PATTERN = "%%[-+0#]*%d*%.?%d*[cdeEfgGiouXxqsaA]"
 
 -- --------------------------------------------------------------------
 -- File-scope state
@@ -52,7 +52,6 @@ local options
 
 local singleOutputValues = {
 	GROUP = CHANNEL_CATEGORY_GROUP,
-	GUILD = CHAT_MSG_GUILD,
 	INSTANCE_CHAT = CHAT_MSG_INSTANCE_CHAT,
 	NONE = NONE,
 	PARTY = CHAT_MSG_PARTY,
@@ -62,7 +61,6 @@ local singleOutputValues = {
 
 local massOutputValues = {
 	GROUP = CHANNEL_CATEGORY_GROUP,
-	GUILD = CHAT_MSG_GUILD,
 	INSTANCE_CHAT = CHAT_MSG_INSTANCE_CHAT,
 	NONE = NONE,
 	PARTY = CHAT_MSG_PARTY,
@@ -101,15 +99,34 @@ local function NormalizeInput(value)
 	end
 end
 
+local function GetMessagePlaceholderInfo(value)
+	local targetPlaceholderCount = 0
+	local hasUnsupportedPlaceholder = false
+
+	for token in string_gmatch(value, FORMAT_TOKEN_PATTERN) do
+		if token == "%s" then
+			targetPlaceholderCount = targetPlaceholderCount + 1
+		else
+			hasUnsupportedPlaceholder = true
+		end
+	end
+
+	return targetPlaceholderCount, hasUnsupportedPlaceholder
+end
+
 local function ValidateSingleMessage(value)
 	value = NormalizeInput(value)
 
-	if value and not string_match(value, "%%s") then
-		return L["You must include '%s' somewhere in the string for the target's name."]
-	end
+	if value then
+		local targetPlaceholderCount, hasUnsupportedPlaceholder = GetMessagePlaceholderInfo(value)
 
-	if value and value:len() >= 256 then
-		return string_format(L["Message must be 255 characters or less. Currently %d characters."], value:len())
+		if targetPlaceholderCount ~= 1 or hasUnsupportedPlaceholder then
+			return L["Single resurrection messages must include exactly one '%s' placeholder and no other placeholders."]
+		end
+
+		if value:len() >= 256 then
+			return string_format(L["Message must be 255 characters or less. Currently %d characters."], value:len())
+		end
 	end
 
 	return true
@@ -118,12 +135,16 @@ end
 local function ValidateMassMessage(value)
 	value = NormalizeInput(value)
 
-	if value and string_match(value, "%%s") then
-		return L["Do not include '%s' as there are no target names."]
-	end
+	if value then
+		local targetPlaceholderCount, hasUnsupportedPlaceholder = GetMessagePlaceholderInfo(value)
 
-	if value and value:len() >= 256 then
-		return string_format(L["Message must be 255 characters or less. Currently %d characters."], value:len())
+		if targetPlaceholderCount > 0 or hasUnsupportedPlaceholder then
+			return L["Mass resurrection messages do not support placeholders."]
+		end
+
+		if value:len() >= 256 then
+			return string_format(L["Message must be 255 characters or less. Currently %d characters."], value:len())
+		end
 	end
 
 	return true
@@ -157,7 +178,7 @@ function module:GetOptions()
 			generalOptions = {
 				order = 10,
 				type = "group",
-				name = MISCELLANEOUS,
+				name = GENERAL_LABEL,
 				args = {
 					enabled = {
 						order = 10,
@@ -177,8 +198,34 @@ function module:GetOptions()
 							end
 						end,
 					},
-					notifyCollision = {
+					useClassColorsForMessages = {
 						order = 20,
+						type = "toggle",
+						name = L["Class-Colored Names"],
+						desc = L["Use class colors for player names in resurrection messages."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return GetProfileDB().useClassColorsForMessages
+						end,
+						set = function(_, value)
+							GetProfileDB().useClassColorsForMessages = value
+						end,
+					},
+					useFullNameForMessages = {
+						order = 30,
+						type = "toggle",
+						name = L["Full Names"],
+						desc = L["Show realm names for player names in resurrection messages."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return GetProfileDB().useFullNameForMessages
+						end,
+						set = function(_, value)
+							GetProfileDB().useFullNameForMessages = value
+						end,
+					},
+					notifyCollision = {
+						order = 40,
 						type = "select",
 						style = "dropdown",
 						name = L["Inform Colliders"],

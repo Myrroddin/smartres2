@@ -216,8 +216,36 @@ function module:GetOptions()
 							module:RefreshConfig()
 						end,
 					},
-					maxBars = {
+					useClassColorsForBars = {
+						order = 70,
+						type = "toggle",
+						name = L["Class-Colored Names"],
+						desc = L["Use class colors for player names on resurrection bars."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return module.db.profile.useClassColorsForBars
+						end,
+						set = function(_, value)
+							module.db.profile.useClassColorsForBars = value
+							module:RefreshConfig()
+						end,
+					},
+					useFullNameForBars = {
 						order = 80,
+						type = "toggle",
+						name = L["Full Names"],
+						desc = L["Show realm names for player names on resurrection bars."],
+						disabled = IsModuleDisabled,
+						get = function()
+							return module.db.profile.useFullNameForBars
+						end,
+						set = function(_, value)
+							module.db.profile.useFullNameForBars = value
+							module:RefreshConfig()
+						end,
+					},
+					maxBars = {
+						order = 90,
 						type = "range",
 						name = L["Maximum Bars"],
 						desc = L["Maximum number of bars to display. Hidden bars are still tracked."],
@@ -235,7 +263,7 @@ function module:GetOptions()
 						end,
 					},
 					transitionDuration = {
-						order = 90,
+						order = 100,
 						type = "range",
 						name = L["Transition Duration"],
 						desc = L["How long bars fade during state changes. Set to 0 for instant changes."],
@@ -253,7 +281,7 @@ function module:GetOptions()
 						end,
 					},
 					growDirection = {
-						order = 100,
+						order = 110,
 						type = "select",
 						style = "dropdown",
 						name = L["Grow Direction"],
@@ -269,7 +297,7 @@ function module:GetOptions()
 						end,
 					},
 					iconPosition = {
-						order = 110,
+						order = 120,
 						type = "select",
 						style = "dropdown",
 						name = L["Icon Position"],

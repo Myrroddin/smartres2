@@ -1,11 +1,10 @@
 {
   "$schema": "https://raw.githubusercontent.com/TradeSkillMaster/wowlua-ls/main/editors/vscode/wowluarc.schema.json",
-  "addon_root": true,
+  "addonRoot": true,
   "ignore": [
     "*.md",
     "LICENSE",
     ".vscode/",
-    ".github/",
     ".gitignore",
     ".pkgmeta",
     "Media/"

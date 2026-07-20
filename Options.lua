@@ -18,11 +18,11 @@ local DISABLE = DISABLE
 local ENABLE = ENABLE
 local GENERAL_LABEL = GENERAL_LABEL
 local HIDE = HIDE
-local KEY_BINDINGS = KEY_BINDINGS
 local LibStub = LibStub
 local LOCK = LOCK
 local math_floor = math.floor
 local MINIMAP_LABEL = MINIMAP_LABEL
+local Reload = C_UI.Reload
 
 -- --------------------------------------------------------------------
 -- Addon / libraries
@@ -86,7 +86,6 @@ end
 -- --------------------------------------------------------------------
 
 local options
----@class SmartRes2
 function addon:GetOptions()
 	if options then
 		return options
@@ -173,16 +172,85 @@ function addon:GetOptions()
 							GetProfileDB().notifySelf = value
 						end,
 					},
-					keyBindingsHeader = {
+					useClassColorsForSystemMessages = {
 						order = 50,
-						type = "header",
-						name = KEY_BINDINGS,
+						type = "toggle",
+						name = L["Class-Colored Names"],
+						desc = L["Use class colors for player names in SmartRes2 system messages."],
+						disabled = function()
+							return not GetProfileDB().notifySelf
+						end,
+						get = function()
+							return GetProfileDB().useClassColorsForSystemMessages
+						end,
+						set = function(_, value)
+							GetProfileDB().useClassColorsForSystemMessages = value
+						end,
+					},
+					useFullNameForSystemMessages = {
+						order = 60,
+						type = "toggle",
+						name = L["Full Names"],
+						desc = L["Show realm names for player names in SmartRes2 system messages."],
+						disabled = function()
+							return not GetProfileDB().notifySelf
+						end,
+						get = function()
+							return GetProfileDB().useFullNameForSystemMessages
+						end,
+						set = function(_, value)
+							GetProfileDB().useFullNameForSystemMessages = value
+						end,
+					},
+					waitingDelay = {
+						order = 70,
+						type = "range",
+						name = L["Res Offer Threshold"],
+						desc = L["Allow smart resurrection when an existing resurrection offer or self-resurrection option has this many seconds or less remaining."],
+						get = function()
+							return GetProfileDB().waitingDelay
+						end,
+						set = function(_, value)
+							GetProfileDB().waitingDelay = value
+						end,
+						min = 0,
+						max = 10,
+						step = 0.5,
+						bigStep = 2.5,
+					},
+					keybindTrigger = {
+						order = 80,
+						type = "select",
+						name = L["Keybind Trigger"],
+						desc = L["Choose when the keybind should trigger. Changing this requires a UI reload to take effect."],
+						confirm = function(_, value)
+							if GetProfileDB().keybindTrigger == value then
+								return false
+							end
+							return L["Changing this setting will reload your UI. Continue?"]
+						end,
+						values = {
+							["AnyUp"] = L["Key Up"],
+							["AnyDown"] = L["Key Down"],
+						},
+						get = function()
+							return GetProfileDB().keybindTrigger
+						end,
+						set = function(_, value)
+							if GetProfileDB().keybindTrigger == value then
+								return
+							end
+
+							GetProfileDB().keybindTrigger = value
+							Reload()
+						end,
 					},
 					keyBindingsDescription = {
-						order = 60,
+						order = 90,
 						type = "description",
 						name = L["SmartRes2 key bindings are configured in Blizzard's Key Bindings UI."],
 						fontSize = "medium",
+						width = "full",
 					},
 				},
 			},

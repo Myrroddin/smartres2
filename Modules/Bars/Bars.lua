@@ -3,26 +3,12 @@
 -- --------------------------------------------------------------------
 -- SmartRes2 Bars
 --
--- Core responsibilities:
--- - Create the Bars module.
--- - Register the Bars AceDB namespace.
--- - Register Bars options with SmartRes2.
--- - Own the Bars settings model.
--- - Create and configure the Bars container frame.
--- - Create, style, sort, and lay out LibCandyBar preview/runtime bars.
---
--- Runtime boundary:
--- - LibResInfo-2.0 owns resurrection detection and cast state.
--- - Bars consumes LibResInfo callbacks and displays that state.
--- - Active single-target and mass resurrection bars are keyed by casterGUID.
--- - Waiting-to-accept bars are keyed by targetGUID and never reset/extend
---   once created.
--- - Preview/test bars share the same rendering path but remain independent
---   from live LibResInfo state.
---
--- Future responsibilities:
--- - Add any remaining live edge-case handling found during gameplay testing.
--- - Apply future Themes presets by copying batches into ordinary Bars settings.
+-- Responsibilities:
+-- - Initialize the Bars settings namespace and lifecycle.
+-- - Track preview, active-cast, and waiting-to-accept bar state.
+-- - Create, style, sort, and lay out resurrection bars.
+-- - Manage bar icons, borders, visibility, and runtime state updates.
+-- - Keep waiting bars bound to the target lifecycle without timer resets.
 -- --------------------------------------------------------------------
 
 -- --------------------------------------------------------------------
@@ -31,7 +17,9 @@
 
 local BackdropTemplateMixin = BackdropTemplateMixin
 local CreateFrame = CreateFrame
+local GetNumGroupMembers = GetNumGroupMembers
 local GetTime = GetTime
+local IsInRaid = IsInRaid
 local LibStub = LibStub
 local math_floor = math.floor
 local math_max = math.max
@@ -42,7 +30,8 @@ local QUEUED_STATUS_WAITING = QUEUED_STATUS_WAITING
 local string_format = string.format
 local table_sort = table.sort
 local UIParent = UIParent
-local UnitNameFromGUID = UnitNameFromGUID
+local UnitClassBase = UnitClassBase
+local UnitGUID = UnitGUID
 local UNKNOWN = UNKNOWN
 
 -- --------------------------------------------------------------------
@@ -51,48 +40,26 @@ local UNKNOWN = UNKNOWN
 
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
----@class Bars: AceAddon, AceEvent-3.0, AceConsole-3.0, LibResInfo-2.0
-local module = addon:NewModule("Bars")
-
--- --------------------------------------------------------------------
--- Libraries
--- --------------------------------------------------------------------
 
 ---@class LibCandyBar-3.0
 ---@field RegisterCallback fun(target: table, eventName: string, method: string, arg?: any)
 ---@field UnregisterCallback fun(target: table, eventName: string)
-local LibCandyBar = LibStub("LibCandyBar-3.0")
+
+---@class Bars: AceAddon, AceEvent-3.0, AceConsole-3.0, LibResInfo-2.0
+---@field LibCandyBar LibCandyBar-3.0
+local module = addon:NewModule("Bars")
+module.LibCandyBar = LibStub("LibCandyBar-3.0")
 
 -- --------------------------------------------------------------------
--- Constants
+-- Lifecycle state and defaults
 -- --------------------------------------------------------------------
 
--- The resurrection accept popup times out after 60 seconds. This is a game
--- mechanic, not user preference, so Bars treats waiting bars as expired after
--- this hard cap unless LibResInfo reports the target accepted/returned alive
--- first.
-local PENDING_TIMEOUT_SECONDS = 60
-local MIN_BAR_HEIGHT = 20
-local BAR_VERTICAL_PADDING = 6
-local BAR_BACKGROUND_R = 0
-local BAR_BACKGROUND_G = 0
-local BAR_BACKGROUND_B = 0
-local BAR_BACKGROUND_A = 0.45
-
--- --------------------------------------------------------------------
--- Saved variable defaults
--- --------------------------------------------------------------------
-
+local db
 local defaults = {
 	profile = {
 		enabled = true,
-
-		-- Frame/container settings. The container is visible by default so a
-		-- first-run user can see that the Bars module loaded before real bars
-		-- exist. Users can later opt into hiding the empty frame.
-		--
-		-- Pixel Snap rounds SmartRes2's own frame size and position after the
-		-- frame scale is applied. It does not change the player's global UI scale.
+		useClassColorsForBars = true,
+		useFullNameForBars = true,
 		frame = {
 			width = 250,
 			height = 200,
@@ -106,9 +73,7 @@ local defaults = {
 			pixelSnap = true,
 			growDirection = "DOWN",
 			backdrop = {
-				-- These are LibSharedMedia keys. Do not register them from
-				-- SmartRes2; LibSharedMedia already provides these defaults.
-				background = "Solid",
+				background = "Blizzard Parchment",
 				border = "Blizzard Tooltip",
 				edgeSize = 12,
 				insets = {
@@ -117,14 +82,11 @@ local defaults = {
 					top = 3,
 					bottom = 3,
 				},
-				-- Do not default this to pure black. The Blizzard color picker can
-				-- appear to ignore the color wheel when RGB starts at 0, 0, 0 until
-				-- the brightness slider is moved.
 				backgroundColor = {
-					r = 0.05,
-					g = 0.05,
-					b = 0.05,
-					a = 0.35,
+					r = 1,
+					g = 1,
+					b = 1,
+					a = 1,
 				},
 				borderColor = {
 					r = 0.8,
@@ -135,22 +97,16 @@ local defaults = {
 			},
 		},
 
-		-- Media settings store LibSharedMedia keys, not direct file paths.
-		-- Bars resolves these keys when applying settings to frames/bars.
+		-- Media settings store registered media keys rather than file paths.
 		media = {
 			font = "Friz Quadrata TT",
 			fontSize = 10,
-			-- Store the exact WoW font flag string so Bars can pass it directly
-			-- to LibCandyBar's SetFont wrapper.
 			fontStyle = "SLUG, OUTLINE",
 			statusBar = "Blizzard",
 			barBorder = "Blizzard Tooltip",
 			barBorderThickness = 4,
 		},
 
-		-- Text settings apply to both the bar label and the remaining-time text.
-		-- Font flags are built from these user-facing options before being passed
-		-- to LibCandyBar's SetFont wrapper.
 		text = {
 			color = {
 				r = 1,
@@ -211,115 +167,48 @@ local defaults = {
 			},
 		},
 
-		-- Themes will eventually copy complete preset batches into Bars
-		-- settings. Bars stores the chosen key for display/debugging, but
-		-- user overrides remain ordinary Bars settings.
+		-- Themes copy presets into ordinary Bars settings; later edits remain
+		-- regular profile overrides.
 		activeTheme = "default",
 	},
 }
 
 -- --------------------------------------------------------------------
--- File-scope state
+-- Static configuration
 -- --------------------------------------------------------------------
 
-local db
+-- The resurrection accept popup times out after 60 seconds. This is a game
+-- mechanic, not user preference, so Bars treats waiting bars as expired after
+-- this hard cap unless the target accepts the offer or returns alive first.
+local PENDING_TIMEOUT_SECONDS = 60
+local MIN_BAR_HEIGHT = 20
+local BAR_VERTICAL_PADDING = 6
+local BAR_BACKGROUND_R = 0
+local BAR_BACKGROUND_G = 0
+local BAR_BACKGROUND_B = 0
+local BAR_BACKGROUND_A = 0.45
+local UNKNOWN_NAME_COLOR = {r = 0.8, g = 0.8, b = 0.8}
+
+-- --------------------------------------------------------------------
+-- Runtime state
+-- --------------------------------------------------------------------
+
+local containerFrame, containerBackground
 
 -- All preview and live bars are tracked here. Active cast bars use casterGUID
 -- keys; waiting bars use targetGUID keys. The source field separates preview
 -- from runtime state without duplicating the rendering pipeline.
 local barStates = {}
 
--- Runtime-only guard for waiting bars. Once a target is waiting to accept a
--- resurrection, later finished collision casts must not reset or extend that
--- 60 second waiting timer.
+-- Tracks targets with active waiting bars so alive notifications can remove
+-- the matching bar and runtime marker together.
 local waitingToAccept = {}
 
 local candyBars = {}
-
 local barBorderFrames = {}
-
 local masqueButtons = {}
-
 local masqueRegions = {}
-
 local sortedBars = {}
-
-local masqueGroup
-
--- --------------------------------------------------------------------
--- Module lifecycle
--- --------------------------------------------------------------------
-
--- Create the Bars AceDB namespace, cache the profile table, and register the
--- Bars options table with Core. This runs once after all Lua files are loaded,
--- so module:GetOptions() can live in BarsOptions.lua.
-function module:OnInitialize()
-	self.db = addon.db:RegisterNamespace(self:GetName(), defaults)
-
-	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
-	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
-	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
-
-	db = self.db.profile
-
-	self:SetEnabledState(db.enabled)
-
-	addon:RegisterModuleOptions(self:GetName(), self:GetOptions())
-end
-
--- Enable visual rendering and live LibResInfo callback handling. Preview bars
--- and runtime bars use the same AddOrUpdateBar/StopBar path, so the callbacks
--- below only translate LibResInfo data into SmartRes2_BarState records.
-function module:OnEnable()
-	self:RefreshContainerFrame()
-
-	LibCandyBar.RegisterCallback(self, "LibCandyBar_Stop", "OnCandyBarStopped")
-
-	self:RegisterCallback("ResCast_Started", "OnSingleResCastStarted")
-	self:RegisterCallback("ResCast_Stopped", "OnSingleResCastStopped")
-	self:RegisterCallback("ResCast_Finished", "OnSingleResCastFinished")
-	self:RegisterCallback("MassResCast_Started", "OnMassResCastStarted")
-	self:RegisterCallback("MassResCast_Stopped", "OnMassResCastStopped")
-	self:RegisterCallback("MassResCast_Finished", "OnMassResCastFinished")
-	self:RegisterCallback("FastestRes_Changed", "OnFastestResChanged")
-	self:RegisterCallback("ResTargetGUID_Resolved", "OnResTargetGUIDResolved")
-	self:RegisterCallback("ResTargetGUID_IsAlive", "OnResTargetGUIDIsAlive")
-end
-
--- Disable every visual/runtime hook owned by Bars. ClearBars() removes both
--- preview and live bars, while UnregisterAllResInfoCallbacks() prevents stale
--- LibResInfo callbacks after the module is disabled.
-function module:OnDisable()
-	self:ClearBars()
-
-	LibCandyBar.UnregisterCallback(self, "LibCandyBar_Stop")
-	self:UnregisterAllResInfoCallbacks()
-
-	for key in next, masqueButtons do
-		self:RemoveMasqueButton(key)
-	end
-
-	for targetGUID in next, waitingToAccept do
-		waitingToAccept[targetGUID] = nil
-	end
-
-	if self.containerFrame then
-		self.containerFrame:Hide()
-	end
-end
-
--- Re-read the current profile after profile changes/copies/resets and reapply
--- visual settings to existing bars. Live bars remain tracked while their style
--- changes; Masque can skin new/refreshing icons but may not reskin already
--- running icons in every client/addon combination.
-function module:RefreshConfig()
-	db = self.db.profile
-
-	if self:IsEnabled() then
-		self:RefreshContainerFrame()
-		self:RefreshMasqueButtons()
-	end
-end
 
 -- --------------------------------------------------------------------
 -- Pixel snapping and layout math
@@ -405,13 +294,40 @@ local function GetMaxVisibleBars()
 	return math_max(1, maxBarsByHeight)
 end
 
+local function GetBarDisplayName(name, classFilename)
+	if not db.useClassColorsForBars then
+		return name
+	end
+
+	if name == UNKNOWN then
+		return addon:GetClassColoredName(name, classFilename, UNKNOWN_NAME_COLOR)
+	end
+
+	return addon:GetClassColoredName(name, classFilename)
+end
+
+local function GetBarStateDisplayName(state, nameKey, classKey, guidKey)
+	local name = state[nameKey]
+	local guid = state[guidKey]
+
+	if state.source == "runtime" and guid then
+		name = addon:GetUnitNameFromGUID(guid, db.useFullNameForBars)
+	end
+
+	return GetBarDisplayName(name, state[classKey])
+end
+
+local function ClearWaitingTargets()
+	for targetGUID in next, waitingToAccept do
+		waitingToAccept[targetGUID] = nil
+	end
+end
+
 local previewSingleResIconClasses = {
 	"PRIEST",
 	"SHAMAN",
 	"PALADIN",
 	"DRUID",
-	"MONK",
-	"EVOKER",
 }
 
 local previewSingleResIconFallbacks = {
@@ -435,23 +351,26 @@ end
 
 local function GetPreviewSingleResIcon(avoidIcon)
 	local firstIcon
+	local firstClassFilename
 	local count = #previewSingleResIconClasses
 	local startIndex = math_random(count)
 
 	for offset = 0, count - 1 do
 		local index = ((startIndex + offset - 2) % count) + 1
-		local icon = GetPreviewSingleResIconForClass(previewSingleResIconClasses[index])
+		local classFilename = previewSingleResIconClasses[index]
+		local icon = GetPreviewSingleResIconForClass(classFilename)
 
 		if icon then
 			firstIcon = firstIcon or icon
+			firstClassFilename = firstClassFilename or classFilename
 
 			if icon ~= avoidIcon then
-				return icon
+				return icon, classFilename
 			end
 		end
 	end
 
-	return firstIcon
+	return firstIcon, firstClassFilename
 end
 
 local function GetPreviewMassResIcon()
@@ -469,21 +388,23 @@ end
 -- --------------------------------------------------------------------
 
 local function FormatBarLabel(state)
+	local targetName = GetBarStateDisplayName(state, "targetName", "targetClass", "targetGUID")
+
 	if state.isWaiting then
-		if db and db.behavior.useShortLabels then
-			return string_format(L["%s : %s"], state.targetName, QUEUED_STATUS_WAITING)
+		if db.behavior.useShortLabels then
+			return string_format(L["%s : %s"], targetName, QUEUED_STATUS_WAITING)
 		end
 
-		return string_format(L["%s is waiting to accept"], state.targetName)
+		return string_format(L["%s is waiting to accept"], targetName)
 	end
 
-	local casterName = state.casterName or ""
+	local casterName = GetBarStateDisplayName(state, "casterName", "casterClass", "casterGUID")
 
-	if db and db.behavior.useShortLabels then
-		return string_format(L["%s : %s"], casterName, state.targetName)
+	if db.behavior.useShortLabels then
+		return string_format(L["%s : %s"], casterName, targetName)
 	end
 
-	return string_format(L["%s is resurrecting %s"], casterName, state.targetName)
+	return string_format(L["%s is resurrecting %s"], casterName, targetName)
 end
 
 local function GetBarColor(state)
@@ -525,28 +446,48 @@ local function CompareBarStates(a, b)
 end
 
 -- --------------------------------------------------------------------
--- LibResInfo runtime state helpers
+-- Resurrection state builders
 -- --------------------------------------------------------------------
 
--- LibResInfo gives Bars GUIDs, spell timing, and spell texture IDs. These
--- helpers keep that data translation in one place so the actual callbacks stay
--- short and easy to compare against API.md.
+-- Keep callback data translation separate from rendering and layout.
 
 local function GetCasterName(casterGUID)
-	-- LibResInfo callbacks always provide a real caster GUID. If this ever fails
-	-- during gameplay testing, the bug is in name resolution, not bar state.
-	return UnitNameFromGUID(casterGUID)
+	return addon:GetUnitNameFromGUID(casterGUID, db.useFullNameForBars)
 end
 
 local function GetTargetName(targetGUID)
-	-- LibResInfo uses the literal "UNKNOWN" placeholder until a single-target
-	-- resurrection target can be resolved. Show Blizzard's localized UNKNOWN
-	-- string until ResTargetGUID_Resolved provides a usable GUID.
-	if not targetGUID or targetGUID == "UNKNOWN" then
-		return UNKNOWN
+	-- Show Blizzard's localized UNKNOWN string until the target resolves.
+	return addon:GetUnitNameFromGUID(targetGUID, db.useFullNameForBars)
+end
+
+local function GetUnitClassByGUID(unitGUID)
+	if not unitGUID or unitGUID == "UNKNOWN" then
+		return nil
 	end
 
-	return UnitNameFromGUID(targetGUID) or UNKNOWN
+	if addon.PLAYER_GUID == unitGUID then
+		return UnitClassBase("player")
+	end
+
+	local numGroupMembers = GetNumGroupMembers()
+
+	if IsInRaid() then
+		for index = 1, numGroupMembers do
+			local unit = "raid" .. index
+
+			if UnitGUID(unit) == unitGUID then
+				return UnitClassBase(unit)
+			end
+		end
+	else
+		for index = 1, numGroupMembers - 1 do
+			local unit = "party" .. index
+
+			if UnitGUID(unit) == unitGUID then
+				return UnitClassBase(unit)
+			end
+		end
+	end
 end
 
 local function BuildSingleCastState(casterGUID, targetGUID, casterInfo, targetInfo)
@@ -561,8 +502,10 @@ local function BuildSingleCastState(casterGUID, targetGUID, casterInfo, targetIn
 		kind = "single",
 		casterGUID = casterGUID,
 		casterName = GetCasterName(casterGUID),
+		casterClass = GetUnitClassByGUID(casterGUID),
 		targetGUID = targetGUID,
 		targetName = GetTargetName(targetGUID),
+		targetClass = GetUnitClassByGUID(targetGUID),
 		startTime = endTime - duration,
 		duration = duration,
 		endTime = endTime,
@@ -583,8 +526,10 @@ local function BuildMassCastState(casterGUID, casterInfo)
 		kind = "mass",
 		casterGUID = casterGUID,
 		casterName = GetCasterName(casterGUID),
+		casterClass = GetUnitClassByGUID(casterGUID),
 		targetGUID = nil,
 		targetName = L["Multiple Targets"],
+		targetClass = nil,
 		startTime = endTime - duration,
 		duration = duration,
 		endTime = endTime,
@@ -604,8 +549,10 @@ local function BuildWaitingState(targetGUID, targetName)
 		kind = "waiting",
 		casterGUID = nil,
 		casterName = nil,
+		casterClass = nil,
 		targetGUID = targetGUID,
 		targetName = targetName,
+		targetClass = GetUnitClassByGUID(targetGUID),
 		startTime = now,
 		duration = PENDING_TIMEOUT_SECONDS,
 		endTime = now + PENDING_TIMEOUT_SECONDS,
@@ -620,14 +567,10 @@ end
 -- Container frame
 -- --------------------------------------------------------------------
 
--- Creates the visual parent frame for future CandyBars.
---
--- The container intentionally remains an ordinary, non-secure frame parented
--- to UIParent. Future bar rendering must not anchor it to protected unit
--- frames, which keeps hide/show behavior safe during combat.
-function module:CreateContainerFrame()
-	if self.containerFrame then
-		return self.containerFrame
+-- The container is an ordinary frame so its visibility remains safe in combat.
+local function CreateContainerFrame()
+	if containerFrame then
+		return containerFrame
 	end
 
 	local template = BackdropTemplateMixin and "BackdropTemplate" or nil
@@ -639,20 +582,24 @@ function module:CreateContainerFrame()
 	-- Keep the fill/background texture separate from the backdrop border.
 	-- SetBackdrop handles borders well, but a regular texture makes background
 	-- media and color changes immediate and predictable across clients.
-	self.containerBackground = frame:CreateTexture(nil, "BACKGROUND")
+	containerBackground = frame:CreateTexture(nil, "BACKGROUND")
 
-	self.containerFrame = frame
+	containerFrame = frame
 
 	return frame
 end
 
--- Applies the DB-driven frame style.
---
+local function HideContainer()
+	if containerFrame then
+		containerFrame:Hide()
+	end
+end
+
 -- The background uses a normal texture so media/color changes are predictable
 -- across clients. The backdrop is reserved for the border, where Blizzard's
 -- BackdropTemplate API is still the right fit.
-function module:ApplyContainerBackdrop()
-	if not db or not self.containerFrame then
+local function ApplyContainerBackdrop()
+	if not db or not containerFrame then
 		return
 	end
 
@@ -660,7 +607,7 @@ function module:ApplyContainerBackdrop()
 	local backgroundColor = backdropSettings.backgroundColor
 	local borderColor = backdropSettings.borderColor
 	local insets = backdropSettings.insets
-	local backgroundTexture = self.containerBackground
+	local backgroundTexture = containerBackground
 
 	if backgroundTexture then
 		local background = addon.LSM:Fetch(
@@ -670,8 +617,8 @@ function module:ApplyContainerBackdrop()
 		)
 
 		backgroundTexture:ClearAllPoints()
-		backgroundTexture:SetPoint("TOPLEFT", self.containerFrame, "TOPLEFT", insets.left, -insets.top)
-		backgroundTexture:SetPoint("BOTTOMRIGHT", self.containerFrame, "BOTTOMRIGHT", -insets.right, insets.bottom)
+		backgroundTexture:SetPoint("TOPLEFT", containerFrame, "TOPLEFT", insets.left, -insets.top)
+		backgroundTexture:SetPoint("BOTTOMRIGHT", containerFrame, "BOTTOMRIGHT", -insets.right, insets.bottom)
 
 		if background then
 			backgroundTexture:SetTexture(background)
@@ -682,7 +629,7 @@ function module:ApplyContainerBackdrop()
 		end
 	end
 
-	if not self.containerFrame.SetBackdrop then
+	if not containerFrame.SetBackdrop then
 		return
 	end
 
@@ -692,7 +639,7 @@ function module:ApplyContainerBackdrop()
 		true
 	)
 
-	self.containerFrame:SetBackdrop({
+	containerFrame:SetBackdrop({
 		edgeFile = border,
 		edgeSize = backdropSettings.edgeSize,
 		insets = {
@@ -704,18 +651,15 @@ function module:ApplyContainerBackdrop()
 	})
 
 	if border then
-		self.containerFrame:SetBackdropBorderColor(borderColor.r, borderColor.g, borderColor.b, borderColor.a)
+		containerFrame:SetBackdropBorderColor(borderColor.r, borderColor.g, borderColor.b, borderColor.a)
 	end
 end
 
--- Applies profile frame settings to the container. This helper only handles
--- the container itself; CandyBar positioning happens in a separate layout pass
--- so hidden bars can remain tracked without being visibly rendered.
-function module:ApplyContainerFrameSettings()
+local function ApplyContainerFrameSettings()
 	if not db then return end
 
 	local frameSettings = db.frame
-	local frame = self:CreateContainerFrame()
+	local frame = CreateContainerFrame()
 
 	local width = frameSettings.width
 	local height = frameSettings.height
@@ -738,7 +682,7 @@ function module:ApplyContainerFrameSettings()
 	frame:SetSize(width, height)
 	frame:SetClampedToScreen(frameSettings.clampToScreen)
 
-	self:ApplyContainerBackdrop()
+	ApplyContainerBackdrop()
 end
 
 -- --------------------------------------------------------------------
@@ -746,21 +690,15 @@ end
 -- --------------------------------------------------------------------
 
 local function IsMasqueEnabled()
-	return addon.Masque ~= nil and addon.db and addon.db.profile and addon.db.profile.useMasque
+	return addon:IsMasqueAvailable() and addon.db.profile.useMasque
 end
 
-function module:GetMasqueGroup()
-	local Masque = addon.Masque
-
-	if not Masque or not addon.db or not addon.db.profile.useMasque then
+local function GetMasqueGroup()
+	if not addon.MasqueBarsGroup or not addon.db.profile.useMasque then
 		return nil
 	end
 
-	if not masqueGroup then
-		masqueGroup = Masque:Group("SmartRes2", "Bars")
-	end
-
-	return masqueGroup
+	return addon.MasqueBarsGroup
 end
 
 local function HideCandyBarIconTexture(bar)
@@ -771,7 +709,7 @@ local function HideCandyBarIconTexture(bar)
 	end
 end
 
-function module:GetOrCreateMasqueButton(key, parent)
+local function GetOrCreateMasqueButton(key, parent)
 	local button = masqueButtons[key]
 
 	if button then
@@ -798,14 +736,32 @@ function module:GetOrCreateMasqueButton(key, parent)
 	return button
 end
 
-function module:ApplyMasqueIcon(state, bar)
+local function RemoveMasqueButton(key)
+	local button = masqueButtons[key]
+
+	if not button then
+		return
+	end
+
+	if addon.MasqueBarsGroup then
+		addon.MasqueBarsGroup:RemoveButton(button)
+	end
+
+	masqueRegions[key] = nil
+	masqueButtons[key] = nil
+
+	button:Hide()
+	button:SetParent(nil)
+end
+
+local function ApplyMasqueIcon(state, bar)
 	local key = state.key
-	local group = self:GetMasqueGroup()
+	local group = GetMasqueGroup()
 	local button = masqueButtons[key]
 
 	if not group or not state.icon or GetProfileDB().behavior.iconPosition == "NONE" then
 		if button then
-			self:RemoveMasqueButton(key)
+			RemoveMasqueButton(key)
 		end
 
 		return
@@ -813,7 +769,7 @@ function module:ApplyMasqueIcon(state, bar)
 
 	HideCandyBarIconTexture(bar)
 
-	button = self:GetOrCreateMasqueButton(key, bar)
+	button = GetOrCreateMasqueButton(key, bar)
 	button:ClearAllPoints()
 	button:SetSize(GetBarHeight(), GetBarHeight())
 
@@ -851,28 +807,16 @@ function module:ApplyMasqueIcon(state, bar)
 	group:ReSkin()
 end
 
-function module:RemoveMasqueButton(key)
-	local button = masqueButtons[key]
-
-	if not button then
-		return
+local function ClearMasqueButtons()
+	for key in next, masqueButtons do
+		RemoveMasqueButton(key)
 	end
-
-	if masqueGroup then
-		masqueGroup:RemoveButton(button)
-	end
-
-	masqueRegions[key] = nil
-	masqueButtons[key] = nil
-
-	button:Hide()
-	button:SetParent(nil)
 end
 
-function module:RefreshMasqueButtons()
+local function RefreshMasqueButtons()
 	if not IsMasqueEnabled() then
 		for key in next, masqueButtons do
-			self:RemoveMasqueButton(key)
+			RemoveMasqueButton(key)
 		end
 
 		return
@@ -882,12 +826,12 @@ function module:RefreshMasqueButtons()
 		local bar = candyBars[state.key]
 
 		if bar then
-			self:ApplyMasqueIcon(state, bar)
+			ApplyMasqueIcon(state, bar)
 		end
 	end
 
-	if masqueGroup then
-		masqueGroup:ReSkin()
+	if addon.MasqueBarsGroup then
+		addon.MasqueBarsGroup:ReSkin()
 	end
 end
 
@@ -895,7 +839,7 @@ end
 -- Individual bar border frames
 -- --------------------------------------------------------------------
 
-function module:GetOrCreateBarBorderFrame(key)
+local function GetOrCreateBarBorderFrame(key)
 	local frame = barBorderFrames[key]
 
 	if frame then
@@ -903,7 +847,7 @@ function module:GetOrCreateBarBorderFrame(key)
 	end
 
 	local template = BackdropTemplateMixin and "BackdropTemplate" or nil
-	frame = CreateFrame("Frame", nil, self:CreateContainerFrame(), template)
+	frame = CreateFrame("Frame", nil, CreateContainerFrame(), template)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetFrameLevel(109)
 	frame:EnableMouse(false)
@@ -913,11 +857,11 @@ function module:GetOrCreateBarBorderFrame(key)
 	return frame
 end
 
-function module:ApplyBarBorderSettings(frame)
+local function ApplyBarBorderSettings(frame)
 	local profile = GetProfileDB()
 	local borderThickness = GetBarBorderThickness()
 
-	frame:SetParent(self:CreateContainerFrame())
+	frame:SetParent(CreateContainerFrame())
 	frame:SetSize(GetBarFrameWidth(), GetBarFrameHeight())
 
 	if not frame.SetBackdrop or borderThickness <= 0 then
@@ -951,9 +895,7 @@ end
 -- CandyBar rendering and bar lifecycle
 -- --------------------------------------------------------------------
 
--- This section owns the shared rendering pipeline. Preview bars, live cast
--- bars, and waiting bars all become SmartRes2_BarState records and flow through
--- AddOrUpdateBar(), RefreshCandyBar(), LayoutCandyBars(), and StopBar().
+-- Preview and runtime records share this rendering and layout pipeline.
 
 local function GetStatusBarTexture()
 	local profile = GetProfileDB()
@@ -975,16 +917,16 @@ local function GetFontFlags()
 	return GetProfileDB().media.fontStyle
 end
 
-function module:GetOrCreateCandyBar(key)
+local function GetOrCreateCandyBar(key)
 	local bar = candyBars[key]
 
 	if bar then
 		return bar
 	end
 
-	bar = LibCandyBar:New(GetStatusBarTexture(), GetBarWidth(), GetBarHeight())
+	bar = module.LibCandyBar:New(GetStatusBarTexture(), GetBarWidth(), GetBarHeight())
 	bar:Set("SmartRes2Key", key)
-	bar:SetParent(self:GetOrCreateBarBorderFrame(key))
+	bar:SetParent(GetOrCreateBarBorderFrame(key))
 	bar:SetFrameStrata("MEDIUM")
 	bar:SetFrameLevel(110)
 	bar:EnableMouse(false)
@@ -994,15 +936,15 @@ function module:GetOrCreateCandyBar(key)
 	return bar
 end
 
-function module:ApplyCandyBarSettings(state, bar)
+local function ApplyCandyBarSettings(state, bar)
 	local profile = GetProfileDB()
 	local color = GetBarColor(state)
 	local icon = state.icon
 
-	local borderFrame = self:GetOrCreateBarBorderFrame(state.key)
+	local borderFrame = GetOrCreateBarBorderFrame(state.key)
 	local borderThickness = GetBarBorderThickness()
 
-	self:ApplyBarBorderSettings(borderFrame)
+	ApplyBarBorderSettings(borderFrame)
 
 	bar:SetParent(borderFrame)
 	bar:ClearAllPoints()
@@ -1038,26 +980,26 @@ function module:ApplyCandyBarSettings(state, bar)
 		bar:SetIconPosition(profile.behavior.iconPosition)
 	end
 
-	self:ApplyMasqueIcon(state, bar)
+	ApplyMasqueIcon(state, bar)
 end
 
-function module:RefreshCandyBar(state)
+local function RefreshCandyBar(state)
 	local bar = candyBars[state.key]
 
 	if not bar then
 		return
 	end
 
-	self:ApplyCandyBarSettings(state, bar)
+	ApplyCandyBarSettings(state, bar)
 end
 
-function module:RefreshCandyBars()
+local function RefreshCandyBars()
 	for _, state in next, barStates do
-		self:RefreshCandyBar(state)
+		RefreshCandyBar(state)
 	end
 end
 
-function module:BuildSortedBars()
+local function BuildSortedBars()
 	for index in next, sortedBars do
 		sortedBars[index] = nil
 	end
@@ -1069,14 +1011,14 @@ function module:BuildSortedBars()
 	table_sort(sortedBars, CompareBarStates)
 end
 
-function module:LayoutCandyBars()
-	if not db or not self.containerFrame then
+local function LayoutCandyBars()
+	if not db or not containerFrame then
 		return
 	end
 
 	local profile = GetProfileDB()
 
-	self:BuildSortedBars()
+	BuildSortedBars()
 
 	local previousBar
 	local maxBars = math_min(profile.behavior.maxBars, GetMaxVisibleBars())
@@ -1096,9 +1038,9 @@ function module:LayoutCandyBars()
 			if index <= maxBars then
 				if not previousBar then
 					if growUp then
-						borderFrame:SetPoint("BOTTOMLEFT", self.containerFrame, "BOTTOMLEFT", offsetX, firstBarOffsetY)
+						borderFrame:SetPoint("BOTTOMLEFT", containerFrame, "BOTTOMLEFT", offsetX, firstBarOffsetY)
 					else
-						borderFrame:SetPoint("TOPLEFT", self.containerFrame, "TOPLEFT", offsetX, firstBarOffsetY)
+						borderFrame:SetPoint("TOPLEFT", containerFrame, "TOPLEFT", offsetX, firstBarOffsetY)
 					end
 				elseif growUp then
 					borderFrame:SetPoint("BOTTOMLEFT", previousBar, "TOPLEFT", 0, GetBarSpacing())
@@ -1117,7 +1059,26 @@ function module:LayoutCandyBars()
 	end
 end
 
-function module:AddOrUpdateBar(state)
+local function HasVisibleBars()
+	return next(barStates) ~= nil
+end
+
+local function RefreshContainerVisibility()
+	local frame = CreateContainerFrame()
+
+	if not db then
+		frame:Hide()
+		return
+	end
+
+	if db.frame.hideWhenEmpty and not HasVisibleBars() then
+		frame:Hide()
+	else
+		frame:Show()
+	end
+end
+
+local function AddOrUpdateBar(state)
 	if not db then
 		return
 	end
@@ -1129,16 +1090,16 @@ function module:AddOrUpdateBar(state)
 	state.endTime = state.endTime or (state.startTime + state.duration)
 	barStates[state.key] = state
 
-	local bar = self:GetOrCreateCandyBar(state.key)
-	self:ApplyCandyBarSettings(state, bar)
+	local bar = GetOrCreateCandyBar(state.key)
+	ApplyCandyBarSettings(state, bar)
 	bar:SetDuration(state.duration)
 	bar:Start()
 
-	self:RefreshContainerVisibility()
-	self:LayoutCandyBars()
+	RefreshContainerVisibility()
+	LayoutCandyBars()
 end
 
-function module:StopBar(key)
+local function StopBar(key)
 	local state = barStates[key]
 	local bar = candyBars[key]
 	local borderFrame = barBorderFrames[key]
@@ -1155,7 +1116,7 @@ function module:StopBar(key)
 		bar:Stop("SmartRes2_StopBar")
 	end
 
-	self:RemoveMasqueButton(key)
+	RemoveMasqueButton(key)
 
 	if borderFrame then
 		borderFrame:Hide()
@@ -1163,7 +1124,7 @@ function module:StopBar(key)
 	end
 end
 
-function module:ClearBars(source)
+local function ClearBars(source)
 	local keys = {}
 
 	for key, state in next, barStates do
@@ -1173,33 +1134,125 @@ function module:ClearBars(source)
 	end
 
 	for index = 1, #keys do
-		self:StopBar(keys[index])
+		StopBar(keys[index])
 	end
 
-	self:RefreshContainerVisibility()
-	self:LayoutCandyBars()
+	RefreshContainerVisibility()
+	LayoutCandyBars()
+end
+
+local function RefreshContainerFrame()
+	ApplyContainerFrameSettings()
+	RefreshCandyBars()
+	LayoutCandyBars()
+	RefreshContainerVisibility()
+end
+
+-- --------------------------------------------------------------------
+-- Module lifecycle
+-- --------------------------------------------------------------------
+
+-- Initialize the Bars profile namespace and register its options table.
+function module:OnInitialize()
+	self.db = addon.db:RegisterNamespace(self:GetName(), defaults)
+
+	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
+	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
+	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
+
+	db = self.db.profile
+
+	self:SetEnabledState(db.enabled)
+
+	addon:RegisterModuleOptions(self:GetName(), self:GetOptions())
+end
+
+-- Enable rendering and resurrection-state callbacks.
+function module:OnEnable()
+	RefreshContainerFrame()
+
+	module.LibCandyBar.RegisterCallback(self, "LibCandyBar_Stop", "OnCandyBarStopped")
+
+	self:RegisterCallback("ResCast_Started", "OnSingleResCastStarted")
+	self:RegisterCallback("ResCast_Stopped", "OnSingleResCastStopped")
+	self:RegisterCallback("ResCast_Finished", "OnSingleResCastFinished")
+	self:RegisterCallback("MassResCast_Started", "OnMassResCastStarted")
+	self:RegisterCallback("MassResCast_Stopped", "OnMassResCastStopped")
+	self:RegisterCallback("MassResCast_Finished", "OnMassResCastFinished")
+	self:RegisterCallback("FastestRes_Changed", "OnFastestResChanged")
+	self:RegisterCallback("ResTargetGUID_Resolved", "OnResTargetGUIDResolved")
+	self:RegisterCallback("ResTargetGUID_IsAlive", "OnResTargetGUIDIsAlive")
+end
+
+-- Release rendered state and callback registrations owned by Bars.
+function module:OnDisable()
+	ClearBars()
+
+	module.LibCandyBar.UnregisterCallback(self, "LibCandyBar_Stop")
+	self:UnregisterAllResInfoCallbacks()
+
+	ClearMasqueButtons()
+	ClearWaitingTargets()
+	HideContainer()
+end
+
+-- Rebind the active profile and reapply its visual settings.
+function module:RefreshConfig()
+	db = self.db.profile
+
+	if self:IsEnabled() then
+		RefreshContainerFrame()
+		RefreshMasqueButtons()
+	end
+end
+
+-- --------------------------------------------------------------------
+-- Preview bars
+-- --------------------------------------------------------------------
+
+local function HasTestBars()
+	for _, state in next, barStates do
+		if state.source == "preview" then
+			return true
+		end
+	end
+
+	return false
 end
 
 function module:ClearTestBars()
-	self:ClearBars("preview")
+	ClearBars("preview")
+end
+
+function module:ToggleTestBars()
+	if not self:IsEnabled() then
+		return
+	end
+
+	if HasTestBars() then
+		self:ClearTestBars()
+	else
+		self:ShowTestBars()
+	end
 end
 
 function module:ShowTestBars()
 	self:ClearTestBars()
 
 	local now = GetTime()
-	local alyndraIcon = GetPreviewSingleResIcon()
-	local caliaIcon = GetPreviewSingleResIcon(alyndraIcon)
+	local alyndraIcon, alyndraClass = GetPreviewSingleResIcon()
+	local caliaIcon, caliaClass = GetPreviewSingleResIcon(alyndraIcon)
 	local maerinIcon = GetPreviewMassResIcon()
-
-	self:AddOrUpdateBar({
+	AddOrUpdateBar({
 		key = "SmartRes2_Preview_GoodSingle",
 		source = "preview",
 		kind = "single",
 		casterGUID = "SmartRes2-Preview-Alyndra",
 		casterName = "Alyndra",
+		casterClass = alyndraClass,
 		targetGUID = "SmartRes2-Preview-Brennor",
 		targetName = "Brennor",
+		targetClass = "WARRIOR",
 		startTime = now,
 		duration = 8,
 		endTime = now + 8,
@@ -1211,14 +1264,16 @@ function module:ShowTestBars()
 		waitingKey = "SmartRes2_Preview_BrennorWaiting",
 	})
 
-	self:AddOrUpdateBar({
+	AddOrUpdateBar({
 		key = "SmartRes2_Preview_CollisionSingle",
 		source = "preview",
 		kind = "single",
 		casterGUID = "SmartRes2-Preview-Calia",
 		casterName = "Calia",
+		casterClass = caliaClass,
 		targetGUID = "SmartRes2-Preview-Brennor",
 		targetName = "Brennor",
+		targetClass = "WARRIOR",
 		startTime = now,
 		duration = 10,
 		endTime = now + 10,
@@ -1226,16 +1281,20 @@ function module:ShowTestBars()
 		isMass = false,
 		isWaiting = false,
 		icon = caliaIcon,
+		transitionToWaiting = true,
+		waitingKey = "SmartRes2_Preview_BrennorWaiting",
 	})
 
-	self:AddOrUpdateBar({
+	AddOrUpdateBar({
 		key = "SmartRes2_Preview_GoodMass",
 		source = "preview",
 		kind = "mass",
 		casterGUID = "SmartRes2-Preview-Maerin",
 		casterName = "Maerin",
+		casterClass = "PRIEST",
 		targetGUID = nil,
 		targetName = L["Multiple Targets"],
+		targetClass = nil,
 		startTime = now,
 		duration = 10,
 		endTime = now + 10,
@@ -1245,14 +1304,16 @@ function module:ShowTestBars()
 		icon = maerinIcon,
 	})
 
-	self:AddOrUpdateBar({
+	AddOrUpdateBar({
 		key = "SmartRes2_Preview_Waiting",
 		source = "preview",
 		kind = "waiting",
 		casterGUID = nil,
 		casterName = nil,
+		casterClass = nil,
 		targetGUID = "SmartRes2-Preview-Tovin",
 		targetName = "Tovin",
+		targetClass = "MAGE",
 		startTime = now,
 		duration = PENDING_TIMEOUT_SECONDS,
 		endTime = now + PENDING_TIMEOUT_SECONDS,
@@ -1262,6 +1323,10 @@ function module:ShowTestBars()
 		icon = nil,
 	})
 end
+
+-- --------------------------------------------------------------------
+-- CandyBar callback handling
+-- --------------------------------------------------------------------
 
 function module:OnCandyBarStopped(callback, bar, reason)
 	local key = bar:Get("SmartRes2Key")
@@ -1281,7 +1346,7 @@ function module:OnCandyBarStopped(callback, bar, reason)
 		candyBars[key] = nil
 		barBorderFrames[key] = nil
 
-		self:RemoveMasqueButton(key)
+		RemoveMasqueButton(key)
 
 		if borderFrame then
 			borderFrame:Hide()
@@ -1292,22 +1357,26 @@ function module:OnCandyBarStopped(callback, bar, reason)
 	if state and state.transitionToWaiting and reason ~= "SmartRes2_StopBar" then
 		local waitingKey = state.waitingKey or (state.key .. "_Waiting")
 
+		-- Preview collision casts share the target waiting bar. Once it exists, a
+		-- later completed cast must not restart or extend its timer.
 		if barStates[waitingKey] then
-			self:RefreshContainerVisibility()
-			self:LayoutCandyBars()
+			RefreshContainerVisibility()
+			LayoutCandyBars()
 			return
 		end
 
 		local now = GetTime()
 
-		self:AddOrUpdateBar({
+		AddOrUpdateBar({
 			key = waitingKey,
 			source = state.source,
 			kind = "waiting",
 			casterGUID = nil,
 			casterName = nil,
+			casterClass = nil,
 			targetGUID = state.targetGUID,
 			targetName = state.targetName,
+			targetClass = state.targetClass,
 			startTime = now,
 			duration = PENDING_TIMEOUT_SECONDS,
 			endTime = now + PENDING_TIMEOUT_SECONDS,
@@ -1320,8 +1389,8 @@ function module:OnCandyBarStopped(callback, bar, reason)
 		return
 	end
 
-	self:RefreshContainerVisibility()
-	self:LayoutCandyBars()
+	RefreshContainerVisibility()
+	LayoutCandyBars()
 end
 
 function module:SetBarCollision(key, isCollision)
@@ -1332,92 +1401,10 @@ function module:SetBarCollision(key, isCollision)
 	end
 
 	state.isCollision = isCollision
-	self:RefreshCandyBar(state)
+	RefreshCandyBar(state)
 end
 
-function module:HasTestBars()
-	for _, state in next, barStates do
-		if state.source == "preview" then
-			return true
-		end
-	end
-
-	return false
-end
-
--- Returns true when there is something meaningful to show inside the container.
-function module:HasVisibleBars()
-	return next(barStates) ~= nil
-end
-
--- Centralizes container visibility so hideWhenEmpty is applied consistently.
--- With the default hideWhenEmpty = false, first-run users see the frame and
--- know the Bars module loaded correctly.
-function module:RefreshContainerVisibility()
-	local frame = self:CreateContainerFrame()
-
-	if not db then
-		frame:Hide()
-		return
-	end
-
-	if db.frame.hideWhenEmpty and not self:HasVisibleBars() then
-		frame:Hide()
-	else
-		frame:Show()
-	end
-end
-
-function module:RefreshContainerFrame()
-	self:ApplyContainerFrameSettings()
-	self:RefreshCandyBars()
-	self:LayoutCandyBars()
-	self:RefreshContainerVisibility()
-end
-
--- --------------------------------------------------------------------
--- LibResInfo callback handlers
--- --------------------------------------------------------------------
-
--- These callbacks should stay thin: translate LibResInfo callback arguments
--- into bar state changes, then delegate all visual work to the common bar
--- lifecycle/rendering helpers above.
-
-function module:OnSingleResCastStarted(callback, casterGUID, targetGUID, casterInfo, targetInfo)
-	self:AddOrUpdateBar(BuildSingleCastState(casterGUID, targetGUID, casterInfo, targetInfo))
-end
-
-function module:OnSingleResCastStopped(callback, casterGUID, targetGUID, casterInfo, targetInfo)
-	self:StopBar(casterGUID)
-	self:RefreshTargetCollisionStates(targetGUID, targetInfo)
-end
-
-function module:OnSingleResCastFinished(callback, casterGUID, targetGUID, casterInfo, targetInfo)
-	self:StopBar(casterGUID)
-
-	-- Waiting bars are target-lifecycle bars. Once created, they must not be
-	-- reset, extended, or replaced by later finished collision casts.
-	if targetGUID == "UNKNOWN" or waitingToAccept[targetGUID] then
-		return
-	end
-
-	waitingToAccept[targetGUID] = true
-	self:AddOrUpdateBar(BuildWaitingState(targetGUID, GetTargetName(targetGUID)))
-end
-
-function module:OnMassResCastStarted(callback, casterGUID, casterInfo)
-	self:AddOrUpdateBar(BuildMassCastState(casterGUID, casterInfo))
-end
-
-function module:OnMassResCastStopped(callback, casterGUID, casterInfo)
-	self:StopBar(casterGUID)
-end
-
-function module:OnMassResCastFinished(callback, casterGUID, casterInfo)
-	self:StopBar(casterGUID)
-end
-
-function module:RefreshTargetCollisionStates(targetGUID, targetInfo)
+local function RefreshTargetCollisionStates(targetGUID, targetInfo)
 	if not targetGUID or targetGUID == "UNKNOWN" or not targetInfo then
 		return
 	end
@@ -1426,13 +1413,53 @@ function module:RefreshTargetCollisionStates(targetGUID, targetInfo)
 		if state.source == "runtime" and not state.isWaiting and not state.isMass and state.targetGUID == targetGUID then
 			state.isCollision = targetInfo.fastestCasterGUID ~= nil
 				and (targetInfo.fastestCasterGUID ~= state.casterGUID or targetInfo.fastestResType ~= "SINGLE")
-			self:RefreshCandyBar(state)
+			RefreshCandyBar(state)
 		end
 	end
 end
 
+-- --------------------------------------------------------------------
+-- Resurrection callback handlers
+-- --------------------------------------------------------------------
+
+-- Callback handlers translate state and delegate rendering to the common pipeline.
+
+function module:OnSingleResCastStarted(callback, casterGUID, targetGUID, casterInfo, targetInfo)
+	AddOrUpdateBar(BuildSingleCastState(casterGUID, targetGUID, casterInfo, targetInfo))
+end
+
+function module:OnSingleResCastStopped(callback, casterGUID, targetGUID, casterInfo, targetInfo)
+	StopBar(casterGUID)
+	RefreshTargetCollisionStates(targetGUID, targetInfo)
+end
+
+function module:OnSingleResCastFinished(callback, casterGUID, targetGUID, casterInfo, targetInfo)
+	StopBar(casterGUID)
+
+	-- Waiting bars are target-lifecycle bars. Later finished collision casts must
+	-- not reset, extend, or replace the original waiting timer.
+	if targetGUID == "UNKNOWN" or waitingToAccept[targetGUID] then
+		return
+	end
+
+	waitingToAccept[targetGUID] = true
+	AddOrUpdateBar(BuildWaitingState(targetGUID, GetTargetName(targetGUID)))
+end
+
+function module:OnMassResCastStarted(callback, casterGUID, casterInfo)
+	AddOrUpdateBar(BuildMassCastState(casterGUID, casterInfo))
+end
+
+function module:OnMassResCastStopped(callback, casterGUID, casterInfo)
+	StopBar(casterGUID)
+end
+
+function module:OnMassResCastFinished(callback, casterGUID, casterInfo)
+	StopBar(casterGUID)
+end
+
 function module:OnFastestResChanged(callback, targetGUID, targetInfo)
-	self:RefreshTargetCollisionStates(targetGUID, targetInfo)
+	RefreshTargetCollisionStates(targetGUID, targetInfo)
 end
 
 function module:OnResTargetGUIDResolved(callback, casterGUID, targetGUID, casterInfo, targetInfo)
@@ -1444,30 +1471,27 @@ function module:OnResTargetGUIDResolved(callback, casterGUID, targetGUID, caster
 	if state and state.source == "runtime" and not state.isMass and not state.isWaiting then
 		state.targetGUID = targetGUID
 		state.targetName = GetTargetName(targetGUID)
+		state.targetClass = GetUnitClassByGUID(targetGUID)
 		state.endTime = casterInfo.endTime
 		state.duration = casterInfo.castTime
 		state.startTime = casterInfo.endTime - casterInfo.castTime
 		state.icon = casterInfo.textureID
 		state.isCollision = targetInfo.fastestCasterGUID ~= nil
 			and (targetInfo.fastestCasterGUID ~= casterGUID or targetInfo.fastestResType ~= "SINGLE")
-		self:RefreshCandyBar(state)
+		RefreshCandyBar(state)
 	end
 
-	self:RefreshTargetCollisionStates(targetGUID, targetInfo)
+	RefreshTargetCollisionStates(targetGUID, targetInfo)
 end
 
 function module:OnResTargetGUIDIsAlive(callback, targetGUID)
 	if waitingToAccept[targetGUID] then
-		self:StopBar(targetGUID)
+		StopBar(targetGUID)
 	end
 end
-
 -- --------------------------------------------------------------------
--- Public-to-addon helpers
+-- Public accessors
 -- --------------------------------------------------------------------
-
--- These are intentionally tiny accessors for Core, options, and later modules.
--- Keep gameplay/rendering logic above so public surface area stays obvious.
 
 function module:GetProfile()
 	return db

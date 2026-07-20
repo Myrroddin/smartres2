@@ -3,37 +3,31 @@
 -- --------------------------------------------------------------------
 -- SmartRes2 Chat
 --
--- Core responsibilities:
--- - Register the Chat module.
--- - Own Chat module settings.
+-- Responsibilities:
+-- - Initialize the Chat settings namespace and lifecycle.
 -- - Announce the player's single-target and mass resurrection casts.
--- - Notify players whose single-target resurrection casts will not finish first.
---
--- Runtime boundary:
--- - LibResInfo-2.0 owns resurrection detection and cast state.
--- - Chat consumes LibResInfo callbacks and emits chat output only.
--- - Bars owns visual resurrection state.
--- - Core owns local SmartRes2 system notifications through addon:NotifySelf().
+-- - Notify casters whose single-target resurrection will not finish first.
+-- - Resolve configured group and whisper destinations.
 -- --------------------------------------------------------------------
 
 -- --------------------------------------------------------------------
 -- Lua / Blizzard API upvalues
 -- --------------------------------------------------------------------
 
+local GetNumGroupMembers = GetNumGroupMembers
 local IsInGroup = IsInGroup
 local IsInRaid = IsInRaid
-local IsPlayerNeutral = IsPlayerNeutral
 local LE_PARTY_CATEGORY_INSTANCE = LE_PARTY_CATEGORY_INSTANCE
 local LibStub = LibStub
 local math_random = math.random
 local pairs = pairs
 local SendChatMessage = C_ChatInfo.SendChatMessage
+local string_find = string.find
 local string_format = string.format
 local string_sub = string.sub
 local table_wipe = table.wipe
-local UnitFactionGroup = UnitFactionGroup
+local UnitClassBase = UnitClassBase
 local UnitGUID = UnitGUID
-local UnitNameFromGUID = UnitNameFromGUID
 local UNKNOWN = UNKNOWN
 
 -- --------------------------------------------------------------------
@@ -47,12 +41,14 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 local module = addon:NewModule("Chat")
 
 -- --------------------------------------------------------------------
--- Saved variable defaults
+-- Lifecycle state and defaults
 -- --------------------------------------------------------------------
 
 local defaults = {
 	profile = {
 		enabled = true,
+		useClassColorsForMessages = true,
+		useFullNameForMessages = true,
 		notifyCollision = "WHISPER",
 		singleResOutput = "WHISPER",
 		massResOutput = "GROUP",
@@ -107,22 +103,32 @@ local defaults = {
 	},
 }
 
--- --------------------------------------------------------------------
--- File-scope state
--- --------------------------------------------------------------------
+local UNKNOWN_TARGET_GUID = "UNKNOWN"
 
 local db
-
-local PLAYER_GUID
-local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
-local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
-
 local activeSingleCasts = {}
-
 local collisionNotified = {}
+local randomSingleMessages = {}
+local randomMassMessages = {}
 
-module.randomSingleMessages = {}
-module.randomMassMessages = {}
+-- --------------------------------------------------------------------
+-- Message cache helpers
+-- --------------------------------------------------------------------
+
+local function BuildEnabledMessageList(source, destination)
+	table_wipe(destination)
+
+	for message, enabled in pairs(source) do
+		if enabled then
+			destination[#destination + 1] = message
+		end
+	end
+end
+
+local function RefreshMessageCaches()
+	BuildEnabledMessageList(db.randomSingleMessages, randomSingleMessages)
+	BuildEnabledMessageList(db.randomMassMessages, randomMassMessages)
+end
 
 -- --------------------------------------------------------------------
 -- Module lifecycle
@@ -139,17 +145,11 @@ function module:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
 
 	db = self.db.profile
-	PLAYER_GUID = UnitGUID("player")
 
-	self:RefreshMessageCaches()
+	RefreshMessageCaches()
 	self:SetEnabledState(db.enabled)
 
 	addon:RegisterModuleOptions(self:GetName(), self:GetOptions())
-
-	-- We must keep this event registered, even through disabling the module. Otherwise, we might miss the player's GUID changing with a faction change.
-	if IsPlayerNeutral() and (isMists or isMainline) then
-		self:RegisterEvent("NEUTRAL_FACTION_SELECT_RESULT")
-	end
 end
 
 function module:OnEnable()
@@ -157,9 +157,8 @@ function module:OnEnable()
 	self:RegisterCallback("ResCast_Stopped", "OnSingleResCastStopped")
 	self:RegisterCallback("ResCast_Finished", "OnSingleResCastFinished")
 	self:RegisterCallback("MassResCast_Started", "OnMassResCastStarted")
-	self:RegisterCallback("MassResCast_Stopped", "OnMassResCastStopped")
-	self:RegisterCallback("MassResCast_Finished", "OnMassResCastFinished")
 	self:RegisterCallback("FastestRes_Changed", "OnFastestResChanged")
+	self:RegisterCallback("ResTargetGUID_Resolved", "OnResTargetGUIDResolved")
 end
 
 function module:OnDisable()
@@ -172,31 +171,12 @@ end
 function module:RefreshConfig()
 	db = self.db.profile
 
-	self:RefreshMessageCaches()
+	RefreshMessageCaches()
 end
 
 -- --------------------------------------------------------------------
--- Message table helpers
+-- Message selection
 -- --------------------------------------------------------------------
-
-local function BuildEnabledMessageList(source, destination)
-	table_wipe(destination)
-
-	for message, enabled in pairs(source) do
-		if enabled then
-			destination[#destination + 1] = message
-		end
-	end
-end
-
-function module:RefreshMessageCaches()
-	if not db then
-		return
-	end
-
-	BuildEnabledMessageList(db.randomSingleMessages, self.randomSingleMessages)
-	BuildEnabledMessageList(db.randomMassMessages, self.randomMassMessages)
-end
 
 local function GetRandomMessage(messages, fallback)
 	local count = #messages
@@ -208,38 +188,87 @@ local function GetRandomMessage(messages, fallback)
 	return messages[math_random(count)]
 end
 
-function module:GetSingleResMessage(targetName)
-	local message = db and db.overrideSingleResMessage
-		or GetRandomMessage(self.randomSingleMessages, L["I am resurrecting %s."])
+local function ReplaceTargetPlaceholder(message, targetName)
+	local placeholderStart, placeholderEnd = string_find(message, "%s", 1, true)
 
-	return string_format(message, targetName)
+	if not placeholderStart then
+		return message
+	end
+
+	return string_sub(message, 1, placeholderStart - 1)
+		.. targetName
+		.. string_sub(message, placeholderEnd + 1)
 end
 
-function module:GetMassResMessage()
-	return db and db.overrideMassResMessage
-		or GetRandomMessage(self.randomMassMessages, L["I am casting mass resurrection."])
+local function GetSingleResMessage(targetName)
+	local message = db.overrideSingleResMessage
+		or GetRandomMessage(randomSingleMessages, L["I am resurrecting %s."])
+
+	return ReplaceTargetPlaceholder(message, targetName)
+end
+
+local function GetMassResMessage()
+	return db.overrideMassResMessage
+		or GetRandomMessage(randomMassMessages, L["I am casting mass resurrection."])
 end
 
 -- --------------------------------------------------------------------
 -- Name and chat routing helpers
 -- --------------------------------------------------------------------
 
-local function GetNameFromGUID(unitGUID, includeRealm)
-	if not unitGUID or unitGUID == "UNKNOWN" then
-		return UNKNOWN
+local function GetUnitClassByGUID(unitGUID)
+	if not unitGUID or unitGUID == UNKNOWN_TARGET_GUID then
+		return nil
 	end
 
-	local name, realm = UnitNameFromGUID(unitGUID)
-
-	if includeRealm and realm and realm ~= "" then
-		return name .. "-" .. realm
+	if addon.PLAYER_GUID == unitGUID then
+		return UnitClassBase("player")
 	end
 
-	return name or UNKNOWN
+	local numGroupMembers = GetNumGroupMembers()
+
+	if IsInRaid() then
+		for index = 1, numGroupMembers do
+			local unit = "raid" .. index
+
+			if UnitGUID(unit) == unitGUID then
+				return UnitClassBase(unit)
+			end
+		end
+	else
+		for index = 1, numGroupMembers - 1 do
+			local unit = "party" .. index
+
+			if UnitGUID(unit) == unitGUID then
+				return UnitClassBase(unit)
+			end
+		end
+	end
 end
 
 local function GetTargetName(targetGUID)
-	return GetNameFromGUID(targetGUID, false)
+	return addon:GetUnitNameFromGUID(targetGUID, db.useFullNameForMessages)
+end
+
+local function GetMessageTargetName(targetGUID)
+	local targetName = GetTargetName(targetGUID)
+
+	if not db.useClassColorsForMessages or targetName == UNKNOWN then
+		return targetName
+	end
+
+	return addon:GetClassColoredName(targetName, GetUnitClassByGUID(targetGUID)) or targetName
+end
+
+local function GetSystemMessageTargetName(targetGUID)
+	local profile = addon.db.profile
+	local targetName = addon:GetUnitNameFromGUID(targetGUID, profile.useFullNameForSystemMessages)
+
+	if not profile.useClassColorsForSystemMessages or targetName == UNKNOWN then
+		return targetName
+	end
+
+	return addon:GetClassColoredName(targetName, GetUnitClassByGUID(targetGUID)) or targetName
 end
 
 local function GetGroupChatType()
@@ -290,8 +319,8 @@ local function ResolveChatType(channelKey, allowWhisper)
 	end
 end
 
-function module:SendConfiguredMessage(message, channelKey, fallbackWhisperGUID)
-	local whisperTarget = fallbackWhisperGUID and GetNameFromGUID(fallbackWhisperGUID, true)
+local function SendConfiguredMessage(message, channelKey, fallbackWhisperGUID)
+	local whisperTarget = fallbackWhisperGUID and addon:GetUnitNameFromGUID(fallbackWhisperGUID, true)
 	local allowWhisper = whisperTarget ~= nil and whisperTarget ~= UNKNOWN
 	local chatType = ResolveChatType(channelKey, allowWhisper)
 
@@ -314,24 +343,39 @@ end
 -- Collision notification helpers
 -- --------------------------------------------------------------------
 
+local function IsKnownTargetGUID(targetGUID)
+	return targetGUID ~= nil and targetGUID ~= UNKNOWN_TARGET_GUID
+end
+
 local function GetCollisionKey(casterGUID, targetGUID)
 	return casterGUID .. ":" .. targetGUID
 end
 
+local function ClearCollisionNotification(casterGUID, targetGUID)
+	if not IsKnownTargetGUID(targetGUID) then
+		return
+	end
+
+	collisionNotified[GetCollisionKey(casterGUID, targetGUID)] = nil
+end
+
 local function IsCollision(casterGUID, targetGUID, targetInfo)
-	if not targetInfo or not targetInfo.fastestCasterGUID then
+	-- UNKNOWN is a staging marker, not a shared target identity. Never compare or
+	-- notify unresolved casts because each UNKNOWN entry may represent a different
+	-- actual target.
+	if not IsKnownTargetGUID(targetGUID) then
 		return false
 	end
 
-	if targetGUID == "UNKNOWN" then
+	if not targetInfo or not targetInfo.fastestCasterGUID then
 		return false
 	end
 
 	return targetInfo.fastestCasterGUID ~= casterGUID or targetInfo.fastestResType ~= "SINGLE"
 end
 
-function module:NotifyCollision(casterGUID, targetGUID, targetInfo)
-	if not db or db.notifyCollision == "NONE" or not IsCollision(casterGUID, targetGUID, targetInfo) then
+local function NotifyCollision(casterGUID, targetGUID, targetInfo)
+	if db.notifyCollision == "NONE" or not IsCollision(casterGUID, targetGUID, targetInfo) then
 		return
 	end
 
@@ -343,34 +387,20 @@ function module:NotifyCollision(casterGUID, targetGUID, targetInfo)
 
 	collisionNotified[collisionKey] = true
 
-	local targetName = GetTargetName(targetGUID)
+	local targetName = GetMessageTargetName(targetGUID)
 	local message = string_format(L["Your resurrection of %s will not finish first."], targetName)
 
-	self:SendConfiguredMessage(message, db.notifyCollision, casterGUID)
+	SendConfiguredMessage(message, db.notifyCollision, casterGUID)
 end
 
-function module:RefreshCollisionNotifications(targetGUID, targetInfo)
-	if targetGUID == "UNKNOWN" then
+local function RefreshCollisionNotifications(targetGUID, targetInfo)
+	if not IsKnownTargetGUID(targetGUID) then
 		return
 	end
 
 	for casterGUID, casterInfo in pairs(activeSingleCasts) do
 		if casterInfo.targetGUID == targetGUID then
-			self:NotifyCollision(casterGUID, targetGUID, targetInfo)
-		end
-	end
-end
-
--- --------------------------------------------------------------------
--- Update the player's GUID after a faction change, if necessary.
--- --------------------------------------------------------------------
-function module:NEUTRAL_FACTION_SELECT_RESULT(_, success)
-	if success then
-		local factionGroup = UnitFactionGroup("player")
-
-		if factionGroup == "Alliance" or factionGroup == "Horde" then
-			PLAYER_GUID = UnitGUID("player")
-			self:UnregisterEvent("NEUTRAL_FACTION_SELECT_RESULT")
+			NotifyCollision(casterGUID, targetGUID, targetInfo)
 		end
 	end
 end
@@ -379,56 +409,58 @@ end
 -- LibResInfo callback handlers
 -- --------------------------------------------------------------------
 
-function module:OnSingleResCastStarted(callback, casterGUID, targetGUID, casterInfo, targetInfo)
-	if not db then
+local function AnnouncePlayerSingleRes(targetGUID)
+	-- Defer all output until LibResInfo resolves a real target GUID. Besides making
+	-- whispers possible, this prevents public messages from naming an ambiguous
+	-- UNKNOWN target.
+	if not IsKnownTargetGUID(targetGUID) then
 		return
 	end
 
+	local messageTargetName = GetMessageTargetName(targetGUID)
+	local systemMessageTargetName = GetSystemMessageTargetName(targetGUID)
+
+	SendConfiguredMessage(GetSingleResMessage(messageTargetName), db.singleResOutput, targetGUID)
+	addon:NotifySelf(string_format(L["I am resurrecting %s."], systemMessageTargetName))
+end
+
+function module:OnSingleResCastStarted(callback, casterGUID, targetGUID, casterInfo, targetInfo)
 	activeSingleCasts[casterGUID] = casterInfo
 
-	if casterGUID == PLAYER_GUID then
-		local targetName = GetTargetName(targetGUID)
-
-		self:SendConfiguredMessage(self:GetSingleResMessage(targetName), db.singleResOutput, targetGUID)
-		addon:NotifySelf(string_format(L["I am resurrecting %s."], targetName))
+	if casterGUID == addon.PLAYER_GUID then
+		AnnouncePlayerSingleRes(targetGUID)
 	end
 
-	self:NotifyCollision(casterGUID, targetGUID, targetInfo)
+	NotifyCollision(casterGUID, targetGUID, targetInfo)
 end
 
 function module:OnSingleResCastStopped(callback, casterGUID, targetGUID, casterInfo, targetInfo)
 	activeSingleCasts[casterGUID] = nil
-
-	if targetGUID then
-		collisionNotified[GetCollisionKey(casterGUID, targetGUID)] = nil
-	end
+	ClearCollisionNotification(casterGUID, targetGUID)
 end
 
 function module:OnSingleResCastFinished(callback, casterGUID, targetGUID, casterInfo, targetInfo)
 	activeSingleCasts[casterGUID] = nil
-
-	if targetGUID then
-		collisionNotified[GetCollisionKey(casterGUID, targetGUID)] = nil
-	end
+	ClearCollisionNotification(casterGUID, targetGUID)
 end
 
 function module:OnMassResCastStarted(callback, casterGUID, casterInfo)
-	if not db then
-		return
-	end
-
-	if casterGUID == PLAYER_GUID then
-		self:SendConfiguredMessage(self:GetMassResMessage(), db.massResOutput)
+	if casterGUID == addon.PLAYER_GUID then
+		SendConfiguredMessage(GetMassResMessage(), db.massResOutput)
 		addon:NotifySelf(L["I am casting mass resurrection."])
 	end
 end
 
-function module:OnMassResCastStopped(callback, casterGUID, casterInfo)
-end
-
-function module:OnMassResCastFinished(callback, casterGUID, casterInfo)
-end
-
 function module:OnFastestResChanged(callback, targetGUID, targetInfo)
-	self:RefreshCollisionNotifications(targetGUID, targetInfo)
+	RefreshCollisionNotifications(targetGUID, targetInfo)
+end
+
+function module:OnResTargetGUIDResolved(callback, casterGUID, targetGUID, casterInfo, targetInfo)
+	activeSingleCasts[casterGUID] = casterInfo
+
+	if casterGUID == addon.PLAYER_GUID then
+		AnnouncePlayerSingleRes(targetGUID)
+	end
+
+	RefreshCollisionNotifications(targetGUID, targetInfo)
 end
