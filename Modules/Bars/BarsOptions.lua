@@ -24,6 +24,7 @@ local ENABLE = ENABLE
 local FONT_SIZE = FONT_SIZE
 local GENERAL_LABEL = GENERAL_LABEL
 local LibStub = LibStub
+local LOCK = LOCK
 local NONE = NONE
 local TEXTURES_SUBHEADER = TEXTURES_SUBHEADER
 
@@ -174,8 +175,21 @@ function module:GetOptions()
 							module:RefreshConfig()
 						end,
 					},
-					showTime = {
+					mirrorBars = {
 						order = 40,
+						type = "toggle",
+						name = L["Mirror Bars"],
+						desc = L["Mirror bars horizontally so they are anchored to the right and fill or drain from that side."],
+						get = function()
+							return module.db.profile.behavior.mirrorBars
+						end,
+						set = function(_, value)
+							module.db.profile.behavior.mirrorBars = value
+							module:RefreshConfig()
+						end,
+					},
+					showTime = {
+						order = 50,
 						type = "toggle",
 						name = L["Show Time"],
 						desc = L["Show remaining time on bars."],
@@ -189,7 +203,7 @@ function module:GetOptions()
 						end,
 					},
 					showLabel = {
-						order = 50,
+						order = 60,
 						type = "toggle",
 						name = L["Show Text"],
 						desc = L["Show text labels on bars."],
@@ -203,7 +217,7 @@ function module:GetOptions()
 						end,
 					},
 					useShortLabels = {
-						order = 60,
+						order = 70,
 						type = "toggle",
 						name = L["Use Short Text"],
 						desc = L["Show shorter bar text, such as Caster : Target."],
@@ -217,7 +231,7 @@ function module:GetOptions()
 						end,
 					},
 					useClassColorsForBars = {
-						order = 70,
+						order = 80,
 						type = "toggle",
 						name = L["Class-Colored Names"],
 						desc = L["Use class colors for player names on resurrection bars."],
@@ -231,7 +245,7 @@ function module:GetOptions()
 						end,
 					},
 					useFullNameForBars = {
-						order = 80,
+						order = 90,
 						type = "toggle",
 						name = L["Full Names"],
 						desc = L["Show realm names for player names on resurrection bars."],
@@ -245,7 +259,7 @@ function module:GetOptions()
 						end,
 					},
 					maxBars = {
-						order = 90,
+						order = 100,
 						type = "range",
 						name = L["Maximum Bars"],
 						desc = L["Maximum number of bars to display. Hidden bars are still tracked."],
@@ -263,10 +277,10 @@ function module:GetOptions()
 						end,
 					},
 					transitionDuration = {
-						order = 100,
+						order = 110,
 						type = "range",
 						name = L["Transition Duration"],
-						desc = L["How long bars fade during state changes. Set to 0 for instant changes."],
+						desc = L["Delay before a completed resurrection cast bar becomes a waiting bar. Set to 0 for an instant transition."],
 						disabled = IsModuleDisabled,
 						min = 0,
 						max = 0.5,
@@ -281,7 +295,7 @@ function module:GetOptions()
 						end,
 					},
 					growDirection = {
-						order = 110,
+						order = 120,
 						type = "select",
 						style = "dropdown",
 						name = L["Grow Direction"],
@@ -297,7 +311,7 @@ function module:GetOptions()
 						end,
 					},
 					iconPosition = {
-						order = 120,
+						order = 130,
 						type = "select",
 						style = "dropdown",
 						name = L["Icon Position"],
@@ -320,8 +334,19 @@ function module:GetOptions()
 				name = L["Frame"],
 				disabled = IsModuleDisabled,
 				args = {
-					pixelSnap = {
+					locked = {
 						order = 10,
+						type = "toggle",
+						name = LOCK,
+						get = function()
+							return module.db.profile.frame.locked
+						end,
+						set = function(_, value)
+							module:SetFrameLocked(value)
+						end,
+					},
+					pixelSnap = {
+						order = 20,
 						type = "toggle",
 						name = L["Pixel Snap"],
 						desc = L["Round the Bars frame size and position to whole pixels."],
@@ -334,7 +359,7 @@ function module:GetOptions()
 						end,
 					},
 					clampToScreen = {
-						order = 20,
+						order = 30,
 						type = "toggle",
 						name = L["Clamp to Screen"],
 						desc = L["Prevent the bar frame from moving off your screen."],
@@ -347,7 +372,7 @@ function module:GetOptions()
 						end,
 					},
 					frameWidth = {
-						order = 30,
+						order = 40,
 						type = "range",
 						name = L["Frame Width"],
 						get = function()
@@ -440,6 +465,7 @@ function module:GetOptions()
 						end,
 						set = function(_, value)
 							module.db.profile.frame.point = value
+							module.db.profile.frame.relativePoint = value
 							module:RefreshConfig()
 						end,
 					},

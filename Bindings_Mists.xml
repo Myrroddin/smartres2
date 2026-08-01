@@ -20,4 +20,11 @@
 		description="BINDING_NAME_SMARTRES2_COMBAT_RES">
 		<!-- SmartRes2 secure combat resurrection binding -->
 	</Binding>
+	<Binding
+		runOnUp="true"
+		category="BINDING_HEADER_SMARTRES2"
+		name="CLICK SmartRes2MassResButton:LeftButton"
+		description="BINDING_NAME_SMARTRES2_MASS_RES">
+		<!-- SmartRes2 secure mass resurrection binding -->
+	</Binding>
 </Bindings>

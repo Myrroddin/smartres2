@@ -15,6 +15,7 @@
 -- Lua / Blizzard API upvalues
 -- --------------------------------------------------------------------
 
+local After = C_Timer.After
 local BackdropTemplateMixin = BackdropTemplateMixin
 local CreateFrame = CreateFrame
 local GetNumGroupMembers = GetNumGroupMembers
@@ -47,6 +48,7 @@ local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 
 ---@class Bars: AceAddon, AceEvent-3.0, AceConsole-3.0, LibResInfo-2.0
 ---@field LibCandyBar LibCandyBar-3.0
+---@field db AceDBObject-3.0
 local module = addon:NewModule("Bars")
 module.LibCandyBar = LibStub("LibCandyBar-3.0")
 
@@ -54,6 +56,7 @@ module.LibCandyBar = LibStub("LibCandyBar-3.0")
 -- Lifecycle state and defaults
 -- --------------------------------------------------------------------
 
+---@type table
 local db
 local defaults = {
 	profile = {
@@ -73,7 +76,7 @@ local defaults = {
 			pixelSnap = true,
 			growDirection = "DOWN",
 			backdrop = {
-				background = "Blizzard Parchment",
+				background = "Solid",
 				border = "Blizzard Tooltip",
 				edgeSize = 12,
 				insets = {
@@ -83,9 +86,9 @@ local defaults = {
 					bottom = 3,
 				},
 				backgroundColor = {
-					r = 1,
-					g = 1,
-					b = 1,
+					r = 0,
+					g = 0,
+					b = 0,
 					a = 1,
 				},
 				borderColor = {
@@ -100,7 +103,7 @@ local defaults = {
 		-- Media settings store registered media keys rather than file paths.
 		media = {
 			font = "Friz Quadrata TT",
-			fontSize = 10,
+			fontSize = 12,
 			fontStyle = "SLUG, OUTLINE",
 			statusBar = "Blizzard",
 			barBorder = "Blizzard Tooltip",
@@ -132,6 +135,7 @@ local defaults = {
 			maxBars = 10,
 			transitionDuration = 0.2,
 			fill = false,
+			mirrorBars = false,
 			showTime = true,
 			showLabel = true,
 			iconPosition = "LEFT",
@@ -166,10 +170,6 @@ local defaults = {
 				a = 1,
 			},
 		},
-
-		-- Themes copy presets into ordinary Bars settings; later edits remain
-		-- regular profile overrides.
-		activeTheme = "default",
 	},
 }
 
@@ -190,6 +190,125 @@ local BAR_BACKGROUND_A = 0.45
 local UNKNOWN_NAME_COLOR = {r = 0.8, g = 0.8, b = 0.8}
 
 -- --------------------------------------------------------------------
+-- LibSharedMedia registration
+-- --------------------------------------------------------------------
+
+local function RegisterMedia()
+	-- Backgrounds
+	addon.LSM:Register(
+		addon.LSM.MediaType.BACKGROUND,
+		"Aged Leather",
+		[[Interface\AddOns\SmartRes2\Media\Backgrounds\aged-leather.png]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.BACKGROUND,
+		"Ancient Sandstone",
+		[[Interface\AddOns\SmartRes2\Media\Backgrounds\ancient-sandstone.png]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.BACKGROUND,
+		"Classical Marble",
+		[[Interface\AddOns\SmartRes2\Media\Backgrounds\classical-marble.png]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.BACKGROUND,
+		"Dragonflight Rock",
+		[[Interface\AddOns\SmartRes2\Media\Backgrounds\Dragonflight-rock.png]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.BACKGROUND,
+		"Papyrus",
+		[[Interface\AddOns\SmartRes2\Media\Backgrounds\papyrus.png]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.BACKGROUND,
+		"Volcanic Slate",
+		[[Interface\AddOns\SmartRes2\Media\Backgrounds\volcanic-slate.png]]
+	)
+
+	-- Borders
+	addon.LSM:Register(
+		addon.LSM.MediaType.BORDER,
+		"Glow",
+		[[Interface\AddOns\SmartRes2\Media\Borders\GlowTex.png]]
+	)
+
+	-- Fonts
+	addon.LSM:Register(
+		addon.LSM.MediaType.FONT,
+		"Cleopatra",
+		[[Interface\AddOns\SmartRes2\Media\Fonts\Cleopatra.ttf]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.FONT,
+		"Herculanum",
+		[[Interface\AddOns\SmartRes2\Media\Fonts\Herculanum.ttf]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.FONT,
+		"Norse",
+		[[Interface\AddOns\SmartRes2\Media\Fonts\Norse-KaWl.ttf]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.FONT,
+		"Norse Bold",
+		[[Interface\AddOns\SmartRes2\Media\Fonts\NorseBold-2Kge.ttf]]
+	)
+
+	-- Sounds
+	addon.LSM:Register(
+		addon.LSM.MediaType.SOUND,
+		"Click Select",
+		[[Interface\AddOns\SmartRes2\Media\Sounds\clickselect2.ogg]]
+	)
+
+	-- Status bars
+	addon.LSM:Register(
+		addon.LSM.MediaType.STATUSBAR,
+		"Brushed Steel",
+		[[Interface\AddOns\SmartRes2\Media\Statusbars\brushed-steel.png]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.STATUSBAR,
+		"Dragonflight Health Bar",
+		[[Interface\AddOns\SmartRes2\Media\Statusbars\Dragonflight-Statusbar.png]]
+	)
+
+	addon.LSM:Register(
+		addon.LSM.MediaType.STATUSBAR,
+		"Gloss",
+		[[Interface\AddOns\SmartRes2\Media\Statusbars\Gloss.png]]
+	)
+
+	addon.LSM:Register(
+		addon.LSM.MediaType.STATUSBAR,
+		"LiteStep",
+		[[Interface\AddOns\SmartRes2\Media\Statusbars\LiteStep.png]]
+	)
+
+	addon.LSM:Register(
+		addon.LSM.MediaType.STATUSBAR,
+		"LiteStep Lite",
+		[[Interface\AddOns\SmartRes2\Media\Statusbars\LiteStepLite.png]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.STATUSBAR,
+		"Hammered Bronze",
+		[[Interface\AddOns\SmartRes2\Media\Statusbars\hammered-bronze.png]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.STATUSBAR,
+		"Marble Stone",
+		[[Interface\AddOns\SmartRes2\Media\Statusbars\marble-stone.png]]
+	)
+	addon.LSM:Register(
+		addon.LSM.MediaType.STATUSBAR,
+		"Rune Stone",
+		[[Interface\AddOns\SmartRes2\Media\Statusbars\rune-stone.png]]
+	)
+end
+
+-- --------------------------------------------------------------------
 -- Runtime state
 -- --------------------------------------------------------------------
 
@@ -203,6 +322,10 @@ local barStates = {}
 -- Tracks targets with active waiting bars so alive notifications can remove
 -- the matching bar and runtime marker together.
 local waitingToAccept = {}
+
+-- Waiting bars may be delayed briefly after a cast finishes. Entries are
+-- invalidated instead of cancelled because C_Timer.After has no timer handle.
+local pendingWaitingTransitions = {}
 
 local candyBars = {}
 local barBorderFrames = {}
@@ -268,8 +391,13 @@ end
 
 local function GetBarOffsetX()
 	local profile = GetProfileDB()
+	local insets = profile.frame.backdrop.insets
 
-	return profile.frame.backdrop.insets.left
+	if profile.behavior.mirrorBars then
+		return -insets.right
+	end
+
+	return insets.left
 end
 
 local function GetFirstBarOffsetY()
@@ -320,6 +448,14 @@ end
 local function ClearWaitingTargets()
 	for targetGUID in next, waitingToAccept do
 		waitingToAccept[targetGUID] = nil
+	end
+end
+
+local function ClearWaitingTransitions(source)
+	for key, transition in next, pendingWaitingTransitions do
+		if not source or transition.source == source then
+			pendingWaitingTransitions[key] = nil
+		end
 	end
 end
 
@@ -567,6 +703,34 @@ end
 -- Container frame
 -- --------------------------------------------------------------------
 
+local function SaveContainerPosition(frame)
+	local point, _, relativePoint, x, y = frame:GetPoint(1)
+	if not point then
+		return
+	end
+
+	local frameSettings = db.frame
+
+	x = x or 0
+	y = y or 0
+
+	if frameSettings.pixelSnap then
+		x = SnapPixelValue(x)
+		y = SnapPixelValue(y)
+	end
+
+	frameSettings.point = point
+	frameSettings.relativePoint = relativePoint or point
+	frameSettings.x = x
+	frameSettings.y = y
+
+	-- StartMoving replaces the original anchor with the nearest screen anchor.
+	-- Normalize that anchor against UIParent so the saved profile position can be
+	-- restored consistently after a reload or profile change.
+	frame:ClearAllPoints()
+	frame:SetPoint(point, UIParent, frameSettings.relativePoint, x, y)
+end
+
 -- The container is an ordinary frame so its visibility remains safe in combat.
 local function CreateContainerFrame()
 	if containerFrame then
@@ -577,6 +741,17 @@ local function CreateContainerFrame()
 	local frame = CreateFrame("Frame", nil, UIParent, template)
 	frame:SetFrameStrata("MEDIUM")
 	frame:SetFrameLevel(100)
+	frame:SetMovable(true)
+	frame:RegisterForDrag("LeftButton")
+	frame:SetScript("OnDragStart", function(self)
+		if db and not db.frame.locked then
+			self:StartMoving()
+		end
+	end)
+	frame:SetScript("OnDragStop", function(self)
+		self:StopMovingOrSizing()
+		SaveContainerPosition(self)
+	end)
 	frame:EnableMouse(false)
 
 	-- Keep the fill/background texture separate from the backdrop border.
@@ -678,9 +853,11 @@ local function ApplyContainerFrameSettings()
 	end
 
 	frame:ClearAllPoints()
-	frame:SetPoint(frameSettings.point, UIParent, frameSettings.point, x, y)
+	frame:SetPoint(frameSettings.point, UIParent, frameSettings.relativePoint or frameSettings.point, x, y)
 	frame:SetSize(width, height)
 	frame:SetClampedToScreen(frameSettings.clampToScreen)
+	frame:SetMovable(not frameSettings.locked)
+	frame:EnableMouse(not frameSettings.locked)
 
 	ApplyContainerBackdrop()
 end
@@ -688,10 +865,6 @@ end
 -- --------------------------------------------------------------------
 -- Masque icon skinning
 -- --------------------------------------------------------------------
-
-local function IsMasqueEnabled()
-	return addon:IsMasqueAvailable() and addon.db.profile.useMasque
-end
 
 local function GetMasqueGroup()
 	if not addon.MasqueBarsGroup or not addon.db.profile.useMasque then
@@ -702,7 +875,7 @@ local function GetMasqueGroup()
 end
 
 local function HideCandyBarIconTexture(bar)
-	local iconTexture = bar.icon or bar.Icon or bar.candyBarIcon
+	local iconTexture = bar.candyBarIconFrame
 
 	if iconTexture then
 		iconTexture:Hide()
@@ -758,22 +931,26 @@ local function ApplyMasqueIcon(state, bar)
 	local key = state.key
 	local group = GetMasqueGroup()
 	local button = masqueButtons[key]
+	local iconPosition = GetProfileDB().behavior.iconPosition
 
-	if not group or not state.icon or GetProfileDB().behavior.iconPosition == "NONE" then
+	if not group or not state.icon or iconPosition == "NONE" then
 		if button then
 			RemoveMasqueButton(key)
+		end
+
+		-- LibCandyBar still owns the icon slot when Masque is disabled.
+		if state.icon and iconPosition ~= "NONE" and bar.candyBarIconFrame then
+			bar.candyBarIconFrame:Show()
 		end
 
 		return
 	end
 
-	HideCandyBarIconTexture(bar)
-
 	button = GetOrCreateMasqueButton(key, bar)
 	button:ClearAllPoints()
 	button:SetSize(GetBarHeight(), GetBarHeight())
 
-	if GetProfileDB().behavior.iconPosition == "RIGHT" then
+	if iconPosition == "RIGHT" then
 		button:SetPoint("RIGHT", bar, "RIGHT", 0, 0)
 	else
 		button:SetPoint("LEFT", bar, "LEFT", 0, 0)
@@ -803,35 +980,15 @@ local function ApplyMasqueIcon(state, bar)
 		regions.Normal = normal
 	end
 
+	-- AddButton applies the active skin. The explicit square size above gives
+	-- Masque stable geometry instead of deriving it from LibCandyBar's texture.
 	group:AddButton(button, regions, "Item", true)
-	group:ReSkin()
+	HideCandyBarIconTexture(bar)
 end
 
 local function ClearMasqueButtons()
 	for key in next, masqueButtons do
 		RemoveMasqueButton(key)
-	end
-end
-
-local function RefreshMasqueButtons()
-	if not IsMasqueEnabled() then
-		for key in next, masqueButtons do
-			RemoveMasqueButton(key)
-		end
-
-		return
-	end
-
-	for _, state in next, barStates do
-		local bar = candyBars[state.key]
-
-		if bar then
-			ApplyMasqueIcon(state, bar)
-		end
-	end
-
-	if addon.MasqueBarsGroup then
-		addon.MasqueBarsGroup:ReSkin()
 	end
 end
 
@@ -952,6 +1109,7 @@ local function ApplyCandyBarSettings(state, bar)
 	bar:SetSize(GetBarWidth(), GetBarHeight())
 	bar:SetTexture(GetStatusBarTexture())
 	bar:SetFill(profile.behavior.fill)
+	bar.candyBarBar:SetReverseFill(profile.behavior.mirrorBars)
 	bar:SetColor(color.r, color.g, color.b, color.a)
 	bar:SetBackgroundColor(BAR_BACKGROUND_R, BAR_BACKGROUND_G, BAR_BACKGROUND_B, BAR_BACKGROUND_A)
 	bar:SetTextColor(profile.text.color.r, profile.text.color.g, profile.text.color.b, profile.text.color.a)
@@ -973,14 +1131,21 @@ local function ApplyCandyBarSettings(state, bar)
 		bar:SetShadowColor(0, 0, 0, 0)
 	end
 
-	if not icon or profile.behavior.iconPosition == "NONE" then
-		bar:SetIcon(nil)
-	else
-		bar:SetIcon(icon)
-		bar:SetIconPosition(profile.behavior.iconPosition)
-	end
+	local iconPosition = profile.behavior.iconPosition
 
-	ApplyMasqueIcon(state, bar)
+	if not icon or iconPosition == "NONE" then
+		if bar:GetIcon() then
+			bar:SetIcon(nil)
+		end
+	else
+		if (bar:GetIconPosition() or "LEFT") ~= iconPosition then
+			bar:SetIconPosition(iconPosition)
+		end
+
+		if bar:GetIcon() ~= icon then
+			bar:SetIcon(icon)
+		end
+	end
 end
 
 local function RefreshCandyBar(state)
@@ -991,6 +1156,7 @@ local function RefreshCandyBar(state)
 	end
 
 	ApplyCandyBarSettings(state, bar)
+	ApplyMasqueIcon(state, bar)
 end
 
 local function RefreshCandyBars()
@@ -1023,6 +1189,9 @@ local function LayoutCandyBars()
 	local previousBar
 	local maxBars = math_min(profile.behavior.maxBars, GetMaxVisibleBars())
 	local growUp = profile.frame.growDirection == "UP"
+	local horizontalPoint = profile.behavior.mirrorBars and "RIGHT" or "LEFT"
+	local topPoint = "TOP" .. horizontalPoint
+	local bottomPoint = "BOTTOM" .. horizontalPoint
 	local offsetX = GetBarOffsetX()
 	local firstBarOffsetY = GetFirstBarOffsetY()
 
@@ -1032,20 +1201,18 @@ local function LayoutCandyBars()
 
 		if bar and borderFrame then
 			borderFrame:ClearAllPoints()
-			borderFrame:SetSize(GetBarFrameWidth(), GetBarFrameHeight())
-			bar:SetSize(GetBarWidth(), GetBarHeight())
 
 			if index <= maxBars then
 				if not previousBar then
 					if growUp then
-						borderFrame:SetPoint("BOTTOMLEFT", containerFrame, "BOTTOMLEFT", offsetX, firstBarOffsetY)
+						borderFrame:SetPoint(bottomPoint, containerFrame, bottomPoint, offsetX, firstBarOffsetY)
 					else
-						borderFrame:SetPoint("TOPLEFT", containerFrame, "TOPLEFT", offsetX, firstBarOffsetY)
+						borderFrame:SetPoint(topPoint, containerFrame, topPoint, offsetX, firstBarOffsetY)
 					end
 				elseif growUp then
-					borderFrame:SetPoint("BOTTOMLEFT", previousBar, "TOPLEFT", 0, GetBarSpacing())
+					borderFrame:SetPoint(bottomPoint, previousBar, topPoint, 0, GetBarSpacing())
 				else
-					borderFrame:SetPoint("TOPLEFT", previousBar, "BOTTOMLEFT", 0, -GetBarSpacing())
+					borderFrame:SetPoint(topPoint, previousBar, bottomPoint, 0, -GetBarSpacing())
 				end
 
 				borderFrame:Show()
@@ -1095,14 +1262,74 @@ local function AddOrUpdateBar(state)
 	bar:SetDuration(state.duration)
 	bar:Start()
 
+	-- LibCandyBar finalizes and shows its icon texture in Start(). Apply Masque
+	-- afterward so the original texture can be hidden without using that texture
+	-- as the Masque button's geometry.
+	ApplyMasqueIcon(state, bar)
+
 	RefreshContainerVisibility()
 	LayoutCandyBars()
+end
+
+local function ScheduleWaitingBar(state)
+	local key = state.key
+
+	-- The first completed cast owns the target's waiting-bar lifecycle. A later
+	-- collision cast must not replace it, restart it, or extend its timer.
+	if barStates[key] or pendingWaitingTransitions[key] then
+		return
+	end
+
+	local transition = {
+		source = state.source,
+	}
+
+	pendingWaitingTransitions[key] = transition
+
+	local function ShowWaitingBar()
+		if pendingWaitingTransitions[key] ~= transition then
+			return
+		end
+
+		pendingWaitingTransitions[key] = nil
+
+		if state.source == "runtime" and not waitingToAccept[state.targetGUID] then
+			return
+		end
+
+		local now = GetTime()
+		local remainingDuration = state.endTime - now
+
+		-- The visual transition delay is part of the target's existing 60-second
+		-- waiting lifecycle; it must never extend the resurrection offer timer.
+		if remainingDuration <= 0 then
+			if state.source == "runtime" and state.targetGUID then
+				waitingToAccept[state.targetGUID] = nil
+			end
+
+			return
+		end
+
+		state.startTime = now
+		state.duration = remainingDuration
+		AddOrUpdateBar(state)
+	end
+
+	local transitionDuration = math_max(0, db.behavior.transitionDuration or 0)
+
+	if transitionDuration == 0 then
+		ShowWaitingBar()
+	else
+		After(transitionDuration, ShowWaitingBar)
+	end
 end
 
 local function StopBar(key)
 	local state = barStates[key]
 	local bar = candyBars[key]
 	local borderFrame = barBorderFrames[key]
+
+	pendingWaitingTransitions[key] = nil
 
 	if state and state.isWaiting and state.targetGUID then
 		waitingToAccept[state.targetGUID] = nil
@@ -1126,6 +1353,8 @@ end
 
 local function ClearBars(source)
 	local keys = {}
+
+	ClearWaitingTransitions(source)
 
 	for key, state in next, barStates do
 		if not source or state.source == source then
@@ -1154,6 +1383,8 @@ end
 
 -- Initialize the Bars profile namespace and register its options table.
 function module:OnInitialize()
+	RegisterMedia()
+
 	self.db = addon.db:RegisterNamespace(self:GetName(), defaults)
 
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
@@ -1161,6 +1392,7 @@ function module:OnInitialize()
 	self.db.RegisterCallback(self, "OnProfileReset", "RefreshConfig")
 
 	db = self.db.profile
+	---@cast db -nil
 
 	self:SetEnabledState(db.enabled)
 
@@ -1202,8 +1434,21 @@ function module:RefreshConfig()
 
 	if self:IsEnabled() then
 		RefreshContainerFrame()
-		RefreshMasqueButtons()
 	end
+end
+
+function module:SetFrameLocked(locked)
+	db.frame.locked = locked == true
+
+	if self:IsEnabled() then
+		ApplyContainerFrameSettings()
+	end
+
+	return db.frame.locked
+end
+
+function module:ToggleFrameLock()
+	return self:SetFrameLocked(not db.frame.locked)
 end
 
 -- --------------------------------------------------------------------
@@ -1356,18 +1601,9 @@ function module:OnCandyBarStopped(callback, bar, reason)
 
 	if state and state.transitionToWaiting and reason ~= "SmartRes2_StopBar" then
 		local waitingKey = state.waitingKey or (state.key .. "_Waiting")
-
-		-- Preview collision casts share the target waiting bar. Once it exists, a
-		-- later completed cast must not restart or extend its timer.
-		if barStates[waitingKey] then
-			RefreshContainerVisibility()
-			LayoutCandyBars()
-			return
-		end
-
 		local now = GetTime()
 
-		AddOrUpdateBar({
+		ScheduleWaitingBar({
 			key = waitingKey,
 			source = state.source,
 			kind = "waiting",
@@ -1386,6 +1622,8 @@ function module:OnCandyBarStopped(callback, bar, reason)
 			icon = nil,
 		})
 
+		RefreshContainerVisibility()
+		LayoutCandyBars()
 		return
 	end
 
@@ -1443,7 +1681,7 @@ function module:OnSingleResCastFinished(callback, casterGUID, targetGUID, caster
 	end
 
 	waitingToAccept[targetGUID] = true
-	AddOrUpdateBar(BuildWaitingState(targetGUID, GetTargetName(targetGUID)))
+	ScheduleWaitingBar(BuildWaitingState(targetGUID, GetTargetName(targetGUID)))
 end
 
 function module:OnMassResCastStarted(callback, casterGUID, casterInfo)
@@ -1486,6 +1724,7 @@ end
 
 function module:OnResTargetGUIDIsAlive(callback, targetGUID)
 	if waitingToAccept[targetGUID] then
+		waitingToAccept[targetGUID] = nil
 		StopBar(targetGUID)
 	end
 end

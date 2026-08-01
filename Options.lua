@@ -137,8 +137,8 @@ function addon:GetOptions()
 					resetGlobalOnProfileChange = {
 						order = 20,
 						type = "toggle",
-						name = L["Reset Minimap"],
-						desc = L["Reset minimap settings when profile settings change."],
+						name = L["Reset All Settings on Profile Change"],
+						desc = L["Reset the entire SmartRes2 database to defaults whenever a profile is changed, copied, or reset. This option turns itself off after the reset."],
 						get = function()
 							return GetGlobalDB().resetGlobalOnProfileChange
 						end,

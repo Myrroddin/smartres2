@@ -216,7 +216,6 @@ local function Trim(input)
 end
 
 -- Normalizes whitespace and removes hidden newline characters.
----@param input string?
 local function NormalizeWhitespace(input)
 	if not input then return end
 
@@ -414,7 +413,6 @@ editbox:SetScript("OnTextChanged", function(self)
 	self:SetText(self:GetParent().value) -- always reset to original
 	self:HighlightText() -- auto-select text for copy
 end)
-lib.editbox = editbox
 
 local function OpenEditbox(self)
 	editbox:SetParent(self)

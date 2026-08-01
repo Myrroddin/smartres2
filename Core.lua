@@ -33,6 +33,7 @@ local IsSpellUsable = C_Spell.IsSpellUsable
 local LibStub = LibStub
 local math_floor = math.floor
 local math_random = math.random
+local NO = NO
 local NORMAL_FONT_COLOR = NORMAL_FONT_COLOR
 local OKAY = OKAY
 local pairs = pairs
@@ -61,6 +62,7 @@ local UnitNameUnmodified = UnitNameUnmodified
 local UnitPowerMax = UnitPowerMax
 local UnitTokenFromGUID = UnitTokenFromGUID
 local UNKNOWN = UNKNOWN
+local YES = YES
 
 -- --------------------------------------------------------------------
 -- Addon / libraries
@@ -70,8 +72,8 @@ local UNKNOWN = UNKNOWN
 ---@field IsButtonCompartmentAvailable fun(self: SmartRes2LibDBIcon): boolean|nil
 
 ---@class SmartRes2: AceAddon, AceEvent-3.0, AceConsole-3.0, LibAboutPanel-2.0, LibResInfo-2.0
+---@field db AceDBObject-3.0!
 ---@field GetOptions function
----@field db table
 ---@field LibDBIcon SmartRes2LibDBIcon
 ---@field LSM LibSharedMedia-3.0
 ---@field Masque table?
@@ -89,8 +91,7 @@ addon.LibDBIcon = LibStub("LibDBIcon-1.0")
 addon.LSM = LibStub("LibSharedMedia-3.0")
 addon.Masque, addon.MasqueAPIVersion = LibStub("Masque", true)
 
--- Modules share event, console, and resurrection callback services. The About
--- panel remains Core-only.
+-- Modules share event, console, and resurrection callback services.
 addon:SetDefaultModuleLibraries("AceEvent-3.0", "AceConsole-3.0", "LibResInfo-2.0")
 
 -- --------------------------------------------------------------------
@@ -103,7 +104,11 @@ local SMARTRES2_DB_VERSION = 1
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
 local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 
-local db, global, options
+---@type table
+local db
+---@type table
+local global
+local options
 local smartResButton, manualResButton, combatResButton, massResButton
 
 -- --------------------------------------------------------------------
@@ -232,8 +237,8 @@ local masqueNeuronSkin = {
 	Shape = "Square",
 
 	-- Info
-	Description = "The Neuron Masque skin bundled with SmartRes2.",
-	Author = "Soyier; bundled with SmartRes2",
+	Description = L["The Neuron Masque skin bundled with SmartRes2."],
+	Author = "Soyier",
 	Websites = {
 		"https://www.curseforge.com/wow/addons/masque-neuron",
 		"https://github.com/brittyazel/Masque_Neuron",
@@ -241,7 +246,7 @@ local masqueNeuronSkin = {
 
 	-- Skin
 	Backdrop = {
-		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Backdrop]],
+		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Backdrop.png]],
 		Width = 42,
 		Height = 42,
 		Color = {0, 0, 0, 0.6},
@@ -269,14 +274,14 @@ local masqueNeuronSkin = {
 	SlotIcon = "Icon",
 
 	Normal = {
-		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Normal]],
+		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Normal.png]],
 		Width = 42,
 		Height = 42,
 		Color = {0.2, 0.2, 0.2, 1},
 	},
 
 	Pushed = {
-		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Overlay]],
+		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Overlay.png]],
 		Width = 42,
 		Height = 42,
 		BlendMode = "BLEND",
@@ -341,7 +346,7 @@ local masqueNeuronSkin = {
 	},
 
 	Checked = {
-		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Border]],
+		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Border.png]],
 		Width = 42,
 		Height = 42,
 		BlendMode = "ADD",
@@ -365,7 +370,7 @@ local masqueNeuronSkin = {
 	},
 
 	Border = {
-		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Border]],
+		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Border.png]],
 		Width = 42,
 		Height = 42,
 		BlendMode = "ADD",
@@ -382,7 +387,7 @@ local masqueNeuronSkin = {
 	IconBorder = "Border",
 
 	Gloss = {
-		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Gloss]],
+		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Gloss.png]],
 		Width = 42,
 		Height = 42,
 		BlendMode = "ADD",
@@ -403,7 +408,7 @@ local masqueNeuronSkin = {
 	},
 
 	Highlight = {
-		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Highlight]],
+		Texture = [[Interface\AddOns\SmartRes2\Media\Masque\Neuron\Highlight.png]],
 		Width = 37,
 		Height = 37,
 		BlendMode = "ADD",
@@ -548,7 +553,7 @@ function addon:GetUnitNameFromGUID(guid, includeRealm)
 	if UnitNameFromGUID then
 		unitName, unitServer = UnitNameFromGUID(guid)
 	else
-		local unitToken = UnitTokenFromGUID and UnitTokenFromGUID(guid)
+		local unitToken = UnitTokenFromGUID(guid)
 
 		if unitToken then
 			unitName, unitServer = UnitNameUnmodified(unitToken)
@@ -738,59 +743,36 @@ local function FindBestSmartResTarget(spellID)
 	local bestPriority
 	local bestLevel
 	local bestTieCount = 0
+	local groupType = "raid"
 	local numGroupMembers = GetNumGroupMembers()
 
-	if IsInRaid() then
-		for index = 1, numGroupMembers do
-			local unit = "raid" .. index
+	if IsInGroup() and not IsInRaid() then
+		groupType = "party"
+		numGroupMembers = numGroupMembers - 1
+	end
 
-			if IsEligibleSmartResTarget(unit, spellID) then
-				local priority = GetSmartResPriority(unit)
-				local level = UnitLevel(unit)
+	for index = 1, numGroupMembers do
+		local unit = groupType .. index
 
-				if not bestPriority
-					or priority < bestPriority
-					or (priority == bestPriority and level > bestLevel)
-				then
+		if IsEligibleSmartResTarget(unit, spellID) then
+			local priority = GetSmartResPriority(unit)
+			local level = UnitLevel(unit)
+
+			if not bestPriority
+				or priority < bestPriority
+				or (priority == bestPriority and level > bestLevel)
+			then
+				bestUnit = unit
+				bestPriority = priority
+				bestLevel = level
+				bestTieCount = 1
+			elseif priority == bestPriority and level == bestLevel then
+				bestTieCount = bestTieCount + 1
+
+				-- Reservoir sampling gives every tied candidate an equal chance
+				-- without building a temporary list.
+				if math_random(bestTieCount) == 1 then
 					bestUnit = unit
-					bestPriority = priority
-					bestLevel = level
-					bestTieCount = 1
-				elseif priority == bestPriority and level == bestLevel then
-					bestTieCount = bestTieCount + 1
-
-					-- Reservoir sampling gives every tied candidate an equal chance
-					-- without building a temporary list.
-					if math_random(bestTieCount) == 1 then
-						bestUnit = unit
-					end
-				end
-			end
-		end
-	else
-		for index = 1, numGroupMembers - 1 do
-			local unit = "party" .. index
-
-			if IsEligibleSmartResTarget(unit, spellID) then
-				local priority = GetSmartResPriority(unit)
-				local level = UnitLevel(unit)
-
-				if not bestPriority
-					or priority < bestPriority
-					or (priority == bestPriority and level > bestLevel)
-				then
-					bestUnit = unit
-					bestPriority = priority
-					bestLevel = level
-					bestTieCount = 1
-				elseif priority == bestPriority and level == bestLevel then
-					bestTieCount = bestTieCount + 1
-
-					-- Reservoir sampling gives every tied candidate an equal chance
-					-- without building a temporary list.
-					if math_random(bestTieCount) == 1 then
-						bestUnit = unit
-					end
 				end
 			end
 		end
@@ -849,6 +831,52 @@ local function PrepareSmartResurrectionButton(button)
 	button:SetAttribute("unit", targetUnit)
 end
 
+local function PrepareRevivePetButton(button)
+	if InCombatLockdown() or UnitAffectingCombat("player") then
+		return
+	end
+
+	button:SetAttribute("spell", nil)
+	button:SetAttribute("unit", nil)
+
+	if not IsKnownSpell(HUNTER_REVIVE_PET_SPELL_ID) then
+		addon:NotifySelf(L["You do not know Revive Pet."])
+		return
+	end
+
+	if UnitExists("pet") and not UnitIsDead("pet") then
+		addon:NotifySelf(L["Your pet is already alive."])
+		return
+	end
+
+	if not IsUsableSpell(HUNTER_REVIVE_PET_SPELL_ID) then
+		return
+	end
+
+	SetSecureSpellButtonSpell(button, HUNTER_REVIVE_PET_SPELL_ID)
+end
+
+local function PrepareMassResurrectionButton(button)
+	if InCombatLockdown() or UnitAffectingCombat("player") then
+		return
+	end
+
+	button:SetAttribute("spell", nil)
+	button:SetAttribute("unit", nil)
+
+	local spellID = GetPlayerMassResurrectionSpellID()
+	if not spellID then
+		addon:NotifySelf(L["You do not know a mass resurrection spell."])
+		return
+	end
+
+	if not IsUsableSpell(spellID) then
+		return
+	end
+
+	SetSecureSpellButtonSpell(button, spellID)
+end
+
 local function CreateSecureSpellButton(name, preClickFunction)
 	local button = CreateFrame("Button", name, UIParent, "SecureActionButtonTemplate")
 
@@ -871,7 +899,7 @@ end
 local function CreateSecureButtons()
 	if not smartResButton then
 		if PLAYER_CLASS_FILENAME == "HUNTER" then
-			smartResButton = CreateSecureSpellButton("SmartRes2SmartResButton")
+			smartResButton = CreateSecureSpellButton("SmartRes2SmartResButton", PrepareRevivePetButton)
 		else
 			smartResButton = CreateSecureSpellButton("SmartRes2SmartResButton", PrepareSmartResurrectionButton)
 		end
@@ -886,7 +914,7 @@ local function CreateSecureButtons()
 	end
 
 	if not massResButton then
-		massResButton = CreateSecureSpellButton("SmartRes2MassResButton")
+		massResButton = CreateSecureSpellButton("SmartRes2MassResButton", PrepareMassResurrectionButton)
 	end
 end
 
@@ -940,7 +968,7 @@ end
 local function IsModuleProfileEnabled(moduleName)
 	local moduleDB = addon.db:GetNamespace(moduleName, true)
 
-	if moduleDB.profile.enabled ~= nil then
+	if moduleDB and moduleDB.profile.enabled ~= nil then
 		return moduleDB.profile.enabled
 	end
 
@@ -1008,20 +1036,28 @@ local function InitializeBroker()
 		label = "SmartRes2",
 		icon = (GetBrokerIcon() or ""),
 		OnClick = function(_, button)
-			if button == "RightButton" then
-				AceConfigDialog:Open("SmartRes2")
-			elseif button == "MiddleButton" then
-				local barsModule = addon:GetModule("Bars", true)
+			local barsModule = addon:GetModule("Bars", true)
+			if button == "LeftButton" then
+				if barsModule then
+					local isLocked = barsModule:ToggleFrameLock()
+					local lockedText = isLocked and YES or NO
 
+					AceConfigRegistry:NotifyChange("SmartRes2")
+					addon:NotifySelf(L["Bars are locked:"] .. " " .. lockedText)
+				end
+			elseif button == "MiddleButton" then
 				if barsModule then
 					barsModule:ToggleTestBars()
 				end
+			elseif button == "RightButton" then
+				AceConfigDialog:Open("SmartRes2")
 			end
 		end,
 		OnTooltipShow = function(tooltip)
 			tooltip:AddLine("SmartRes2", HIGHLIGHT_FONT_COLOR.r, HIGHLIGHT_FONT_COLOR.g, HIGHLIGHT_FONT_COLOR.b)
-			tooltip:AddLine(L["Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+			tooltip:AddLine(L["Left click to toggle between locking/unlocking the bars."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 			tooltip:AddLine(L["Middle click to show or clear test bars."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
+			tooltip:AddLine(L["Right click for configuration."], NORMAL_FONT_COLOR.r, NORMAL_FONT_COLOR.g, NORMAL_FONT_COLOR.b)
 			tooltip:Show()
 		end,
 	}
@@ -1046,7 +1082,11 @@ function addon:OnInitialize()
 	end
 
 	db = self.db.profile
+	---@cast db -nil
+
 	global = self.db.global
+	---@cast global -nil
+
 	global.settingsVersion = SMARTRES2_DB_VERSION
 
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
@@ -1103,21 +1143,21 @@ function addon:OnDisable()
 end
 
 -- Rebind cached database tables after profile operations. When requested, a
--- profile change resets the full database while preserving the reset toggle and
--- the current settings schema version.
+-- profile change resets the full database. The reset restores the toggle to
+-- false, and the current settings schema version is reapplied afterward.
 function addon:RefreshConfig()
-	local resetGlobalFlag = global.resetGlobalOnProfileChange
-
-	if resetGlobalFlag then
+	if global.resetGlobalOnProfileChange then
 		self.db:ResetDB(DEFAULT)
 		global = self.db.global
-		global.resetGlobalOnProfileChange = resetGlobalFlag
+		---@cast global -nil
+
 		global.settingsVersion = SMARTRES2_DB_VERSION
 		self.LibDBIcon:Refresh("SmartRes2", global.minimap)
 		self:RefreshBrokerIcon()
 	end
 
 	db = self.db.profile
+	---@cast db -nil
 
 	if db.enabled then
 		RefreshModules()

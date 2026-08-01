@@ -37,7 +37,7 @@ local UNKNOWN = UNKNOWN
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
 ---@class Chat: AceAddon, AceEvent-3.0, AceConsole-3.0, LibResInfo-2.0
----@field db table
+---@field db AceDBObject-3.0
 local module = addon:NewModule("Chat")
 
 -- --------------------------------------------------------------------
@@ -47,7 +47,6 @@ local module = addon:NewModule("Chat")
 local defaults = {
 	profile = {
 		enabled = true,
-		useClassColorsForMessages = true,
 		useFullNameForMessages = true,
 		notifyCollision = "WHISPER",
 		singleResOutput = "WHISPER",
@@ -105,6 +104,7 @@ local defaults = {
 
 local UNKNOWN_TARGET_GUID = "UNKNOWN"
 
+---@type table
 local db
 local activeSingleCasts = {}
 local collisionNotified = {}
@@ -200,16 +200,36 @@ local function ReplaceTargetPlaceholder(message, targetName)
 		.. string_sub(message, placeholderEnd + 1)
 end
 
+function module:GetLocalizedRandomMessage(message, isMass)
+	local defaultMessages = isMass and defaults.profile.randomMassMessages or defaults.profile.randomSingleMessages
+
+	if defaultMessages[message] then
+		return L[message]
+	end
+
+	return message
+end
+
 local function GetSingleResMessage(targetName)
 	local message = db.overrideSingleResMessage
-		or GetRandomMessage(randomSingleMessages, L["I am resurrecting %s."])
+
+	if not message then
+		message = GetRandomMessage(randomSingleMessages, "I am resurrecting %s.")
+		message = module:GetLocalizedRandomMessage(message, false)
+	end
 
 	return ReplaceTargetPlaceholder(message, targetName)
 end
 
 local function GetMassResMessage()
-	return db.overrideMassResMessage
-		or GetRandomMessage(randomMassMessages, L["I am casting mass resurrection."])
+	local message = db.overrideMassResMessage
+
+	if not message then
+		message = GetRandomMessage(randomMassMessages, "I am casting mass resurrection.")
+		message = module:GetLocalizedRandomMessage(message, true)
+	end
+
+	return message
 end
 
 -- --------------------------------------------------------------------
@@ -248,16 +268,6 @@ end
 
 local function GetTargetName(targetGUID)
 	return addon:GetUnitNameFromGUID(targetGUID, db.useFullNameForMessages)
-end
-
-local function GetMessageTargetName(targetGUID)
-	local targetName = GetTargetName(targetGUID)
-
-	if not db.useClassColorsForMessages or targetName == UNKNOWN then
-		return targetName
-	end
-
-	return addon:GetClassColoredName(targetName, GetUnitClassByGUID(targetGUID)) or targetName
 end
 
 local function GetSystemMessageTargetName(targetGUID)
@@ -387,7 +397,7 @@ local function NotifyCollision(casterGUID, targetGUID, targetInfo)
 
 	collisionNotified[collisionKey] = true
 
-	local targetName = GetMessageTargetName(targetGUID)
+	local targetName = GetTargetName(targetGUID)
 	local message = string_format(L["Your resurrection of %s will not finish first."], targetName)
 
 	SendConfiguredMessage(message, db.notifyCollision, casterGUID)
@@ -417,7 +427,7 @@ local function AnnouncePlayerSingleRes(targetGUID)
 		return
 	end
 
-	local messageTargetName = GetMessageTargetName(targetGUID)
+	local messageTargetName = GetTargetName(targetGUID)
 	local systemMessageTargetName = GetSystemMessageTargetName(targetGUID)
 
 	SendConfiguredMessage(GetSingleResMessage(messageTargetName), db.singleResOutput, targetGUID)

@@ -40,7 +40,7 @@ local module = addon:GetModule("Chat")
 -- Constants
 -- --------------------------------------------------------------------
 
-local RESTORE_MESSAGES_ICON = [[Interface\AddOns\SmartRes2\Media\Icons\Undo.tga]]
+local RESTORE_MESSAGES_ICON = [[Interface\AddOns\SmartRes2\Media\Icons\Undo.png]]
 local RESTORE_MESSAGES_SOUND = [[Interface\AddOns\SmartRes2\Media\Sounds\clickselect2.ogg]]
 local FORMAT_TOKEN_PATTERN = "%%[-+0#]*%d*%.?%d*[cdeEfgGiouXxqsaA]"
 
@@ -150,11 +150,11 @@ local function ValidateMassMessage(value)
 	return true
 end
 
-local function BuildMessageValues(messageTable)
+local function BuildMessageValues(messageTable, isMass)
 	local values = {}
 
 	for message in next, messageTable do
-		values[message] = message
+		values[message] = module:GetLocalizedRandomMessage(message, isMass)
 	end
 
 	return values
@@ -198,21 +198,8 @@ function module:GetOptions()
 							end
 						end,
 					},
-					useClassColorsForMessages = {
-						order = 20,
-						type = "toggle",
-						name = L["Class-Colored Names"],
-						desc = L["Use class colors for player names in resurrection messages."],
-						disabled = IsModuleDisabled,
-						get = function()
-							return GetProfileDB().useClassColorsForMessages
-						end,
-						set = function(_, value)
-							GetProfileDB().useClassColorsForMessages = value
-						end,
-					},
 					useFullNameForMessages = {
-						order = 30,
+						order = 20,
 						type = "toggle",
 						name = L["Full Names"],
 						desc = L["Show realm names for player names in resurrection messages."],
@@ -225,7 +212,7 @@ function module:GetOptions()
 						end,
 					},
 					notifyCollision = {
-						order = 40,
+						order = 30,
 						type = "select",
 						style = "dropdown",
 						name = L["Inform Colliders"],
@@ -318,7 +305,7 @@ function module:GetOptions()
 						desc = L["Toggle which random messages to use."],
 						width = "full",
 						values = function()
-							return BuildMessageValues(GetProfileDB().randomSingleMessages)
+							return BuildMessageValues(GetProfileDB().randomSingleMessages, false)
 						end,
 						get = function(_, key)
 							return GetProfileDB().randomSingleMessages[key]
@@ -333,10 +320,10 @@ function module:GetOptions()
 						type = "multiselect",
 						dialogControl = "Dropdown",
 						name = L["Delete Random Res Messages"],
-						desc = L["Delete messages from the DB. Click the Recycle Bin to undo."],
+						desc = L["Delete messages from saved settings. Use Restore Deleted Messages to undo."],
 						width = "full",
 						values = function()
-							return BuildMessageValues(GetProfileDB().randomSingleMessages)
+							return BuildMessageValues(GetProfileDB().randomSingleMessages, false)
 						end,
 						get = function()
 							return not TableIsEmpty(GetProfileDB().randomSingleMessages)
@@ -446,7 +433,7 @@ function module:GetOptions()
 						desc = L["Toggle which random messages to use."],
 						width = "full",
 						values = function()
-							return BuildMessageValues(GetProfileDB().randomMassMessages)
+							return BuildMessageValues(GetProfileDB().randomMassMessages, true)
 						end,
 						get = function(_, key)
 							return GetProfileDB().randomMassMessages[key]
@@ -461,10 +448,10 @@ function module:GetOptions()
 						type = "multiselect",
 						dialogControl = "Dropdown",
 						name = L["Delete Random Res Messages"],
-						desc = L["Delete messages from the DB. Click the Recycle Bin to undo."],
+						desc = L["Delete messages from saved settings. Use Restore Deleted Messages to undo."],
 						width = "full",
 						values = function()
-							return BuildMessageValues(GetProfileDB().randomMassMessages)
+							return BuildMessageValues(GetProfileDB().randomMassMessages, true)
 						end,
 						get = function()
 							return not TableIsEmpty(GetProfileDB().randomMassMessages)
