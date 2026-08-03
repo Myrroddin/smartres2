@@ -39,6 +39,7 @@ local OKAY = OKAY
 local pairs = pairs
 local POWER_TYPE = Enum.PowerType
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
+local Reload = C_UI.Reload
 local StaticPopup_Show = StaticPopup_Show
 local StaticPopupDialogs = StaticPopupDialogs
 local string_format = string.format
@@ -99,6 +100,7 @@ addon:SetDefaultModuleLibraries("AceEvent-3.0", "AceConsole-3.0", "LibResInfo-2.
 -- --------------------------------------------------------------------
 
 local DB_RESET_POPUP = "SMARTRES2_DB_RESET"
+local KEYBIND_TRIGGER_RELOAD_POPUP = "SMARTRES2_KEYBIND_TRIGGER_RELOAD"
 local SMARTRES2_DB_VERSION = 1
 
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
@@ -449,6 +451,18 @@ StaticPopupDialogs[DB_RESET_POPUP] = {
 	preferredIndex = 3,
 }
 
+StaticPopupDialogs[KEYBIND_TRIGGER_RELOAD_POPUP] = {
+	text = L["Changing this setting will reload your UI. Continue?"],
+	button1 = OKAY,
+	OnAccept = function()
+		Reload()
+	end,
+	timeout = 0,
+	whileDead = true,
+	hideOnEscape = false,
+	preferredIndex = 3,
+}
+
 -- Saved variable defaults
 local defaults = {
 	global = {
@@ -469,7 +483,7 @@ local defaults = {
 		useFullNameForSystemMessages = true,
 		useMasque = true,
 		waitingDelay = 7.5,
-		keybindTrigger = "AnyUp",
+		keybindTrigger = "AnyDown",
 	},
 }
 
@@ -886,7 +900,10 @@ local function CreateSecureSpellButton(name, preClickFunction)
 	button:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 	button:SetAlpha(0)
 	button:EnableMouse(false)
-	button:RegisterForClicks(addon.db.profile.keybindTrigger)
+
+	local keybindTrigger = addon.db.profile.keybindTrigger
+	button:RegisterForClicks(keybindTrigger)
+	button:SetAttribute("registeredClickTrigger", keybindTrigger)
 	button:SetAttribute("type", "spell")
 
 	if preClickFunction then
@@ -1145,8 +1162,13 @@ end
 -- Rebind cached database tables after profile operations. When requested, a
 -- profile change resets the full database. The reset restores the toggle to
 -- false, and the current settings schema version is reapplied afterward.
-function addon:RefreshConfig()
-	if global.resetGlobalOnProfileChange then
+function addon:RefreshConfig(callback)
+	local resetDatabase = global.resetGlobalOnProfileChange
+	local registeredClickTrigger = smartResButton
+		and smartResButton:GetAttribute("registeredClickTrigger")
+		or db.keybindTrigger
+
+	if resetDatabase then
 		self.db:ResetDB(DEFAULT)
 		global = self.db.global
 		---@cast global -nil
@@ -1167,6 +1189,12 @@ function addon:RefreshConfig()
 	end
 
 	AceConfigRegistry:NotifyChange("SmartRes2")
+
+	if (callback == "OnProfileReset" or resetDatabase)
+		and registeredClickTrigger ~= db.keybindTrigger
+	then
+		StaticPopup_Show(KEYBIND_TRIGGER_RELOAD_POPUP)
+	end
 end
 
 function addon:ChatCommand()
