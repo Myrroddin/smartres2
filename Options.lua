@@ -53,6 +53,14 @@ local function GetMinimapDB()
 	return addon.db.global.minimap
 end
 
+local function IsAddonDisabled()
+	return not GetProfileDB().enabled
+end
+
+local function IsSystemMessageOptionDisabled()
+	return IsAddonDisabled() or not GetProfileDB().notifySelf
+end
+
 local function GetRoundedMinimapPosition(value)
 	local minimapDB = GetMinimapDB()
 
@@ -74,7 +82,7 @@ local function RefreshMinimapButton()
 end
 
 local function IsMasqueDisabled()
-	return not GetProfileDB().enabled or not addon:IsMasqueAvailable()
+	return IsAddonDisabled() or not addon:IsMasqueAvailable()
 end
 
 local function IsMasqueHidden()
@@ -138,6 +146,7 @@ function addon:GetOptions()
 						order = 20,
 						type = "toggle",
 						name = L["Reset All Settings on Profile Change"],
+						disabled = IsAddonDisabled,
 						desc = L["Reset the entire SmartRes2 database to defaults whenever a profile is changed, copied, or reset. This option turns itself off after the reset."],
 						get = function()
 							return GetGlobalDB().resetGlobalOnProfileChange
@@ -164,6 +173,7 @@ function addon:GetOptions()
 						order = 40,
 						type = "toggle",
 						name = L["Notify Self"],
+						disabled = IsAddonDisabled,
 						desc = L["Inform yourself of SmartRes2 system messages."],
 						get = function()
 							return GetProfileDB().notifySelf
@@ -177,9 +187,7 @@ function addon:GetOptions()
 						type = "toggle",
 						name = L["Class-Colored Names"],
 						desc = L["Use class colors for player names in SmartRes2 system messages."],
-						disabled = function()
-							return not GetProfileDB().notifySelf
-						end,
+						disabled = IsSystemMessageOptionDisabled,
 						get = function()
 							return GetProfileDB().useClassColorsForSystemMessages
 						end,
@@ -192,9 +200,7 @@ function addon:GetOptions()
 						type = "toggle",
 						name = L["Full Names"],
 						desc = L["Show realm names for player names in SmartRes2 system messages."],
-						disabled = function()
-							return not GetProfileDB().notifySelf
-						end,
+						disabled = IsSystemMessageOptionDisabled,
 						get = function()
 							return GetProfileDB().useFullNameForSystemMessages
 						end,
@@ -206,6 +212,7 @@ function addon:GetOptions()
 						order = 70,
 						type = "range",
 						name = L["Res Offer Threshold"],
+						disabled = IsAddonDisabled,
 						desc = L["Allow smart resurrection when an existing resurrection offer or self-resurrection option has this many seconds or less remaining."],
 						get = function()
 							return GetProfileDB().waitingDelay
@@ -218,10 +225,16 @@ function addon:GetOptions()
 						step = 0.5,
 						bigStep = 2.5,
 					},
-					keybindTrigger = {
+					keybindingsHeader = {
 						order = 80,
+						type = "header",
+						name = SETTINGS_KEYBINDINGS_LABEL,
+					},
+					keybindTrigger = {
+						order = 90,
 						type = "select",
 						name = L["Keybind Trigger"],
+						disabled = IsAddonDisabled,
 						desc = L["Choose when the keybind should trigger. Changing this requires a UI reload to take effect."],
 						confirm = function(_, value)
 							if GetProfileDB().keybindTrigger == value then
@@ -246,7 +259,7 @@ function addon:GetOptions()
 						end,
 					},
 					keyBindingsDescription = {
-						order = 90,
+						order = 100,
 						type = "description",
 						name = L["SmartRes2 key bindings are configured in Blizzard's Key Bindings UI."],
 						fontSize = "medium",
@@ -258,6 +271,7 @@ function addon:GetOptions()
 				order = 60,
 				type = "group",
 				name = MINIMAP_LABEL,
+				disabled = IsAddonDisabled,
 				args = {
 					hide = {
 						order = 10,

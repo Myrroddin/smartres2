@@ -303,21 +303,31 @@ local function ResolveChatType(channelKey, allowWhisper)
 	if channelKey == "INSTANCE_CHAT" then
 		if LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
 			return "INSTANCE_CHAT"
+		elseif IsInRaid() then
+			return "RAID"
+		elseif IsInGroup() then
+			return "PARTY"
 		end
 
-		return GetGroupChatType() or (allowWhisper and "WHISPER" or nil)
+		return allowWhisper and "WHISPER" or nil
 	end
 
 	if channelKey == "RAID" then
-		if IsInRaid() then
+		if LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+			return "INSTANCE_CHAT"
+		elseif IsInRaid() then
 			return "RAID"
+		elseif IsInGroup() then
+			return "PARTY"
 		end
 
-		return GetGroupChatType() or (allowWhisper and "WHISPER" or nil)
+		return allowWhisper and "WHISPER" or nil
 	end
 
 	if channelKey == "PARTY" then
-		if IsInGroup() then
+		if LE_PARTY_CATEGORY_INSTANCE and IsInGroup(LE_PARTY_CATEGORY_INSTANCE) then
+			return "INSTANCE_CHAT"
+		elseif IsInGroup() then
 			return "PARTY"
 		end
 

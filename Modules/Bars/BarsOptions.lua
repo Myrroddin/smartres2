@@ -91,6 +91,10 @@ local function IsModuleDisabled()
 	return not module.db.profile.enabled
 end
 
+local function IsFramePositionDisabled()
+	return IsModuleDisabled() or module.db.profile.frame.locked
+end
+
 local function IsShortTextDisabled()
 	return IsModuleDisabled() or not module.db.profile.behavior.showLabel
 end
@@ -180,6 +184,7 @@ function module:GetOptions()
 						type = "toggle",
 						name = L["Mirror Bars"],
 						desc = L["Mirror bars horizontally so they are anchored to the right and fill or drain from that side."],
+						disabled = IsModuleDisabled,
 						get = function()
 							return module.db.profile.behavior.mirrorBars
 						end,
@@ -338,6 +343,7 @@ function module:GetOptions()
 						order = 10,
 						type = "toggle",
 						name = LOCK,
+						desc = L["Lock the Bars frame to prevent mouse dragging or changes to its anchor point and offsets."],
 						get = function()
 							return module.db.profile.frame.locked
 						end,
@@ -424,6 +430,7 @@ function module:GetOptions()
 						order = 70,
 						type = "range",
 						name = L["Horizontal Offset"],
+						disabled = IsFramePositionDisabled,
 						desc = L["The offset may change within bounds of the anchor point."],
 						get = function()
 							return module.db.profile.frame.x
@@ -441,6 +448,7 @@ function module:GetOptions()
 						order = 80,
 						type = "range",
 						name = L["Vertical Offset"],
+						disabled = IsFramePositionDisabled,
 						desc = L["The offset may change within bounds of the anchor point."],
 						get = function()
 							return module.db.profile.frame.y
@@ -459,6 +467,7 @@ function module:GetOptions()
 						type = "select",
 						style = "dropdown",
 						name = L["Anchor Point"],
+						disabled = IsFramePositionDisabled,
 						values = framePointValues,
 						get = function()
 							return module.db.profile.frame.point
@@ -729,6 +738,7 @@ function module:GetOptions()
 						order = 60,
 						type = "select",
 						dialogControl = "LSM30_Font",
+						width = 1.25,
 						name = L["Font"],
 						values = addon.LSM:HashTable(addon.LSM.MediaType.FONT),
 						get = function()

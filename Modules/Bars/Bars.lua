@@ -8,7 +8,7 @@
 -- - Track preview, active-cast, and waiting-to-accept bar state.
 -- - Create, style, sort, and lay out resurrection bars.
 -- - Manage bar icons, borders, visibility, and runtime state updates.
--- - Keep waiting bars bound to the target lifecycle without timer resets.
+-- - Refresh target waiting bars when newer resurrection offers complete.
 -- --------------------------------------------------------------------
 
 -- --------------------------------------------------------------------
@@ -41,6 +41,7 @@ local UNKNOWN = UNKNOWN
 
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
+local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 
 ---@class LibCandyBar-3.0
 ---@field RegisterCallback fun(target: table, eventName: string, method: string, arg?: any)
@@ -71,12 +72,12 @@ local defaults = {
 			x = 0,
 			y = 0,
 			clampToScreen = true,
-			locked = true,
+			locked = false,
 			hideWhenEmpty = false,
 			pixelSnap = true,
 			growDirection = "DOWN",
 			backdrop = {
-				background = "Solid",
+				background = "Papyrus",
 				border = "Blizzard Tooltip",
 				edgeSize = 12,
 				insets = {
@@ -85,11 +86,14 @@ local defaults = {
 					top = 3,
 					bottom = 3,
 				},
+				-- Do not default this to pure black. Besides making textured
+				-- backgrounds effectively invisible, Blizzard's color picker can appear
+				-- to ignore the color wheel until the brightness slider is moved.
 				backgroundColor = {
-					r = 0,
-					g = 0,
-					b = 0,
-					a = 1,
+					r = 1,
+					g = 1,
+					b = 1,
+					a = 0.35,
 				},
 				borderColor = {
 					r = 0.8,
@@ -177,9 +181,9 @@ local defaults = {
 -- Static configuration
 -- --------------------------------------------------------------------
 
--- The resurrection accept popup times out after 60 seconds. This is a game
--- mechanic, not user preference, so Bars treats waiting bars as expired after
--- this hard cap unless the target accepts the offer or returns alive first.
+-- Preview waiting bars use the base 60-second resurrection accept timeout.
+-- Runtime waiting bars use LibResInfo's remaining time, which also accounts
+-- for the player's corpse-recovery delay.
 local PENDING_TIMEOUT_SECONDS = 60
 local MIN_BAR_HEIGHT = 20
 local BAR_VERTICAL_PADDING = 6
@@ -676,8 +680,10 @@ local function BuildMassCastState(casterGUID, casterInfo)
 	}
 end
 
-local function BuildWaitingState(targetGUID, targetName)
+local function BuildWaitingState(targetGUID, targetName, duration)
 	local now = GetTime()
+
+	duration = duration or PENDING_TIMEOUT_SECONDS
 
 	return {
 		key = targetGUID,
@@ -690,8 +696,8 @@ local function BuildWaitingState(targetGUID, targetName)
 		targetName = targetName,
 		targetClass = GetUnitClassByGUID(targetGUID),
 		startTime = now,
-		duration = PENDING_TIMEOUT_SECONDS,
-		endTime = now + PENDING_TIMEOUT_SECONDS,
+		duration = duration,
+		endTime = now + duration,
 		isCollision = false,
 		isMass = false,
 		isWaiting = true,
@@ -710,9 +716,12 @@ local function SaveContainerPosition(frame)
 	end
 
 	local frameSettings = db.frame
+	local scale = frame:GetScale() or 1
 
-	x = x or 0
-	y = y or 0
+	-- GetPoint returns offsets in the frame's own scale. Store them in
+	-- UIParent's scale so changing the frame scale does not move its anchor.
+	x = (x or 0) * scale
+	y = (y or 0) * scale
 
 	if frameSettings.pixelSnap then
 		x = SnapPixelValue(x)
@@ -725,10 +734,10 @@ local function SaveContainerPosition(frame)
 	frameSettings.y = y
 
 	-- StartMoving replaces the original anchor with the nearest screen anchor.
-	-- Normalize that anchor against UIParent so the saved profile position can be
-	-- restored consistently after a reload or profile change.
+	-- Normalize that anchor against UIParent while converting the stored
+	-- UIParent-scale offsets back to the frame's local scale.
 	frame:ClearAllPoints()
-	frame:SetPoint(point, UIParent, frameSettings.relativePoint, x, y)
+	frame:SetPoint(point, UIParent, frameSettings.relativePoint, x / scale, y / scale)
 end
 
 -- The container is an ordinary frame so its visibility remains safe in combat.
@@ -751,6 +760,7 @@ local function CreateContainerFrame()
 	frame:SetScript("OnDragStop", function(self)
 		self:StopMovingOrSizing()
 		SaveContainerPosition(self)
+		AceConfigRegistry:NotifyChange("SmartRes2")
 	end)
 	frame:EnableMouse(false)
 
@@ -838,12 +848,11 @@ local function ApplyContainerFrameSettings()
 
 	local width = frameSettings.width
 	local height = frameSettings.height
+	local scale = frameSettings.scale or 1
 	local x = frameSettings.x
 	local y = frameSettings.y
 
-	-- Apply scale before snapping local dimensions/offsets. Snapping first and
-	-- then scaling would reintroduce fractional placement.
-	frame:SetScale(frameSettings.scale)
+	frame:SetScale(scale)
 
 	if frameSettings.pixelSnap then
 		width = SnapPixelValue(width)
@@ -852,8 +861,17 @@ local function ApplyContainerFrameSettings()
 		y = SnapPixelValue(y)
 	end
 
+	-- Position offsets are stored in UIParent's scale. SetPoint applies offsets
+	-- in the frame's local scale, so divide by the frame scale to keep the chosen
+	-- anchor and visual offsets fixed while scaling.
 	frame:ClearAllPoints()
-	frame:SetPoint(frameSettings.point, UIParent, frameSettings.relativePoint or frameSettings.point, x, y)
+	frame:SetPoint(
+		frameSettings.point,
+		UIParent,
+		frameSettings.relativePoint or frameSettings.point,
+		x / scale,
+		y / scale
+	)
 	frame:SetSize(width, height)
 	frame:SetClampedToScreen(frameSettings.clampToScreen)
 	frame:SetMovable(not frameSettings.locked)
@@ -1274,12 +1292,8 @@ end
 local function ScheduleWaitingBar(state)
 	local key = state.key
 
-	-- The first completed cast owns the target's waiting-bar lifecycle. A later
-	-- collision cast must not replace it, restart it, or extend its timer.
-	if barStates[key] or pendingWaitingTransitions[key] then
-		return
-	end
-
+	-- A newer completed resurrection offer replaces any pending transition and
+	-- restarts an existing target waiting bar from the refreshed expiration time.
 	local transition = {
 		source = state.source,
 	}
@@ -1300,8 +1314,8 @@ local function ScheduleWaitingBar(state)
 		local now = GetTime()
 		local remainingDuration = state.endTime - now
 
-		-- The visual transition delay is part of the target's existing 60-second
-		-- waiting lifecycle; it must never extend the resurrection offer timer.
+		-- The visual transition delay is part of the target's refreshed waiting
+		-- lifecycle; it must never extend the resurrection offer timer.
 		if remainingDuration <= 0 then
 			if state.source == "runtime" and state.targetGUID then
 				waitingToAccept[state.targetGUID] = nil
@@ -1499,8 +1513,8 @@ function module:ShowTestBars()
 		targetName = "Brennor",
 		targetClass = "WARRIOR",
 		startTime = now,
-		duration = 8,
-		endTime = now + 8,
+		duration = 7,
+		endTime = now + 7,
 		isCollision = false,
 		isMass = false,
 		isWaiting = false,
@@ -1583,7 +1597,7 @@ function module:OnCandyBarStopped(callback, bar, reason)
 
 		state = barStates[key]
 
-		if state and state.isWaiting and state.targetGUID then
+		if state and state.isWaiting and state.targetGUID and not pendingWaitingTransitions[key] then
 			waitingToAccept[state.targetGUID] = nil
 		end
 
@@ -1674,14 +1688,17 @@ end
 function module:OnSingleResCastFinished(callback, casterGUID, targetGUID, casterInfo, targetInfo)
 	StopBar(casterGUID)
 
-	-- Waiting bars are target-lifecycle bars. Later finished collision casts must
-	-- not reset, extend, or replace the original waiting timer.
-	if targetGUID == "UNKNOWN" or waitingToAccept[targetGUID] then
+	if targetGUID == "UNKNOWN" then
+		return
+	end
+
+	local hasResWaiting, remainingTime = self:UnitHasResWaiting(targetGUID)
+	if not hasResWaiting or not remainingTime then
 		return
 	end
 
 	waitingToAccept[targetGUID] = true
-	ScheduleWaitingBar(BuildWaitingState(targetGUID, GetTargetName(targetGUID)))
+	ScheduleWaitingBar(BuildWaitingState(targetGUID, GetTargetName(targetGUID), remainingTime))
 end
 
 function module:OnMassResCastStarted(callback, casterGUID, casterInfo)

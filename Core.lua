@@ -816,6 +816,12 @@ local function PrepareSmartResurrectionButton(button)
 
 	button:SetAttribute("unit", INVALID_UNIT)
 
+	local spellID = GetPlayerNormalSingleResSpellID()
+	if not spellID then
+		addon:NotifySelf(L["You do not know a resurrection spell."])
+		return
+	end
+
 	if not IsInGroup() then
 		addon:NotifySelf(L["You are not in a group and cannot use this feature."])
 		return
@@ -823,12 +829,6 @@ local function PrepareSmartResurrectionButton(button)
 
 	if addon:IsMassResBeingCast() then
 		addon:NotifySelf(L["A mass resurrection is in progress. Exiting as there is nothing to do."])
-		return
-	end
-
-	local spellID = GetPlayerNormalSingleResSpellID()
-	if not spellID then
-		addon:NotifySelf(L["You do not know a resurrection spell."])
 		return
 	end
 
@@ -868,6 +868,20 @@ local function PrepareRevivePetButton(button)
 	end
 
 	SetSecureSpellButtonSpell(button, HUNTER_REVIVE_PET_SPELL_ID)
+end
+
+local function PrepareManualResurrectionButton()
+	local spellID = GetHighestKnownSpell(normalSingleResSpellIDs[PLAYER_CLASS_FILENAME])
+	if not spellID then
+		addon:NotifySelf(L["You do not know a resurrection spell."])
+	end
+end
+
+local function PrepareCombatResurrectionButton()
+	local spellID = GetPlayerCombatResurrectionSpellID()
+	if not spellID then
+		addon:NotifySelf(L["You do not know a combat resurrection spell."])
+	end
 end
 
 local function PrepareMassResurrectionButton(button)
@@ -923,11 +937,11 @@ local function CreateSecureButtons()
 	end
 
 	if not manualResButton then
-		manualResButton = CreateSecureSpellButton("SmartRes2ManualResButton")
+		manualResButton = CreateSecureSpellButton("SmartRes2ManualResButton", PrepareManualResurrectionButton)
 	end
 
 	if not combatResButton then
-		combatResButton = CreateSecureSpellButton("SmartRes2CombatResButton")
+		combatResButton = CreateSecureSpellButton("SmartRes2CombatResButton", PrepareCombatResurrectionButton)
 	end
 
 	if not massResButton then
