@@ -35,7 +35,7 @@
 
 ## X-Curse-Project-ID: 19988
 ## X-WoWI-ID: 16006
-## X-Wago-ID:
+## X-Wago-ID: aNDMjg6o
 ## IconTexture: Interface\Icons\Spell_holy_resurrection
 
 ## X-Website: https://www.curseforge.com/wow/addons/smartres2
