@@ -675,6 +675,8 @@ function module:GetOptions()
 						name = L["Good Mass Cast Color"],
 						desc = L["Color for the fastest active mass resurrection cast."],
 						hasAlpha = true,
+						disabled = not addon:IsCataclysmOrLater(),
+						hidden = not addon:IsCataclysmOrLater(),
 						get = function()
 							local color = module.db.profile.colors.goodMass
 							return color.r, color.g, color.b, color.a

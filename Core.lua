@@ -18,6 +18,7 @@
 local _G = _G
 local CreateFrame = CreateFrame
 local DEFAULT = DEFAULT
+local GetBuildInfo = GetBuildInfo
 local GetNumGroupMembers = GetNumGroupMembers
 local GetSpellInfo = C_Spell.GetSpellInfo
 local GetSpellTexture = C_Spell.GetSpellTexture
@@ -1273,4 +1274,13 @@ function addon:RegisterModuleOptions(moduleName, moduleOptions)
 	end
 
 	AceConfigRegistry:NotifyChange("SmartRes2")
+end
+
+-- --------------------------------------------------------------------
+-- Check game version for Cataclysm or later. This is used to determine if any mass resurrection spells are available, since they were introduced in Cataclysm.
+-- --------------------------------------------------------------------
+
+function addon:IsCataclysmOrLater()
+	local _, _, _, tocVersion = GetBuildInfo()
+	return tocVersion >= 40000
 end

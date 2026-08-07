@@ -93,7 +93,7 @@ local defaults = {
 					r = 1,
 					g = 1,
 					b = 1,
-					a = 0.35,
+					a = 0.5,
 				},
 				borderColor = {
 					r = 0.8,

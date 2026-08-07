@@ -360,7 +360,8 @@ function module:GetOptions()
 				order = 30,
 				type = "group",
 				name = L["Mass Res Options"],
-				disabled = IsModuleDisabled,
+				disabled = function() return IsModuleDisabled() or not addon:IsCataclysmOrLater() end,
+				hidden = not addon:IsCataclysmOrLater(),
 				args = {
 					chatChannel = {
 						order = 10,
