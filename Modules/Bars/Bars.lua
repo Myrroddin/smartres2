@@ -29,6 +29,7 @@ local math_random = math.random
 local next = next
 local QUEUED_STATUS_WAITING = QUEUED_STATUS_WAITING
 local string_format = string.format
+local string_upper = string.upper
 local table_sort = table.sort
 local UIParent = UIParent
 local UnitClassBase = UnitClassBase
@@ -184,13 +185,14 @@ local defaults = {
 -- Preview waiting bars use the base 60-second resurrection accept timeout.
 -- Runtime waiting bars use LibResInfo's remaining time, which also accounts
 -- for the player's corpse-recovery delay.
-local PENDING_TIMEOUT_SECONDS = 60
-local MIN_BAR_HEIGHT = 20
-local BAR_VERTICAL_PADDING = 6
-local BAR_BACKGROUND_R = 0
-local BAR_BACKGROUND_G = 0
-local BAR_BACKGROUND_B = 0
 local BAR_BACKGROUND_A = 0.45
+local BAR_BACKGROUND_B = 0
+local BAR_BACKGROUND_G = 0
+local BAR_BACKGROUND_R = 0
+local BAR_VERTICAL_PADDING = 6
+local MIN_BAR_HEIGHT = 20
+local PENDING_TIMEOUT_SECONDS = 60
+local ROMANUM_EST_ALL_CAPS_FONT = "ROMANUM EST ALL CAPS"
 local UNKNOWN_NAME_COLOR = {r = 0.8, g = 0.8, b = 0.8}
 
 -- --------------------------------------------------------------------
@@ -426,12 +428,41 @@ local function GetMaxVisibleBars()
 	return math_max(1, maxBarsByHeight)
 end
 
+local function IsRomanumEstAllCapsFont()
+	return db.media.font == ROMANUM_EST_ALL_CAPS_FONT
+end
+
+local function FormatBarTextForFont(text)
+	if IsRomanumEstAllCapsFont() then
+		return string_upper(text)
+	end
+
+	return text
+end
+
+local function FormatBarLabelTemplate(formatString)
+	if not IsRomanumEstAllCapsFont() then
+		return formatString
+	end
+
+	-- Preserve string.format placeholders while uppercasing the localized text.
+	-- Names are uppercased before class-color escape sequences are added.
+	local placeholder = "\001"
+	formatString = formatString:gsub("%%s", placeholder)
+	formatString = string_upper(formatString)
+
+	return formatString:gsub(placeholder, "%%s")
+end
+
 local function GetBarDisplayName(name, classFilename)
+	local isUnknown = name == UNKNOWN
+	name = FormatBarTextForFont(name)
+
 	if not db.useClassColorsForBars then
 		return name
 	end
 
-	if name == UNKNOWN then
+	if isUnknown then
 		return addon:GetClassColoredName(name, classFilename, UNKNOWN_NAME_COLOR)
 	end
 
@@ -532,19 +563,23 @@ local function FormatBarLabel(state)
 
 	if state.isWaiting then
 		if db.behavior.useShortLabels then
-			return string_format(L["%s : %s"], targetName, QUEUED_STATUS_WAITING)
+			return string_format(
+				FormatBarLabelTemplate(L["%s : %s"]),
+				targetName,
+				FormatBarTextForFont(QUEUED_STATUS_WAITING)
+			)
 		end
 
-		return string_format(L["%s is waiting to accept"], targetName)
+		return string_format(FormatBarLabelTemplate(L["%s is waiting to accept"]), targetName)
 	end
 
 	local casterName = GetBarStateDisplayName(state, "casterName", "casterClass", "casterGUID")
 
 	if db.behavior.useShortLabels then
-		return string_format(L["%s : %s"], casterName, targetName)
+		return string_format(FormatBarLabelTemplate(L["%s : %s"]), casterName, targetName)
 	end
 
-	return string_format(L["%s is resurrecting %s"], casterName, targetName)
+	return string_format(FormatBarLabelTemplate(L["%s is resurrecting %s"]), casterName, targetName)
 end
 
 local function GetBarColor(state)
