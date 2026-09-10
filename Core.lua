@@ -38,7 +38,6 @@ local NO = NO
 local NORMAL_FONT_COLOR = NORMAL_FONT_COLOR
 local OKAY = OKAY
 local pairs = pairs
-local POWER_TYPE = Enum.PowerType
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local Reload = C_UI.Reload
 local StaticPopup_Show = StaticPopup_Show
@@ -61,7 +60,6 @@ local UnitIsVisible = UnitIsVisible
 local UnitLevel = UnitLevel
 local UnitNameFromGUID = UnitNameFromGUID
 local UnitNameUnmodified = UnitNameUnmodified
-local UnitPowerMax = UnitPowerMax
 local UnitTokenFromGUID = UnitTokenFromGUID
 local UNKNOWN = UNKNOWN
 local YES = YES
@@ -72,6 +70,10 @@ local YES = YES
 
 ---@class SmartRes2LibDBIcon: LibDBIcon-1.0
 ---@field IsButtonCompartmentAvailable fun(self: SmartRes2LibDBIcon): boolean|nil
+
+---@class SmartRes2MinimapDB: LibDBIcon.button.DB
+---@field lockOnDegree boolean
+---@field showInCompartment boolean
 
 ---@class SmartRes2: AceAddon, AceEvent-3.0, AceConsole-3.0, LibAboutPanel-2.0, LibResInfo-2.0
 ---@field db AceDBObject-3.0!
@@ -121,7 +123,6 @@ local smartResButton, manualResButton, combatResButton, massResButton
 local DEFAULT_ICON_SPELL_ID = 2006 -- Priest: Resurrection
 local HUNTER_REVIVE_PET_SPELL_ID = 982 -- Revive Pet
 local INVALID_UNIT = "SmartRes2InvalidUnit"
-local MANA_POWER_TYPE = POWER_TYPE.Mana or 0
 local MASS_RESURRECTION_MISTS_SPELL_ID = 83968 -- Mass Resurrection
 local MASS_RESURRECTION_RETAIL_SPELL_ID = 212036 -- Mass Resurrection
 local PLAYER_CLASS_FILENAME = UnitClassBase("player")
@@ -682,15 +683,13 @@ local function GetSmartResPriority(unit)
 
 	if role == "HEALER" then
 		return 1
-	elseif role == "TANK" then
+	elseif normalSingleResSpellIDs[UnitClassBase(unit)] then
 		return 2
-	elseif role == "DAMAGER" then
+	elseif role == "TANK" then
 		return 3
-	elseif UnitPowerMax(unit, MANA_POWER_TYPE) > 0 then
-		return 4
 	end
 
-	return 5
+	return 4
 end
 
 local function GetSelfResRemainingTime(optionInfo)
@@ -1095,8 +1094,10 @@ local function InitializeBroker()
 	}
 
 	local brokerObject = LibDataBroker:NewDataObject("SmartRes2", brokerObjectData)
+	---@type SmartRes2MinimapDB
+	local minimapDB = addon.db.global.minimap
 
-	addon.LibDBIcon:Register("SmartRes2", brokerObject, addon.db.global.minimap)
+	addon.LibDBIcon:Register("SmartRes2", brokerObject, minimapDB)
 end
 
 -- --------------------------------------------------------------------

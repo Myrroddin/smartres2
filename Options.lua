@@ -49,6 +49,7 @@ local function GetGlobalDB()
 	return addon.db.global
 end
 
+---@return SmartRes2MinimapDB
 local function GetMinimapDB()
 	return addon.db.global.minimap
 end

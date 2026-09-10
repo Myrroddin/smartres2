@@ -4,7 +4,7 @@ SmartRes2 coordinates party and raid recovery after a partial or total wipe. It 
 
 ## Highlights
 
-- **Smart resurrection targeting:** the single-target keybind chooses an eligible dead group member, avoids targets already being resurrected or with a useful resurrection offer, and prioritizes role and level before randomly choosing between equal candidates.
+- **Smart resurrection targeting:** the single-target keybind chooses an eligible dead group member, avoids targets already being resurrected or with a useful resurrection offer, and prioritizes group role, resurrection capability, and level before randomly choosing between equal candidates.
 - **Secure resurrection keybinds:** SmartRes2 provides single-target, manual-target, combat resurrection, and—where supported—mass resurrection bindings without requiring visible action-bar buttons.
 - **Resurrection bars:** colour-coded bars distinguish the fastest casts, competing casts, mass resurrection, and players waiting to accept a resurrection. The Bars module is highly configurable and includes simulated bars for previewing changes.
 - **Configurable chat:** resurrection announcements and collision warnings can use appropriate group channels, whispers, or no output at all. Built-in random messages can be enabled, disabled, replaced, or supplemented with custom messages.
@@ -22,6 +22,15 @@ SmartRes2 keybindings are configured through Blizzard's **Key Bindings** interfa
 Once the SmartRes2 bindings you use are configured, the corresponding resurrection spells do not need to remain on your action bars. Removing them is optional, but can free action-bar slots.
 
 SmartRes2 can also track non-class resurrection sources, such as items. Tracked casts can appear on the Bars display and can use the normal Chat announcements, but SmartRes2 deliberately does not provide smart keybindings for profession or item-based resurrection effects. Those should be activated normally.
+
+For automatic single-target resurrection, eligible dead group members are prioritized in this order:
+
+1. Healers.
+2. Druids, evokers, monks, paladins, priests, and shamans, because these classes have an ordinary out-of-combat resurrection spell regardless of their current specialization or assigned role.
+3. Tanks.
+4. Everyone else, without considering specialization, assigned damage role, power type, or other class resources.
+
+Within the highest available priority, SmartRes2 prefers the highest-level character. If multiple characters have the same priority and level, it chooses randomly between them.
 
 ## Bars and Chat
 
