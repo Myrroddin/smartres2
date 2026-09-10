@@ -36,7 +36,7 @@ Within the highest available priority, SmartRes2 prefers the highest-level chara
 
 The Bars module shows resurrection casts and waiting resurrection offers in one configurable display. Frame size, scale, position, textures, borders, fonts, icons, colours, text, and other presentation options can be adjusted without changing SmartRes2's recovery logic. [Masque](https://www.curseforge.com/wow/addons/masque) can skin bar icons when it is installed.
 
-The Chat module can announce single-target and mass resurrection casts and warn other resurrection casters when their cast will not finish first. The **Group** output follows the current group context, while explicit channel choices and **None** are available when more control is preferred.
+The Chat module can announce single-target and mass resurrection casts and warn other resurrection casters when their cast will not finish first. When several group members are running SmartRes2 with collision notifications enabled, they automatically choose one sender for each warning instead of all sending the same message. The **Group** output follows the current group context, while explicit channel choices and **None** are available when more control is preferred.
 
 ## Supported World of Warcraft Versions
 

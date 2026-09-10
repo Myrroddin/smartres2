@@ -1,9 +1,70 @@
-Copyright (c) 2009 - 2026 Paul Vandersypen. All Rights Reserved
+SmartRes2 Proprietary License
 
-1. This software may not be copied, modified, changed, altered or otherwise be different than what the author has created without express written permission, unless for personal use.
+Copyright (c) 2009-2026 Paul Vandersypen. All rights reserved.
 
-2. This software may only be distributed on wowinterface.com, wago.io, or curse.com or their respective authorized member websites.
+1. Scope
 
-3. This software is provided "as is" and as such does not provide a warranty. Any unintended or intended behaviour that may or may not cause damage, loss or other negative attribute shall not be covered by this software. The author is not liable in any way, shape or form.
+This license applies to the original source code, documentation, media, and
+other materials comprising SmartRes2 that are owned by Paul Vandersypen
+(collectively, the "SmartRes2 Materials").
 
-4. This license must be included in every copy and every iteration of the software.
+Third-party libraries and components, including files distributed in the
+Libs directory, are excluded from this license. They remain the property of
+their respective copyright holders and are governed by the license terms and
+notices supplied by those authors. Nothing in this license restricts any
+rights granted under an applicable third-party license.
+
+2. Personal Use
+
+Permission is granted to download, install, and use the SmartRes2 Materials
+free of charge for personal, non-commercial use. You may make backup copies
+and privately modify the SmartRes2 Materials for your own personal,
+non-commercial use.
+
+3. Public Source Repository and Contributions
+
+You may view and fork the official public source repository using features
+provided by its hosting service, and you may submit proposed changes to the
+official repository for consideration.
+
+By intentionally submitting a contribution to the official repository, you
+grant Paul Vandersypen a perpetual, worldwide, non-exclusive, royalty-free
+license to use, reproduce, modify, distribute, and sublicense that
+contribution as part of SmartRes2. You represent that you have the right to
+grant this license for anything you submit.
+
+4. Redistribution
+
+Except for the permissions expressly granted above, you may not publish,
+redistribute, sublicense, sell, rent, or otherwise make the SmartRes2
+Materials, or modified versions of them, available to any other person or
+through any website, service, application, repository, or other distribution
+channel without prior written permission from Paul Vandersypen.
+
+Public releases of SmartRes2 may be distributed only by Paul Vandersypen or
+by parties expressly authorized by him. This restriction does not apply to
+third-party components distributed under licenses that independently permit
+their redistribution.
+
+5. Preservation of Notices
+
+You may not remove or alter copyright, license, attribution, or other legal
+notices contained in the SmartRes2 Materials or in any third-party component.
+
+6. Disclaimer of Warranty
+
+THE SMARTRES2 MATERIALS ARE PROVIDED "AS IS" AND WITHOUT WARRANTY OF ANY
+KIND, EXPRESS OR IMPLIED, INCLUDING, WITHOUT LIMITATION, WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, AND
+NON-INFRINGEMENT. USE OF THE SMARTRES2 MATERIALS IS AT YOUR OWN RISK.
+
+7. Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL PAUL
+VANDERSYPEN BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY, WHETHER IN
+AN ACTION OF CONTRACT, TORT, OR OTHERWISE, ARISING FROM, OUT OF, OR IN
+CONNECTION WITH THE SMARTRES2 MATERIALS OR THEIR USE OR OTHER DEALINGS.
+
+8. No Other Rights
+
+All rights not expressly granted by this license are reserved.

@@ -6,6 +6,7 @@
 -- Responsibilities:
 -- - Initialize the Chat settings namespace and lifecycle.
 -- - Announce the player's single-target and mass resurrection casts.
+-- - Coordinate one collision-warning sender among eligible SmartRes2 clients.
 -- - Notify casters whose single-target resurrection will not finish first.
 -- - Resolve configured group and whisper destinations.
 -- --------------------------------------------------------------------
@@ -22,13 +23,16 @@ local LibStub = LibStub
 local math_random = math.random
 local pairs = pairs
 local SendChatMessage = C_ChatInfo.SendChatMessage
+local string_byte = string.byte
 local string_find = string.find
 local string_format = string.format
+local string_match = string.match
 local string_sub = string.sub
 local table_wipe = table.wipe
 local UnitClassBase = UnitClassBase
 local UnitGUID = UnitGUID
 local UNKNOWN = UNKNOWN
+local After = C_Timer.After
 
 -- --------------------------------------------------------------------
 -- Addon / module
@@ -36,9 +40,9 @@ local UNKNOWN = UNKNOWN
 
 local addon = LibStub("AceAddon-3.0"):GetAddon("SmartRes2")
 local L = LibStub("AceLocale-3.0"):GetLocale("SmartRes2")
----@class Chat: AceAddon, AceEvent-3.0, AceConsole-3.0, LibResInfo-2.0
+---@class Chat: AceAddon, AceEvent-3.0, AceConsole-3.0, AceComm-3.0, LibResInfo-2.0
 ---@field db AceDBObject-3.0
-local module = addon:NewModule("Chat")
+local module = addon:NewModule("Chat", "AceComm-3.0")
 
 -- --------------------------------------------------------------------
 -- Lifecycle state and defaults
@@ -261,13 +265,19 @@ local defaults = {
 }
 
 local UNKNOWN_TARGET_GUID = "UNKNOWN"
+local COLLISION_COMM_PREFIX = "SmartRes2C"
+local COLLISION_COMM_VERSION = "1"
+local COLLISION_ELECTION_DELAY = 0.4
+local COLLISION_RECORD_TTL = 10
 
 ---@type table
 local db
 local activeSingleCasts = {}
 local collisionNotified = {}
+local collisionElections = {}
 local randomSingleMessages = {}
 local randomMassMessages = {}
+local electionGeneration = 0
 
 -- --------------------------------------------------------------------
 -- Message cache helpers
@@ -311,6 +321,7 @@ function module:OnInitialize()
 end
 
 function module:OnEnable()
+	self:RegisterComm(COLLISION_COMM_PREFIX, "OnCollisionCommReceived")
 	self:RegisterCallback("ResCast_Started", "OnSingleResCastStarted")
 	self:RegisterCallback("ResCast_Stopped", "OnSingleResCastStopped")
 	self:RegisterCallback("ResCast_Finished", "OnSingleResCastFinished")
@@ -320,10 +331,13 @@ function module:OnEnable()
 end
 
 function module:OnDisable()
+	self:UnregisterComm(COLLISION_COMM_PREFIX)
 	self:UnregisterAllResInfoCallbacks()
 
+	electionGeneration = electionGeneration + 1
 	table_wipe(activeSingleCasts)
 	table_wipe(collisionNotified)
+	table_wipe(collisionElections)
 end
 
 function module:RefreshConfig()
@@ -503,7 +517,7 @@ local function SendConfiguredMessage(message, channelKey, fallbackWhisperGUID)
 	local chatType = ResolveChatType(channelKey, allowWhisper)
 
 	if not chatType then
-		return
+		return false
 	end
 
 	message = string_sub(message, 1, 255)
@@ -511,10 +525,14 @@ local function SendConfiguredMessage(message, channelKey, fallbackWhisperGUID)
 	if chatType == "WHISPER" then
 		if allowWhisper then
 			SendChatMessage(message, "WHISPER", nil, whisperTarget)
+			return true
 		end
 	else
 		SendChatMessage(message, chatType)
+		return true
 	end
+
+	return false
 end
 
 -- --------------------------------------------------------------------
@@ -529,12 +547,284 @@ local function GetCollisionKey(casterGUID, targetGUID)
 	return casterGUID .. ":" .. targetGUID
 end
 
+local function GetElectionKey(casterGUID, targetGUID, fastestCasterGUID)
+	return casterGUID .. "\031" .. targetGUID .. "\031" .. fastestCasterGUID
+end
+
+local function IsGroupMemberGUID(memberGUID)
+	if not memberGUID then
+		return false
+	end
+
+	if memberGUID == addon.PLAYER_GUID then
+		return true
+	end
+
+	local numGroupMembers = GetNumGroupMembers()
+
+	if IsInRaid() then
+		for index = 1, numGroupMembers do
+			if UnitGUID("raid" .. index) == memberGUID then
+				return true
+			end
+		end
+	else
+		for index = 1, numGroupMembers - 1 do
+			if UnitGUID("party" .. index) == memberGUID then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+local function GetGroupMemberGUIDByName(memberName)
+	local exactMatchedGUID
+	local shortMatchedGUID
+	local shortMatchIsAmbiguous = false
+	local memberShortName = string_match(memberName, "^[^-]+")
+	local numGroupMembers = GetNumGroupMembers()
+
+	local function CheckGUID(memberGUID)
+		if not memberGUID then
+			return
+		end
+
+		local fullName = addon:GetUnitNameFromGUID(memberGUID, true)
+
+		if fullName == memberName then
+			exactMatchedGUID = memberGUID
+			return true
+		end
+
+		if addon:GetUnitNameFromGUID(memberGUID, false) == memberShortName then
+			if shortMatchedGUID and shortMatchedGUID ~= memberGUID then
+				shortMatchIsAmbiguous = true
+			else
+				shortMatchedGUID = memberGUID
+			end
+		end
+	end
+
+	if CheckGUID(addon.PLAYER_GUID) then
+		return exactMatchedGUID
+	end
+
+	if IsInRaid() then
+		for index = 1, numGroupMembers do
+			if CheckGUID(UnitGUID("raid" .. index)) then
+				return exactMatchedGUID
+			end
+		end
+	else
+		for index = 1, numGroupMembers - 1 do
+			if CheckGUID(UnitGUID("party" .. index)) then
+				return exactMatchedGUID
+			end
+		end
+	end
+
+	if not shortMatchIsAmbiguous then
+		return shortMatchedGUID
+	end
+end
+
+local function IsCollisionSenderEligible(targetGUID)
+	-- The Chat module only receives coordination traffic while it and SmartRes2
+	-- are enabled. Respect the remaining output setting here, and never elect the
+	-- resurrection target to emit text addressed to a caster.
+	return db.notifyCollision ~= "NONE" and addon.PLAYER_GUID ~= targetGUID
+end
+
+local function GetElectionScore(electionKey, candidateGUID)
+	local value = 5381
+	local source = electionKey .. candidateGUID
+
+	for index = 1, #source do
+		value = (value * 33 + string_byte(source, index)) % 2147483647
+	end
+
+	return value
+end
+
+local function GetElectedSender(election)
+	local electedGUID
+	local electedScore
+
+	for candidateGUID in pairs(election.candidates) do
+		local score = GetElectionScore(election.key, candidateGUID)
+
+		if not electedScore
+			or score < electedScore
+			or (score == electedScore and candidateGUID < electedGUID)
+		then
+			electedGUID = candidateGUID
+			electedScore = score
+		end
+	end
+
+	return electedGUID
+end
+
+local function SendCollisionComm(opcode, casterGUID, targetGUID, fastestCasterGUID)
+	local distribution = GetGroupChatType()
+
+	if not distribution then
+		return false
+	end
+
+	module:SendCommMessage(
+		COLLISION_COMM_PREFIX,
+		string_format("%s\t%s\t%s\t%s\t%s", opcode, COLLISION_COMM_VERSION, casterGUID, targetGUID, fastestCasterGUID),
+		distribution,
+		nil,
+		"ALERT"
+	)
+
+	return true
+end
+
+local function ExpireCollisionElection(electionKey, election)
+	if collisionElections[electionKey] ~= election then
+		return
+	end
+
+	collisionElections[electionKey] = nil
+	collisionNotified[GetCollisionKey(election.casterGUID, election.targetGUID)] = nil
+end
+
+local function FinishCollisionElection(electionKey, election)
+	if collisionElections[electionKey] ~= election or election.sent then
+		return
+	end
+
+	if GetElectedSender(election) ~= addon.PLAYER_GUID then
+		return
+	end
+
+	local targetName = GetTargetName(election.targetGUID)
+	local message = string_format(L["Your resurrection of %s will not finish first."], targetName)
+
+	if SendConfiguredMessage(message, db.notifyCollision, election.casterGUID) then
+		election.sent = true
+		SendCollisionComm("S", election.casterGUID, election.targetGUID, election.fastestCasterGUID)
+	end
+end
+
+local function GetOrCreateCollisionElection(casterGUID, targetGUID, fastestCasterGUID)
+	local electionKey = GetElectionKey(casterGUID, targetGUID, fastestCasterGUID)
+	local election = collisionElections[electionKey]
+
+	if election then
+		return election
+	end
+
+	election = {
+		key = electionKey,
+		casterGUID = casterGUID,
+		targetGUID = targetGUID,
+		fastestCasterGUID = fastestCasterGUID,
+		candidates = {},
+		sent = false,
+		generation = electionGeneration,
+	}
+	collisionElections[electionKey] = election
+	collisionNotified[GetCollisionKey(casterGUID, targetGUID)] = true
+
+	After(COLLISION_ELECTION_DELAY, function()
+		if election.generation == electionGeneration then
+			FinishCollisionElection(electionKey, election)
+		end
+	end)
+
+	After(COLLISION_RECORD_TTL, function()
+		if election.generation == electionGeneration then
+			ExpireCollisionElection(electionKey, election)
+		end
+	end)
+
+	return election
+end
+
+local function JoinCollisionElection(election)
+	if not IsCollisionSenderEligible(election.targetGUID) or election.candidates[addon.PLAYER_GUID] then
+		return
+	end
+
+	election.candidates[addon.PLAYER_GUID] = true
+	SendCollisionComm("C", election.casterGUID, election.targetGUID, election.fastestCasterGUID)
+end
+
+function module:OnCollisionCommReceived(prefix, message, distribution, sender)
+	if prefix ~= COLLISION_COMM_PREFIX or type(message) ~= "string" then
+		return
+	end
+
+	local opcode, protocolVersion, casterGUID, targetGUID, fastestCasterGUID = string_match(
+		message,
+		"^([CPS])\t([^\t]+)\t([^\t]+)\t([^\t]+)\t([^\t]+)$"
+	)
+
+	if protocolVersion ~= COLLISION_COMM_VERSION then
+		return
+	end
+
+	local senderGUID = GetGroupMemberGUIDByName(sender)
+
+	if not senderGUID
+		or not IsGroupMemberGUID(casterGUID)
+		or not IsGroupMemberGUID(targetGUID)
+		or not IsGroupMemberGUID(fastestCasterGUID)
+	then
+		return
+	end
+
+	local electionKey = GetElectionKey(casterGUID, targetGUID, fastestCasterGUID)
+	local election = collisionElections[electionKey]
+
+	-- Proposals create elections. Candidate and completion packets only update an
+	-- election that was proposed locally or received first, so a stray packet
+	-- cannot manufacture collision state on its own.
+	if not election then
+		if opcode ~= "P" then
+			return
+		end
+
+		election = GetOrCreateCollisionElection(casterGUID, targetGUID, fastestCasterGUID)
+	end
+
+	if opcode == "S" then
+		election.candidates[senderGUID] = true
+		election.sent = true
+		return
+	end
+
+	if opcode == "C" then
+		election.candidates[senderGUID] = true
+	end
+
+	if election.sent then
+		SendCollisionComm("S", casterGUID, targetGUID, fastestCasterGUID)
+		return
+	end
+
+	JoinCollisionElection(election)
+end
+
 local function ClearCollisionNotification(casterGUID, targetGUID)
 	if not IsKnownTargetGUID(targetGUID) then
 		return
 	end
 
-	collisionNotified[GetCollisionKey(casterGUID, targetGUID)] = nil
+	local collisionKey = GetCollisionKey(casterGUID, targetGUID)
+	collisionNotified[collisionKey] = nil
+
+	for electionKey, election in pairs(collisionElections) do
+		if election.casterGUID == casterGUID and election.targetGUID == targetGUID then
+			collisionElections[electionKey] = nil
+		end
+	end
 end
 
 local function IsCollision(casterGUID, targetGUID, targetInfo)
@@ -553,7 +843,7 @@ local function IsCollision(casterGUID, targetGUID, targetInfo)
 end
 
 local function NotifyCollision(casterGUID, targetGUID, targetInfo)
-	if db.notifyCollision == "NONE" or not IsCollision(casterGUID, targetGUID, targetInfo) then
+	if not IsCollision(casterGUID, targetGUID, targetInfo) then
 		return
 	end
 
@@ -563,12 +853,11 @@ local function NotifyCollision(casterGUID, targetGUID, targetInfo)
 		return
 	end
 
-	collisionNotified[collisionKey] = true
+	local fastestCasterGUID = targetInfo.fastestCasterGUID
+	local election = GetOrCreateCollisionElection(casterGUID, targetGUID, fastestCasterGUID)
 
-	local targetName = GetTargetName(targetGUID)
-	local message = string_format(L["Your resurrection of %s will not finish first."], targetName)
-
-	SendConfiguredMessage(message, db.notifyCollision, casterGUID)
+	SendCollisionComm("P", casterGUID, targetGUID, fastestCasterGUID)
+	JoinCollisionElection(election)
 end
 
 local function RefreshCollisionNotifications(targetGUID, targetInfo)
