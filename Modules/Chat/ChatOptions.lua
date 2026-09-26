@@ -183,6 +183,8 @@ function module:GetOptions()
 					enabled = {
 						order = 10,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.5,
 						name = ENABLE .. " / " .. DISABLE,
 						desc = L["Toggle the Chat module on or off."],
 						get = function()
@@ -201,6 +203,8 @@ function module:GetOptions()
 					useFullNameForMessages = {
 						order = 20,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Full Names"],
 						desc = L["Show realm names for player names in resurrection messages."],
 						disabled = IsModuleDisabled,
@@ -214,6 +218,8 @@ function module:GetOptions()
 					notifyCollision = {
 						order = 30,
 						type = "select",
+						width = "relative",
+						relWidth = 0.333,
 						style = "dropdown",
 						name = L["Inform Colliders"],
 						desc = L["Tell other players their spells will not finish first."],
@@ -237,6 +243,8 @@ function module:GetOptions()
 					chatChannel = {
 						order = 10,
 						type = "select",
+						width = "relative",
+						relWidth = 0.333,
 						style = "dropdown",
 						name = L["Chat Channel"],
 						desc = L["Output channel for single res messages."],
@@ -253,7 +261,8 @@ function module:GetOptions()
 						type = "input",
 						name = L["Override Message"],
 						desc = L["Overrides random single res messages."],
-						width = "full",
+						width = "relative",
+						relWidth = 1,
 						usage = L["Example: Hey %s, I am resurrecting you!"],
 						get = function()
 							return GetProfileDB().overrideSingleResMessage
@@ -269,7 +278,8 @@ function module:GetOptions()
 						order = 30,
 						type = "input",
 						name = L["Add To Random Messages"],
-						width = "full",
+						width = "relative",
+						relWidth = 1,
 						usage = L["Example: Hey %s, I am resurrecting you!"],
 						get = function()
 							return nil
@@ -303,7 +313,8 @@ function module:GetOptions()
 						dialogControl = "Dropdown",
 						name = L["Random Messages"],
 						desc = L["Toggle which random messages to use."],
-						width = "full",
+						width = "relative",
+						relWidth = 1,
 						values = function()
 							return BuildMessageValues(GetProfileDB().randomSingleMessages, false)
 						end,
@@ -321,7 +332,8 @@ function module:GetOptions()
 						dialogControl = "Dropdown",
 						name = L["Delete Random Res Messages"],
 						desc = L["Delete messages from saved settings. Use Restore Deleted Messages to undo."],
-						width = "full",
+						width = "relative",
+						relWidth = 1,
 						values = function()
 							return BuildMessageValues(GetProfileDB().randomSingleMessages, false)
 						end,
@@ -337,6 +349,8 @@ function module:GetOptions()
 					restoreRandomSingleResMessages = {
 						order = 60,
 						type = "execute",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Restore Deleted Messages"],
 						image = RESTORE_MESSAGES_ICON,
 						imageWidth = 32,
@@ -366,6 +380,8 @@ function module:GetOptions()
 					chatChannel = {
 						order = 10,
 						type = "select",
+						width = "relative",
+						relWidth = 0.333,
 						style = "dropdown",
 						name = L["Chat Channel"],
 						desc = L["Output channel for mass res messages."],
@@ -382,7 +398,8 @@ function module:GetOptions()
 						type = "input",
 						name = L["Override Message"],
 						desc = L["Overrides random mass res messages."],
-						width = "full",
+						width = "relative",
+						relWidth = 1,
 						usage = L["Example: I am resurrecting everybody!"],
 						get = function()
 							return GetProfileDB().overrideMassResMessage
@@ -398,7 +415,8 @@ function module:GetOptions()
 						order = 30,
 						type = "input",
 						name = L["Add To Random Messages"],
-						width = "full",
+						width = "relative",
+						relWidth = 1,
 						usage = L["Example: I am resurrecting everybody!"],
 						get = function()
 							return nil
@@ -432,7 +450,8 @@ function module:GetOptions()
 						dialogControl = "Dropdown",
 						name = L["Random Messages"],
 						desc = L["Toggle which random messages to use."],
-						width = "full",
+						width = "relative",
+						relWidth = 1,
 						values = function()
 							return BuildMessageValues(GetProfileDB().randomMassMessages, true)
 						end,
@@ -450,7 +469,8 @@ function module:GetOptions()
 						dialogControl = "Dropdown",
 						name = L["Delete Random Res Messages"],
 						desc = L["Delete messages from saved settings. Use Restore Deleted Messages to undo."],
-						width = "full",
+						width = "relative",
+						relWidth = 1,
 						values = function()
 							return BuildMessageValues(GetProfileDB().randomMassMessages, true)
 						end,
@@ -466,6 +486,8 @@ function module:GetOptions()
 					restoreRandomMassResMessages = {
 						order = 60,
 						type = "execute",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Restore Deleted Messages"],
 						image = RESTORE_MESSAGES_ICON,
 						imageWidth = 32,

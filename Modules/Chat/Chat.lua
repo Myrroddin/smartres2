@@ -15,6 +15,8 @@
 -- Lua / Blizzard API upvalues
 -- --------------------------------------------------------------------
 
+local After = C_Timer.After
+local canaccessvalue = canaccessvalue or function() return true end
 local GetNumGroupMembers = GetNumGroupMembers
 local IsInGroup = IsInGroup
 local IsInRaid = IsInRaid
@@ -29,10 +31,8 @@ local string_format = string.format
 local string_match = string.match
 local string_sub = string.sub
 local table_wipe = table.wipe
-local UnitClassBase = UnitClassBase
 local UnitGUID = UnitGUID
 local UNKNOWN = UNKNOWN
-local After = C_Timer.After
 
 -- --------------------------------------------------------------------
 -- Addon / module
@@ -408,36 +408,6 @@ end
 -- Name and chat routing helpers
 -- --------------------------------------------------------------------
 
-local function GetUnitClassByGUID(unitGUID)
-	if not unitGUID or unitGUID == UNKNOWN_TARGET_GUID then
-		return nil
-	end
-
-	if addon.PLAYER_GUID == unitGUID then
-		return UnitClassBase("player")
-	end
-
-	local numGroupMembers = GetNumGroupMembers()
-
-	if IsInRaid() then
-		for index = 1, numGroupMembers do
-			local unit = "raid" .. index
-
-			if UnitGUID(unit) == unitGUID then
-				return UnitClassBase(unit)
-			end
-		end
-	else
-		for index = 1, numGroupMembers - 1 do
-			local unit = "party" .. index
-
-			if UnitGUID(unit) == unitGUID then
-				return UnitClassBase(unit)
-			end
-		end
-	end
-end
-
 local function GetTargetName(targetGUID)
 	return addon:GetUnitNameFromGUID(targetGUID, db.useFullNameForMessages)
 end
@@ -446,11 +416,15 @@ local function GetSystemMessageTargetName(targetGUID)
 	local profile = addon.db.profile
 	local targetName = addon:GetUnitNameFromGUID(targetGUID, profile.useFullNameForSystemMessages)
 
+	if not canaccessvalue(targetName) then
+		return UNKNOWN
+	end
+
 	if not profile.useClassColorsForSystemMessages or targetName == UNKNOWN then
 		return targetName
 	end
 
-	return addon:GetClassColoredName(targetName, GetUnitClassByGUID(targetGUID)) or targetName
+	return addon:GetClassColoredName(targetName, addon:GetUnitClassFromGUID(targetGUID)) or targetName
 end
 
 local function GetGroupChatType()
@@ -513,7 +487,9 @@ end
 
 local function SendConfiguredMessage(message, channelKey, fallbackWhisperGUID)
 	local whisperTarget = fallbackWhisperGUID and addon:GetUnitNameFromGUID(fallbackWhisperGUID, true)
-	local allowWhisper = whisperTarget ~= nil and whisperTarget ~= UNKNOWN
+	local allowWhisper = canaccessvalue(whisperTarget)
+		and whisperTarget ~= nil
+		and whisperTarget ~= UNKNOWN
 	local chatType = ResolveChatType(channelKey, allowWhisper)
 
 	if not chatType then
@@ -551,54 +527,41 @@ local function GetElectionKey(casterGUID, targetGUID, fastestCasterGUID)
 	return casterGUID .. "\031" .. targetGUID .. "\031" .. fastestCasterGUID
 end
 
-local function IsGroupMemberGUID(memberGUID)
-	if not memberGUID then
-		return false
-	end
-
-	if memberGUID == addon.PLAYER_GUID then
-		return true
-	end
-
-	local numGroupMembers = GetNumGroupMembers()
-
-	if IsInRaid() then
-		for index = 1, numGroupMembers do
-			if UnitGUID("raid" .. index) == memberGUID then
-				return true
-			end
-		end
-	else
-		for index = 1, numGroupMembers - 1 do
-			if UnitGUID("party" .. index) == memberGUID then
-				return true
-			end
-		end
-	end
-
-	return false
-end
-
-local function GetGroupMemberGUIDByName(memberName)
+local function GetValidatedCollisionSenderGUID(memberName, casterGUID, targetGUID, fastestCasterGUID)
 	local exactMatchedGUID
 	local shortMatchedGUID
 	local shortMatchIsAmbiguous = false
 	local memberShortName = string_match(memberName, "^[^-]+")
+	local casterIsMember = false
+	local targetIsMember = false
+	local fastestCasterIsMember = false
 	local numGroupMembers = GetNumGroupMembers()
 
 	local function CheckGUID(memberGUID)
-		if not memberGUID then
+		if not canaccessvalue(memberGUID) or not memberGUID then
 			return
+		end
+
+		if memberGUID == casterGUID then
+			casterIsMember = true
+		end
+		if memberGUID == targetGUID then
+			targetIsMember = true
+		end
+		if memberGUID == fastestCasterGUID then
+			fastestCasterIsMember = true
 		end
 
 		local fullName = addon:GetUnitNameFromGUID(memberGUID, true)
 
-		if fullName == memberName then
+		if canaccessvalue(fullName) and fullName == memberName then
 			exactMatchedGUID = memberGUID
-			return true
+			return
 		end
 
-		if addon:GetUnitNameFromGUID(memberGUID, false) == memberShortName then
+		local shortName = canaccessvalue(fullName) and string_match(fullName, "^[^-]+")
+
+		if shortName == memberShortName then
 			if shortMatchedGUID and shortMatchedGUID ~= memberGUID then
 				shortMatchIsAmbiguous = true
 			else
@@ -607,34 +570,30 @@ local function GetGroupMemberGUIDByName(memberName)
 		end
 	end
 
-	if CheckGUID(addon.PLAYER_GUID) then
-		return exactMatchedGUID
-	end
-
 	if IsInRaid() then
 		for index = 1, numGroupMembers do
-			if CheckGUID(UnitGUID("raid" .. index)) then
-				return exactMatchedGUID
-			end
+			CheckGUID(UnitGUID("raid" .. index))
 		end
 	else
+		CheckGUID(addon.PLAYER_GUID)
+
 		for index = 1, numGroupMembers - 1 do
-			if CheckGUID(UnitGUID("party" .. index)) then
-				return exactMatchedGUID
-			end
+			CheckGUID(UnitGUID("party" .. index))
 		end
 	end
 
-	if not shortMatchIsAmbiguous then
-		return shortMatchedGUID
+	local senderGUID = exactMatchedGUID or (not shortMatchIsAmbiguous and shortMatchedGUID)
+
+	if senderGUID and casterIsMember and targetIsMember and fastestCasterIsMember then
+		return senderGUID
 	end
 end
 
-local function IsCollisionSenderEligible(targetGUID)
+local function IsCollisionSenderEligible()
 	-- The Chat module only receives coordination traffic while it and SmartRes2
-	-- are enabled. Respect the remaining output setting here, and never elect the
-	-- resurrection target to emit text addressed to a caster.
-	return db.notifyCollision ~= "NONE" and addon.PLAYER_GUID ~= targetGUID
+	-- are enabled. Any such group member with collision output enabled may send
+	-- the warning, including the resurrection target.
+	return db.notifyCollision ~= "NONE"
 end
 
 local function GetElectionScore(electionKey, candidateGUID)
@@ -748,7 +707,7 @@ local function GetOrCreateCollisionElection(casterGUID, targetGUID, fastestCaste
 end
 
 local function JoinCollisionElection(election)
-	if not IsCollisionSenderEligible(election.targetGUID) or election.candidates[addon.PLAYER_GUID] then
+	if not IsCollisionSenderEligible() or election.candidates[addon.PLAYER_GUID] then
 		return
 	end
 
@@ -770,13 +729,9 @@ function module:OnCollisionCommReceived(prefix, message, distribution, sender)
 		return
 	end
 
-	local senderGUID = GetGroupMemberGUIDByName(sender)
+	local senderGUID = GetValidatedCollisionSenderGUID(sender, casterGUID, targetGUID, fastestCasterGUID)
 
-	if not senderGUID
-		or not IsGroupMemberGUID(casterGUID)
-		or not IsGroupMemberGUID(targetGUID)
-		or not IsGroupMemberGUID(fastestCasterGUID)
-	then
+	if not senderGUID then
 		return
 	end
 

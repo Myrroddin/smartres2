@@ -18,9 +18,7 @@
 local After = C_Timer.After
 local BackdropTemplateMixin = BackdropTemplateMixin
 local CreateFrame = CreateFrame
-local GetNumGroupMembers = GetNumGroupMembers
 local GetTime = GetTime
-local IsInRaid = IsInRaid
 local LibStub = LibStub
 local math_floor = math.floor
 local math_max = math.max
@@ -32,8 +30,6 @@ local string_format = string.format
 local string_upper = string.upper
 local table_sort = table.sort
 local UIParent = UIParent
-local UnitClassBase = UnitClassBase
-local UnitGUID = UnitGUID
 local UNKNOWN = UNKNOWN
 
 -- --------------------------------------------------------------------
@@ -48,17 +44,22 @@ local AceConfigRegistry = LibStub("AceConfigRegistry-3.0")
 ---@field RegisterCallback fun(target: table, eventName: string, method: string, arg?: any)
 ---@field UnregisterCallback fun(target: table, eventName: string)
 
+---@class SmartRes2LibSharedMedia: LibSharedMedia-3.0
+---@field RegisterCallback fun(target: table, eventName: string, method: string, arg?: any)
+
 ---@class Bars: AceAddon, AceEvent-3.0, AceConsole-3.0, LibResInfo-2.0
 ---@field LibCandyBar LibCandyBar-3.0
 ---@field db AceDBObject-3.0
 local module = addon:NewModule("Bars")
 module.LibCandyBar = LibStub("LibCandyBar-3.0")
 
+---@type SmartRes2LibSharedMedia
+local LSM = addon.LSM
+
 -- --------------------------------------------------------------------
 -- Lifecycle state and defaults
 -- --------------------------------------------------------------------
 
----@type table
 local db
 local defaults = {
 	profile = {
@@ -338,6 +339,7 @@ local barBorderFrames = {}
 local masqueButtons = {}
 local masqueRegions = {}
 local sortedBars = {}
+local barAppearance
 
 -- --------------------------------------------------------------------
 -- Pixel snapping and layout math
@@ -353,46 +355,43 @@ local function GetProfileDB()
 	return db
 end
 
-local function GetBarFrameWidth()
-	local profile = GetProfileDB()
-	local insets = profile.frame.backdrop.insets
-
-	return math_max(1, profile.frame.width - insets.left - insets.right)
-end
-
-local function GetBarBorderThickness()
-	local profile = GetProfileDB()
-	local border = profile.media.barBorder
-
-	if not border or border == "None" then
-		return 0
+local function GetBarAppearance()
+	if barAppearance then
+		return barAppearance
 	end
 
-	return math_max(0, profile.media.barBorderThickness)
-end
+	local profile = GetProfileDB()
+	local insets = profile.frame.backdrop.insets
+	local borderName = profile.media.barBorder
+	local borderThickness = 0
 
-local function GetBarWidth()
-	local borderThickness = GetBarBorderThickness()
+	if borderName and borderName ~= "None" then
+		borderThickness = math_max(0, profile.media.barBorderThickness)
+	end
 
-	return math_max(1, GetBarFrameWidth() - (borderThickness * 2))
+	local frameWidth = math_max(1, profile.frame.width - insets.left - insets.right)
+	local barHeight = math_max(MIN_BAR_HEIGHT, profile.media.fontSize + BAR_VERTICAL_PADDING)
+
+	barAppearance = {
+		barHeight = barHeight,
+		barSpacing = profile.behavior.barSpacing + borderThickness,
+		barWidth = math_max(1, frameWidth - (borderThickness * 2)),
+		borderFile = borderThickness > 0
+			and addon.LSM:Fetch(addon.LSM.MediaType.BORDER, borderName, true)
+			or nil,
+		borderThickness = borderThickness,
+		fontFile = addon.LSM:Fetch(addon.LSM.MediaType.FONT, profile.media.font),
+		fontFlags = profile.media.fontStyle,
+		frameHeight = barHeight + (borderThickness * 2),
+		frameWidth = frameWidth,
+		statusBarTexture = addon.LSM:Fetch(addon.LSM.MediaType.STATUSBAR, profile.media.statusBar),
+	}
+
+	return barAppearance
 end
 
 local function GetBarHeight()
-	local profile = GetProfileDB()
-
-	-- Keep bars readable when users choose larger fonts, but do not shrink below
-	-- SmartRes2's original compact 20px inner bar height.
-	return math_max(MIN_BAR_HEIGHT, profile.media.fontSize + BAR_VERTICAL_PADDING)
-end
-
-local function GetBarFrameHeight()
-	return GetBarHeight() + (GetBarBorderThickness() * 2)
-end
-
-local function GetBarSpacing()
-	local profile = GetProfileDB()
-
-	return profile.behavior.barSpacing + GetBarBorderThickness()
+	return GetBarAppearance().barHeight
 end
 
 local function GetBarOffsetX()
@@ -419,11 +418,12 @@ end
 
 local function GetMaxVisibleBars()
 	local profile = GetProfileDB()
+	local appearance = GetBarAppearance()
 	local insets = profile.frame.backdrop.insets
 	local innerHeight = math_max(1, profile.frame.height - insets.top - insets.bottom)
-	local barFrameHeight = GetBarFrameHeight()
-	local barSpacing = GetBarSpacing()
-	local maxBarsByHeight = math_floor((innerHeight + barSpacing) / (barFrameHeight + barSpacing))
+	local maxBarsByHeight = math_floor(
+		(innerHeight + appearance.barSpacing) / (appearance.frameHeight + appearance.barSpacing)
+	)
 
 	return math_max(1, maxBarsByHeight)
 end
@@ -635,36 +635,6 @@ local function GetTargetName(targetGUID)
 	return addon:GetUnitNameFromGUID(targetGUID, db.useFullNameForBars)
 end
 
-local function GetUnitClassByGUID(unitGUID)
-	if not unitGUID or unitGUID == "UNKNOWN" then
-		return nil
-	end
-
-	if addon.PLAYER_GUID == unitGUID then
-		return UnitClassBase("player")
-	end
-
-	local numGroupMembers = GetNumGroupMembers()
-
-	if IsInRaid() then
-		for index = 1, numGroupMembers do
-			local unit = "raid" .. index
-
-			if UnitGUID(unit) == unitGUID then
-				return UnitClassBase(unit)
-			end
-		end
-	else
-		for index = 1, numGroupMembers - 1 do
-			local unit = "party" .. index
-
-			if UnitGUID(unit) == unitGUID then
-				return UnitClassBase(unit)
-			end
-		end
-	end
-end
-
 local function BuildSingleCastState(casterGUID, targetGUID, casterInfo, targetInfo)
 	local endTime = casterInfo.endTime or GetTime()
 	local duration = casterInfo.castTime or 1
@@ -677,10 +647,10 @@ local function BuildSingleCastState(casterGUID, targetGUID, casterInfo, targetIn
 		kind = "single",
 		casterGUID = casterGUID,
 		casterName = GetCasterName(casterGUID),
-		casterClass = GetUnitClassByGUID(casterGUID),
+		casterClass = addon:GetUnitClassFromGUID(casterGUID),
 		targetGUID = targetGUID,
 		targetName = GetTargetName(targetGUID),
-		targetClass = GetUnitClassByGUID(targetGUID),
+		targetClass = addon:GetUnitClassFromGUID(targetGUID),
 		startTime = endTime - duration,
 		duration = duration,
 		endTime = endTime,
@@ -701,7 +671,7 @@ local function BuildMassCastState(casterGUID, casterInfo)
 		kind = "mass",
 		casterGUID = casterGUID,
 		casterName = GetCasterName(casterGUID),
-		casterClass = GetUnitClassByGUID(casterGUID),
+		casterClass = addon:GetUnitClassFromGUID(casterGUID),
 		targetGUID = nil,
 		targetName = L["Multiple Targets"],
 		targetClass = nil,
@@ -729,7 +699,7 @@ local function BuildWaitingState(targetGUID, targetName, duration)
 		casterClass = nil,
 		targetGUID = targetGUID,
 		targetName = targetName,
-		targetClass = GetUnitClassByGUID(targetGUID),
+		targetClass = addon:GetUnitClassFromGUID(targetGUID),
 		startTime = now,
 		duration = duration,
 		endTime = now + duration,
@@ -1068,11 +1038,11 @@ local function GetOrCreateBarBorderFrame(key)
 end
 
 local function ApplyBarBorderSettings(frame)
-	local profile = GetProfileDB()
-	local borderThickness = GetBarBorderThickness()
+	local appearance = GetBarAppearance()
+	local borderThickness = appearance.borderThickness
 
 	frame:SetParent(CreateContainerFrame())
-	frame:SetSize(GetBarFrameWidth(), GetBarFrameHeight())
+	frame:SetSize(appearance.frameWidth, appearance.frameHeight)
 
 	if not frame.SetBackdrop or borderThickness <= 0 then
 		if frame.SetBackdrop then
@@ -1081,7 +1051,7 @@ local function ApplyBarBorderSettings(frame)
 		return
 	end
 
-	local border = addon.LSM:Fetch(addon.LSM.MediaType.BORDER, profile.media.barBorder, true)
+	local border = appearance.borderFile
 
 	if not border then
 		frame:SetBackdrop(nil)
@@ -1107,24 +1077,8 @@ end
 
 -- Preview and runtime records share this rendering and layout pipeline.
 
-local function GetStatusBarTexture()
-	local profile = GetProfileDB()
-
-	return addon.LSM:Fetch(addon.LSM.MediaType.STATUSBAR, profile.media.statusBar)
-end
-
-local function GetFontFile()
-	local profile = GetProfileDB()
-
-	return addon.LSM:Fetch(addon.LSM.MediaType.FONT, profile.media.font)
-end
-
 local function IsFontSlugStyle(fontStyle)
 	return fontStyle == "SLUG" or fontStyle == "SLUG, OUTLINE"
-end
-
-local function GetFontFlags()
-	return GetProfileDB().media.fontStyle
 end
 
 local function GetOrCreateCandyBar(key)
@@ -1134,7 +1088,8 @@ local function GetOrCreateCandyBar(key)
 		return bar
 	end
 
-	bar = module.LibCandyBar:New(GetStatusBarTexture(), GetBarWidth(), GetBarHeight())
+	local appearance = GetBarAppearance()
+	bar = module.LibCandyBar:New(appearance.statusBarTexture, appearance.barWidth, appearance.barHeight)
 	bar:Set("SmartRes2Key", key)
 	bar:SetParent(GetOrCreateBarBorderFrame(key))
 	bar:SetFrameStrata("MEDIUM")
@@ -1148,25 +1103,26 @@ end
 
 local function ApplyCandyBarSettings(state, bar)
 	local profile = GetProfileDB()
+	local appearance = GetBarAppearance()
 	local color = GetBarColor(state)
 	local icon = state.icon
 
 	local borderFrame = GetOrCreateBarBorderFrame(state.key)
-	local borderThickness = GetBarBorderThickness()
+	local borderThickness = appearance.borderThickness
 
 	ApplyBarBorderSettings(borderFrame)
 
 	bar:SetParent(borderFrame)
 	bar:ClearAllPoints()
 	bar:SetPoint("TOPLEFT", borderFrame, "TOPLEFT", borderThickness, -borderThickness)
-	bar:SetSize(GetBarWidth(), GetBarHeight())
-	bar:SetTexture(GetStatusBarTexture())
+	bar:SetSize(appearance.barWidth, appearance.barHeight)
+	bar:SetTexture(appearance.statusBarTexture)
 	bar:SetFill(profile.behavior.fill)
 	bar.candyBarBar:SetReverseFill(profile.behavior.mirrorBars)
 	bar:SetColor(color.r, color.g, color.b, color.a)
 	bar:SetBackgroundColor(BAR_BACKGROUND_R, BAR_BACKGROUND_G, BAR_BACKGROUND_B, BAR_BACKGROUND_A)
 	bar:SetTextColor(profile.text.color.r, profile.text.color.g, profile.text.color.b, profile.text.color.a)
-	bar:SetFont(GetFontFile(), profile.media.fontSize, GetFontFlags())
+	bar:SetFont(appearance.fontFile, profile.media.fontSize, appearance.fontFlags)
 	bar:SetLabel(FormatBarLabel(state))
 	bar:SetTimeVisibility(profile.behavior.showTime)
 	bar:SetLabelVisibility(profile.behavior.showLabel)
@@ -1236,6 +1192,7 @@ local function LayoutCandyBars()
 	end
 
 	local profile = GetProfileDB()
+	local appearance = GetBarAppearance()
 
 	BuildSortedBars()
 
@@ -1263,9 +1220,9 @@ local function LayoutCandyBars()
 						borderFrame:SetPoint(topPoint, containerFrame, topPoint, offsetX, firstBarOffsetY)
 					end
 				elseif growUp then
-					borderFrame:SetPoint(bottomPoint, previousBar, topPoint, 0, GetBarSpacing())
+					borderFrame:SetPoint(bottomPoint, previousBar, topPoint, 0, appearance.barSpacing)
 				else
-					borderFrame:SetPoint(topPoint, previousBar, bottomPoint, 0, -GetBarSpacing())
+					borderFrame:SetPoint(topPoint, previousBar, bottomPoint, 0, -appearance.barSpacing)
 				end
 
 				borderFrame:Show()
@@ -1435,6 +1392,7 @@ function module:OnInitialize()
 	RegisterMedia()
 
 	self.db = addon.db:RegisterNamespace(self:GetName(), defaults)
+	LSM.RegisterCallback(self, "LibSharedMedia_Registered", "OnSharedMediaRegistered")
 
 	self.db.RegisterCallback(self, "OnProfileChanged", "RefreshConfig")
 	self.db.RegisterCallback(self, "OnProfileCopied", "RefreshConfig")
@@ -1480,6 +1438,28 @@ end
 -- Rebind the active profile and reapply its visual settings.
 function module:RefreshConfig()
 	db = self.db.profile
+	barAppearance = nil
+
+	if self:IsEnabled() then
+		RefreshContainerFrame()
+	end
+end
+
+function module:OnSharedMediaRegistered(_, mediaType, key)
+	if not db then
+		return
+	end
+
+	local media = db.media
+	local isSelectedMedia = (mediaType == addon.LSM.MediaType.BORDER and key == media.barBorder)
+		or (mediaType == addon.LSM.MediaType.FONT and key == media.font)
+		or (mediaType == addon.LSM.MediaType.STATUSBAR and key == media.statusBar)
+
+	if not isSelectedMedia then
+		return
+	end
+
+	barAppearance = nil
 
 	if self:IsEnabled() then
 		RefreshContainerFrame()
@@ -1761,7 +1741,7 @@ function module:OnResTargetGUIDResolved(callback, casterGUID, targetGUID, caster
 	if state and state.source == "runtime" and not state.isMass and not state.isWaiting then
 		state.targetGUID = targetGUID
 		state.targetName = GetTargetName(targetGUID)
-		state.targetClass = GetUnitClassByGUID(targetGUID)
+		state.targetClass = addon:GetUnitClassFromGUID(targetGUID)
 		state.endTime = casterInfo.endTime
 		state.duration = casterInfo.castTime
 		state.startTime = casterInfo.endTime - casterInfo.castTime

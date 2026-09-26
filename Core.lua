@@ -16,6 +16,8 @@
 -- --------------------------------------------------------------------
 
 local _G = _G
+local After = C_Timer.After
+local canaccessvalue = canaccessvalue or function() return true end
 local CreateFrame = CreateFrame
 local DEFAULT = DEFAULT
 local GetBuildInfo = GetBuildInfo
@@ -31,6 +33,8 @@ local IsPlayerNeutral = IsPlayerNeutral
 local IsSpellInRange = C_Spell.IsSpellInRange
 local IsSpellKnown = C_SpellBook.IsSpellKnown
 local IsSpellUsable = C_Spell.IsSpellUsable
+local LE_EXPANSION_CLASSIC = LE_EXPANSION_CLASSIC
+local LE_EXPANSION_LEVEL_CURRENT = LE_EXPANSION_LEVEL_CURRENT
 local LibStub = LibStub
 local math_floor = math.floor
 local math_random = math.random
@@ -39,6 +43,7 @@ local NORMAL_FONT_COLOR = NORMAL_FONT_COLOR
 local OKAY = OKAY
 local pairs = pairs
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
+local rawget = rawget
 local Reload = C_UI.Reload
 local StaticPopup_Show = StaticPopup_Show
 local StaticPopupDialogs = StaticPopupDialogs
@@ -103,18 +108,17 @@ addon:SetDefaultModuleLibraries("AceEvent-3.0", "AceConsole-3.0", "LibResInfo-2.
 -- --------------------------------------------------------------------
 
 local DB_RESET_POPUP = "SMARTRES2_DB_RESET"
+local DB_RESET_POPUP_DELAY = 3
 local KEYBIND_TRIGGER_RELOAD_POPUP = "SMARTRES2_KEYBIND_TRIGGER_RELOAD"
 local SMARTRES2_DB_VERSION = 1
 
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
-local isMainline = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+local isStandard = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE) and (LE_EXPANSION_LEVEL_CURRENT > LE_EXPANSION_CLASSIC)
 
----@type table
-local db
----@type table
-local global
-local options
+local db, global, options
 local smartResButton, manualResButton, combatResButton, massResButton
+local playerNormalSingleResSpellID, playerCombatResSpellID, playerMassResSpellID
+local hadSavedDatabase = type(rawget(_G, "SmartRes2DB")) == "table"
 
 -- --------------------------------------------------------------------
 -- Static configuration and spell data
@@ -124,13 +128,13 @@ local DEFAULT_ICON_SPELL_ID = 2006 -- Priest: Resurrection
 local HUNTER_REVIVE_PET_SPELL_ID = 982 -- Revive Pet
 local INVALID_UNIT = "SmartRes2InvalidUnit"
 local MASS_RESURRECTION_MISTS_SPELL_ID = 83968 -- Mass Resurrection
-local MASS_RESURRECTION_RETAIL_SPELL_ID = 212036 -- Mass Resurrection
+local MASS_RESURRECTION_STANDARD_SPELL_ID = 212036 -- Mass Resurrection
 local PLAYER_CLASS_FILENAME = UnitClassBase("player")
 
-local MASS_RESURRECTION_RETAIL_SPELL_INFO = GetSpellInfo(MASS_RESURRECTION_RETAIL_SPELL_ID)
+local MASS_RESURRECTION_STANDARD_SPELL_INFO = GetSpellInfo(MASS_RESURRECTION_STANDARD_SPELL_ID)
 local MASS_RESURRECTION_MISTS_SPELL_INFO = GetSpellInfo(MASS_RESURRECTION_MISTS_SPELL_ID)
 local MASS_RESURRECTION_FALLBACK_SPELL_INFO = GetSpellInfo(DEFAULT_ICON_SPELL_ID)
-local MASS_RESURRECTION_SPELL_INFO = MASS_RESURRECTION_RETAIL_SPELL_INFO
+local MASS_RESURRECTION_SPELL_INFO = MASS_RESURRECTION_STANDARD_SPELL_INFO
 	or MASS_RESURRECTION_MISTS_SPELL_INFO
 	or MASS_RESURRECTION_FALLBACK_SPELL_INFO
 local MASS_RESURRECTION_ICON = MASS_RESURRECTION_SPELL_INFO and MASS_RESURRECTION_SPELL_INFO.iconID
@@ -475,7 +479,7 @@ local defaults = {
 			lock = true,
 			lockOnDegree = true,
 			showInCompartment = true,
-			minimapPos = 60,
+			minimapPos = 30,
 		},
 	},
 	profile = {
@@ -502,11 +506,21 @@ local function GetSpellIcon(spellID)
 end
 
 local function GetClassColoredUnitName(unit, includeRealm)
+	if not canaccessvalue(unit) then
+		return nil
+	end
+
 	if not unit then
 		return nil
 	end
 
 	local unitName, unitServer = UnitNameUnmodified(unit)
+	local classFilename = UnitClassBase(unit)
+
+	if not canaccessvalue(unitName) or not canaccessvalue(unitServer) or not canaccessvalue(classFilename) then
+		return nil
+	end
+
 	if not unitName then
 		return nil
 	end
@@ -515,7 +529,7 @@ local function GetClassColoredUnitName(unit, includeRealm)
 		unitName = unitName .. "-" .. unitServer
 	end
 
-	return addon:GetClassColoredName(unitName, UnitClassBase(unit))
+	return addon:GetClassColoredName(unitName, classFilename)
 end
 
 function addon:GetResurrectionIconForClass(classFilename, useDefault)
@@ -560,6 +574,10 @@ function addon:GetClassColoredName(name, classFilename, fallbackColor)
 end
 
 function addon:GetUnitNameFromGUID(guid, includeRealm)
+	if not canaccessvalue(guid) then
+		return UNKNOWN
+	end
+
 	if not guid or guid == "UNKNOWN" then
 		return UNKNOWN
 	end
@@ -571,9 +589,17 @@ function addon:GetUnitNameFromGUID(guid, includeRealm)
 	else
 		local unitToken = UnitTokenFromGUID(guid)
 
+		if not canaccessvalue(unitToken) then
+			return UNKNOWN
+		end
+
 		if unitToken then
 			unitName, unitServer = UnitNameUnmodified(unitToken)
 		end
+	end
+
+	if not canaccessvalue(unitName) or not canaccessvalue(unitServer) then
+		return UNKNOWN
 	end
 
 	if includeRealm and unitName and unitServer and unitServer ~= "" then
@@ -581,6 +607,61 @@ function addon:GetUnitNameFromGUID(guid, includeRealm)
 	end
 
 	return unitName or UNKNOWN
+end
+
+local function GetMatchingUnitClass(unit, guid)
+	local unitGUID = UnitGUID(unit)
+
+	if not canaccessvalue(unitGUID) or unitGUID ~= guid then
+		return nil
+	end
+
+	local classFilename = UnitClassBase(unit)
+
+	if canaccessvalue(classFilename) then
+		return classFilename
+	end
+end
+
+function addon:GetUnitClassFromGUID(guid)
+	if not canaccessvalue(guid) or not guid or guid == "UNKNOWN" then
+		return nil
+	end
+
+	local unitToken = UnitTokenFromGUID(guid)
+
+	if canaccessvalue(unitToken) and unitToken then
+		local classFilename = UnitClassBase(unitToken)
+
+		if canaccessvalue(classFilename) and classFilename then
+			return classFilename
+		end
+	end
+
+	local classFilename = GetMatchingUnitClass("player", guid)
+	if classFilename then
+		return classFilename
+	end
+
+	local numGroupMembers = GetNumGroupMembers()
+
+	if IsInRaid() then
+		for index = 1, numGroupMembers do
+			classFilename = GetMatchingUnitClass("raid" .. index, guid)
+
+			if classFilename then
+				return classFilename
+			end
+		end
+	else
+		for index = 1, numGroupMembers - 1 do
+			classFilename = GetMatchingUnitClass("party" .. index, guid)
+
+			if classFilename then
+				return classFilename
+			end
+		end
+	end
 end
 
 ---@param message string
@@ -600,7 +681,9 @@ function addon:NotifySelf(message, unit)
 
 			unitName, unitServer = UnitNameUnmodified(unit)
 
-			if db.useFullNameForSystemMessages and unitName and unitServer and unitServer ~= "" then
+			if not canaccessvalue(unitName) or not canaccessvalue(unitServer) then
+				unitName = nil
+			elseif db.useFullNameForSystemMessages and unitName and unitServer and unitServer ~= "" then
 				unitName = unitName .. "-" .. unitServer
 			end
 		end
@@ -651,39 +734,36 @@ local function IsUsableSpell(spellID)
 	return true
 end
 
-local function GetPlayerNormalSingleResSpellID()
+local function RefreshPlayerResurrectionSpellIDs()
 	if PLAYER_CLASS_FILENAME == "HUNTER" then
 		if IsKnownSpell(HUNTER_REVIVE_PET_SPELL_ID) then
-			return HUNTER_REVIVE_PET_SPELL_ID
+			playerNormalSingleResSpellID = HUNTER_REVIVE_PET_SPELL_ID
+		else
+			playerNormalSingleResSpellID = nil
 		end
-
-		return nil
+	else
+		playerNormalSingleResSpellID = GetHighestKnownSpell(normalSingleResSpellIDs[PLAYER_CLASS_FILENAME])
 	end
 
-	return GetHighestKnownSpell(normalSingleResSpellIDs[PLAYER_CLASS_FILENAME])
-end
+	playerCombatResSpellID = GetHighestKnownSpell(combatResSpellIDs[PLAYER_CLASS_FILENAME])
+	playerMassResSpellID = GetHighestKnownSpell(massResSpellIDs[PLAYER_CLASS_FILENAME])
 
-local function GetPlayerCombatResurrectionSpellID()
-	return GetHighestKnownSpell(combatResSpellIDs[PLAYER_CLASS_FILENAME])
-end
-
-local function GetPlayerMassResurrectionSpellID()
-	local spellID = GetHighestKnownSpell(massResSpellIDs[PLAYER_CLASS_FILENAME])
-	if spellID then
-		return spellID
-	end
-
-	if IsKnownSpell(MASS_RESURRECTION_MISTS_SPELL_ID) then
-		return MASS_RESURRECTION_MISTS_SPELL_ID
+	if not playerMassResSpellID and IsKnownSpell(MASS_RESURRECTION_MISTS_SPELL_ID) then
+		playerMassResSpellID = MASS_RESURRECTION_MISTS_SPELL_ID
 	end
 end
 
 local function GetSmartResPriority(unit)
 	local role = UnitGroupRolesAssigned(unit)
+	local classFilename = UnitClassBase(unit)
+
+	if not canaccessvalue(role) or not canaccessvalue(classFilename) then
+		return 4
+	end
 
 	if role == "HEALER" then
 		return 1
-	elseif normalSingleResSpellIDs[UnitClassBase(unit)] then
+	elseif normalSingleResSpellIDs[classFilename] then
 		return 2
 	elseif role == "TANK" then
 		return 3
@@ -697,13 +777,15 @@ local function GetSelfResRemainingTime(optionInfo)
 		return nil
 	end
 
+	local now = GetTime()
+
 	if optionInfo.expirationTime then
-		return optionInfo.expirationTime - GetTime()
+		return optionInfo.expirationTime - now
 	end
 
 	for _, selfResOptionInfo in pairs(optionInfo) do
 		if type(selfResOptionInfo) == "table" and selfResOptionInfo.expirationTime then
-			local remainingTime = selfResOptionInfo.expirationTime - GetTime()
+			local remainingTime = selfResOptionInfo.expirationTime - now
 
 			if remainingTime > 0 then
 				return remainingTime
@@ -713,7 +795,13 @@ local function GetSelfResRemainingTime(optionInfo)
 end
 
 local function IsEligibleSmartResTarget(unit, spellID)
-	if UnitIsUnit(unit, "player") then
+	local isPlayer = UnitIsUnit(unit, "player")
+
+	if not canaccessvalue(isPlayer) then
+		return false
+	end
+
+	if isPlayer then
 		return false
 	end
 
@@ -816,7 +904,7 @@ local function PrepareSmartResurrectionButton(button)
 
 	button:SetAttribute("unit", INVALID_UNIT)
 
-	local spellID = GetPlayerNormalSingleResSpellID()
+	local spellID = playerNormalSingleResSpellID
 	if not spellID then
 		addon:NotifySelf(L["You do not know a resurrection spell."])
 		return
@@ -878,7 +966,7 @@ local function PrepareManualResurrectionButton()
 end
 
 local function PrepareCombatResurrectionButton()
-	local spellID = GetPlayerCombatResurrectionSpellID()
+	local spellID = playerCombatResSpellID
 	if not spellID then
 		addon:NotifySelf(L["You do not know a combat resurrection spell."])
 	end
@@ -892,7 +980,7 @@ local function PrepareMassResurrectionButton(button)
 	button:SetAttribute("spell", nil)
 	button:SetAttribute("unit", nil)
 
-	local spellID = GetPlayerMassResurrectionSpellID()
+	local spellID = playerMassResSpellID
 	if not spellID then
 		addon:NotifySelf(L["You do not know a mass resurrection spell."])
 		return
@@ -955,23 +1043,23 @@ local function RefreshSecureButtonSpells()
 	end
 
 	if smartResButton then
-		SetSecureSpellButtonSpell(smartResButton, GetPlayerNormalSingleResSpellID())
+		SetSecureSpellButtonSpell(smartResButton, playerNormalSingleResSpellID)
 	end
 
 	if manualResButton then
 		if PLAYER_CLASS_FILENAME == "HUNTER" then
 			ClearSecureSpellButton(manualResButton)
 		else
-			SetSecureSpellButtonSpell(manualResButton, GetPlayerNormalSingleResSpellID())
+			SetSecureSpellButtonSpell(manualResButton, playerNormalSingleResSpellID)
 		end
 	end
 
 	if combatResButton then
-		SetSecureSpellButtonSpell(combatResButton, GetPlayerCombatResurrectionSpellID())
+		SetSecureSpellButtonSpell(combatResButton, playerCombatResSpellID)
 	end
 
 	if massResButton then
-		SetSecureSpellButtonSpell(massResButton, GetPlayerMassResurrectionSpellID())
+		SetSecureSpellButtonSpell(massResButton, playerMassResSpellID)
 	end
 end
 
@@ -1104,13 +1192,25 @@ end
 -- Addon lifecycle
 -- --------------------------------------------------------------------
 
+-- Delay migration notices until cold-login initialization has settled. In
+-- particular, Forever can run protected Guild Control code while early static
+-- popups are being laid out and attribute the resulting taint to the addon.
+function addon:ShowDatabaseResetNotice()
+	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
+	After(DB_RESET_POPUP_DELAY, function()
+		StaticPopup_Show(DB_RESET_POPUP)
+	end)
+end
+
 -- Initialize the root database and Core-owned integrations before modules.
 function addon:OnInitialize()
 	self.db = LibStub("AceDB-3.0"):New("SmartRes2DB", defaults, true)
 
 	local oldVersion = self.db.global.settingsVersion
-	if (not oldVersion) or (oldVersion < SMARTRES2_DB_VERSION) then
-		StaticPopup_Show(DB_RESET_POPUP)
+	local resetExistingDatabase = hadSavedDatabase
+		and ((not oldVersion) or (oldVersion < SMARTRES2_DB_VERSION))
+
+	if resetExistingDatabase then
 		self.db:ResetDB(DEFAULT)
 	end
 
@@ -1129,6 +1229,7 @@ function addon:OnInitialize()
 	self:SetEnabledState(db.enabled)
 
 	RegisterMasque()
+	RefreshPlayerResurrectionSpellIDs()
 	CreateSecureButtons()
 	RefreshSecureButtonSpells()
 	self.PLAYER_GUID = UnitGUID("player")
@@ -1158,15 +1259,21 @@ function addon:OnInitialize()
 
 	InitializeBroker()
 
+	if resetExistingDatabase then
+		self:RegisterEvent("PLAYER_ENTERING_WORLD", "ShowDatabaseResetNotice")
+	end
+
 	-- Neutral characters can receive a new player GUID when choosing a faction.
 	-- Register during initialization so this remains tracked while disabled.
-	if (isMists or isMainline) and IsPlayerNeutral() then
+	if (isMists or isStandard) and IsPlayerNeutral() then
 		self:RegisterEvent("NEUTRAL_FACTION_SELECT_RESULT")
 	end
 end
 
 function addon:OnEnable()
 	self:RegisterEvent("SPELLS_CHANGED")
+	RefreshPlayerResurrectionSpellIDs()
+	RefreshSecureButtonSpells()
 	RefreshModules()
 end
 
@@ -1222,6 +1329,7 @@ end
 -- --------------------------------------------------------------------
 
 function addon:SPELLS_CHANGED()
+	RefreshPlayerResurrectionSpellIDs()
 	RefreshSecureButtonSpells()
 end
 

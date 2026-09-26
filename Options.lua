@@ -125,10 +125,12 @@ function addon:GetOptions()
 				type = "group",
 				name = GENERAL_LABEL,
 				args = {
-					enabled = {
-						order = 10,
-						type = "toggle",
-						name = ENABLE .. " / " .. DISABLE,
+						enabled = {
+							order = 10,
+							type = "toggle",
+							width = "relative",
+							relWidth = 0.5,
+							name = ENABLE .. " / " .. DISABLE,
 						desc = L["Toggle SmartRes2 on or off."],
 						get = function()
 							return GetProfileDB().enabled
@@ -143,9 +145,11 @@ function addon:GetOptions()
 							end
 						end,
 					},
-					resetGlobalOnProfileChange = {
-						order = 20,
-						type = "toggle",
+						resetGlobalOnProfileChange = {
+							order = 20,
+							type = "toggle",
+							width = "relative",
+							relWidth = 0.5,
 						name = L["Reset All Settings on Profile Change"],
 						disabled = IsAddonDisabled,
 						desc = L["Reset the entire SmartRes2 database to defaults whenever a profile is changed, copied, or reset. This option turns itself off after the reset."],
@@ -156,9 +160,11 @@ function addon:GetOptions()
 							GetGlobalDB().resetGlobalOnProfileChange = value
 						end,
 					},
-					useMasque = {
-						order = 30,
-						type = "toggle",
+						useMasque = {
+							order = 30,
+							type = "toggle",
+							width = "relative",
+							relWidth = 0.5,
 						name = L["Use Masque"],
 						desc = L["Use Masque to skin bar icons."],
 						disabled = IsMasqueDisabled,
@@ -170,9 +176,11 @@ function addon:GetOptions()
 							GetProfileDB().useMasque = value
 						end,
 					},
-					notifySelf = {
-						order = 40,
-						type = "toggle",
+						notifySelf = {
+							order = 40,
+							type = "toggle",
+							width = "relative",
+							relWidth = 0.5,
 						name = L["Notify Self"],
 						disabled = IsAddonDisabled,
 						desc = L["Inform yourself of SmartRes2 system messages."],
@@ -183,9 +191,11 @@ function addon:GetOptions()
 							GetProfileDB().notifySelf = value
 						end,
 					},
-					useClassColorsForSystemMessages = {
-						order = 50,
-						type = "toggle",
+						useClassColorsForSystemMessages = {
+							order = 50,
+							type = "toggle",
+							width = "relative",
+							relWidth = 0.5,
 						name = L["Class-Colored Names"],
 						desc = L["Use class colors for player names in SmartRes2 system messages."],
 						disabled = IsSystemMessageOptionDisabled,
@@ -196,9 +206,11 @@ function addon:GetOptions()
 							GetProfileDB().useClassColorsForSystemMessages = value
 						end,
 					},
-					useFullNameForSystemMessages = {
-						order = 60,
-						type = "toggle",
+						useFullNameForSystemMessages = {
+							order = 60,
+							type = "toggle",
+							width = "relative",
+							relWidth = 0.5,
 						name = L["Full Names"],
 						desc = L["Show realm names for player names in SmartRes2 system messages."],
 						disabled = IsSystemMessageOptionDisabled,
@@ -209,9 +221,11 @@ function addon:GetOptions()
 							GetProfileDB().useFullNameForSystemMessages = value
 						end,
 					},
-					waitingDelay = {
-						order = 70,
-						type = "range",
+						waitingDelay = {
+							order = 70,
+							type = "range",
+							width = "relative",
+							relWidth = 0.5,
 						name = L["Res Offer Threshold"],
 						disabled = IsAddonDisabled,
 						desc = L["Allow smart resurrection when an existing resurrection offer or self-resurrection option has this many seconds or less remaining."],
@@ -234,6 +248,8 @@ function addon:GetOptions()
 					keybindTrigger = {
 						order = 90,
 						type = "select",
+						width = "relative",
+						relWidth = 0.25,
 						name = L["Keybind Trigger"],
 						disabled = IsAddonDisabled,
 						desc = L["Choose when the keybind should trigger. Changing this requires a UI reload to take effect."],
@@ -259,12 +275,20 @@ function addon:GetOptions()
 							Reload()
 						end,
 					},
-					keyBindingsDescription = {
+					keybindSpacer = {
 						order = 100,
+						type = "description",
+						name = " ",
+						width = "relative",
+						relWidth = 0.03,
+					},
+					keyBindingsDescription = {
+						order = 110,
 						type = "description",
 						name = L["SmartRes2 key bindings are configured in Blizzard's Key Bindings UI."],
 						fontSize = "medium",
-						width = "full",
+						width = "relative",
+						relWidth = 0.72,
 					},
 				},
 			},
@@ -277,6 +301,8 @@ function addon:GetOptions()
 					hide = {
 						order = 10,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.5,
 						name = HIDE,
 						desc = L["Hide the minimap button."],
 						get = function()
@@ -299,6 +325,8 @@ function addon:GetOptions()
 					lock = {
 						order = 20,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.5,
 						name = LOCK,
 						desc = L["Lock the minimap button and prevent dragging."],
 						get = function()
@@ -323,6 +351,8 @@ function addon:GetOptions()
 					lockOnDegree = {
 						order = 30,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Precise Lock"],
 						desc = L["When locked, snap the minimap button to an exact degree."],
 						get = function()
@@ -341,6 +371,8 @@ function addon:GetOptions()
 					useClassIconForBroker = {
 						order = 40,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Class Button"],
 						desc = L["Use your class resurrection spell icon for the minimap button."],
 						get = function()
@@ -354,6 +386,8 @@ function addon:GetOptions()
 					addonCompartment = {
 						order = 50,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["AddOn Compartment"],
 						desc = L["Show the minimap button in the addon compartment."],
 						disabled = function()
@@ -373,6 +407,8 @@ function addon:GetOptions()
 					minimapPos = {
 						order = 60,
 						type = "range",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Rotate Button"],
 						desc = L["Rotate the minimap button."],
 						disabled = function()

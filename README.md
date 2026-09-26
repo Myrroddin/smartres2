@@ -38,6 +38,8 @@ The Bars module shows resurrection casts and waiting resurrection offers in one 
 
 The Chat module can announce single-target and mass resurrection casts and warn other resurrection casters when their cast will not finish first. When several group members are running SmartRes2 with collision notifications enabled, they automatically choose one sender for each warning instead of all sending the same message. The **Group** output follows the current group context, while explicit channel choices and **None** are available when more control is preferred.
 
+In some situations, World of Warcraft does not give addons enough information to identify a unit safely. SmartRes2 will not guess: a bar may temporarily show Blizzard's localized **Unknown** label, an announcement, whisper, or collision warning may be delayed or omitted, and automatic targeting may skip that unit until the information becomes available. This is expected protective behaviour and does not prevent the resurrection spell itself from working.
+
 ## Supported World of Warcraft Versions
 
 SmartRes2 supports:
@@ -47,6 +49,7 @@ SmartRes2 supports:
 - Wrath Classic / Titan Reforged
 - The Burning Crusade Classic
 - Classic Era
+- WoW Forever
 
 Feature availability follows the capabilities of each game version. Mass resurrection bindings and options are shown only on versions where mass resurrection spells can exist. For game versions where spell ranks exist, SmartRes2 _automatically_ updates itself after the player trains new spells to **always** use the player's highest spell rank.
 

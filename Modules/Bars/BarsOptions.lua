@@ -41,6 +41,7 @@ local module = addon:GetModule("Bars")
 -- --------------------------------------------------------------------
 
 local options
+local barColorRelativeWidth = addon:IsCataclysmOrLater() and 0.5 or 0.333
 
 local growDirectionValues = {
 	DOWN = L["Down"],
@@ -136,6 +137,8 @@ function module:GetOptions()
 					enabled = {
 						order = 10,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = ENABLE .. " / " .. DISABLE,
 						desc = L["Toggle the Bars module on or off."],
 						get = function()
@@ -154,6 +157,8 @@ function module:GetOptions()
 					hideWhenEmpty = {
 						order = 20,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Hide When Empty"],
 						desc = L["Hide the Bars frame when there are no bars to display."],
 						disabled = IsModuleDisabled,
@@ -168,6 +173,8 @@ function module:GetOptions()
 					fill = {
 						order = 30,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Fill Bars"],
 						desc = L["Fill bars over time instead of draining them."],
 						disabled = IsModuleDisabled,
@@ -182,6 +189,8 @@ function module:GetOptions()
 					mirrorBars = {
 						order = 40,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Mirror Bars"],
 						desc = L["Mirror bars horizontally so they are anchored to the right and fill or drain from that side."],
 						disabled = IsModuleDisabled,
@@ -196,6 +205,8 @@ function module:GetOptions()
 					showTime = {
 						order = 50,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Show Time"],
 						desc = L["Show remaining time on bars."],
 						disabled = IsModuleDisabled,
@@ -210,6 +221,8 @@ function module:GetOptions()
 					showLabel = {
 						order = 60,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Show Text"],
 						desc = L["Show text labels on bars."],
 						disabled = IsModuleDisabled,
@@ -224,6 +237,8 @@ function module:GetOptions()
 					useShortLabels = {
 						order = 70,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Use Short Text"],
 						desc = L["Show shorter bar text, such as Caster : Target."],
 						disabled = IsShortTextDisabled,
@@ -238,6 +253,8 @@ function module:GetOptions()
 					useClassColorsForBars = {
 						order = 80,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Class-Colored Names"],
 						desc = L["Use class colors for player names on resurrection bars."],
 						disabled = IsModuleDisabled,
@@ -252,6 +269,8 @@ function module:GetOptions()
 					useFullNameForBars = {
 						order = 90,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Full Names"],
 						desc = L["Show realm names for player names on resurrection bars."],
 						disabled = IsModuleDisabled,
@@ -266,6 +285,8 @@ function module:GetOptions()
 					maxBars = {
 						order = 100,
 						type = "range",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Maximum Bars"],
 						desc = L["Maximum number of bars to display. Hidden bars are still tracked."],
 						disabled = IsModuleDisabled,
@@ -284,6 +305,8 @@ function module:GetOptions()
 					transitionDuration = {
 						order = 110,
 						type = "range",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Transition Duration"],
 						desc = L["Delay before a completed resurrection cast bar becomes a waiting bar. Set to 0 for an instant transition."],
 						disabled = IsModuleDisabled,
@@ -302,6 +325,8 @@ function module:GetOptions()
 					growDirection = {
 						order = 120,
 						type = "select",
+						width = "relative",
+						relWidth = 0.5,
 						style = "dropdown",
 						name = L["Grow Direction"],
 						desc = L["Direction new bars are added from the container frame."],
@@ -318,6 +343,8 @@ function module:GetOptions()
 					iconPosition = {
 						order = 130,
 						type = "select",
+						width = "relative",
+						relWidth = 0.5,
 						style = "dropdown",
 						name = L["Icon Position"],
 						desc = L["Where to show bar icons."],
@@ -342,6 +369,8 @@ function module:GetOptions()
 					locked = {
 						order = 10,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = LOCK,
 						desc = L["Lock the Bars frame to prevent mouse dragging or changes to its anchor point and offsets."],
 						get = function()
@@ -354,6 +383,8 @@ function module:GetOptions()
 					pixelSnap = {
 						order = 20,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Pixel Snap"],
 						desc = L["Round the Bars frame size and position to whole pixels."],
 						get = function()
@@ -367,6 +398,8 @@ function module:GetOptions()
 					clampToScreen = {
 						order = 30,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Clamp to Screen"],
 						desc = L["Prevent the bar frame from moving off your screen."],
 						get = function()
@@ -380,6 +413,8 @@ function module:GetOptions()
 					frameWidth = {
 						order = 40,
 						type = "range",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Frame Width"],
 						get = function()
 							return module.db.profile.frame.width
@@ -396,6 +431,8 @@ function module:GetOptions()
 					frameHeight = {
 						order = 50,
 						type = "range",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Frame Height"],
 						get = function()
 							return module.db.profile.frame.height
@@ -412,6 +449,8 @@ function module:GetOptions()
 					frameScale = {
 						order = 60,
 						type = "range",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Frame Scale"],
 						get = function()
 							return module.db.profile.frame.scale
@@ -429,6 +468,8 @@ function module:GetOptions()
 					frameX = {
 						order = 70,
 						type = "range",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Horizontal Offset"],
 						disabled = IsFramePositionDisabled,
 						desc = L["The offset may change within bounds of the anchor point."],
@@ -447,6 +488,8 @@ function module:GetOptions()
 					frameY = {
 						order = 80,
 						type = "range",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Vertical Offset"],
 						disabled = IsFramePositionDisabled,
 						desc = L["The offset may change within bounds of the anchor point."],
@@ -465,6 +508,8 @@ function module:GetOptions()
 					framePoint = {
 						order = 90,
 						type = "select",
+						width = "relative",
+						relWidth = 0.333,
 						style = "dropdown",
 						name = L["Anchor Point"],
 						disabled = IsFramePositionDisabled,
@@ -489,6 +534,8 @@ function module:GetOptions()
 					background = {
 						order = 10,
 						type = "select",
+						width = "relative",
+						relWidth = 0.67,
 						dialogControl = "LSM30_Background",
 						name = BACKGROUND,
 						values = addon.LSM:HashTable(addon.LSM.MediaType.BACKGROUND),
@@ -500,9 +547,18 @@ function module:GetOptions()
 							module:RefreshConfig()
 						end,
 					},
-					backgroundColor = {
+					backgroundSpacer = {
 						order = 20,
+						type = "description",
+						name = " ",
+						width = "relative",
+						relWidth = 0.03,
+					},
+					backgroundColor = {
+						order = 30,
 						type = "color",
+						width = "relative",
+						relWidth = 0.3,
 						name = L["Background Color"],
 						hasAlpha = true,
 						get = function()
@@ -520,8 +576,10 @@ function module:GetOptions()
 						end,
 					},
 					border = {
-						order = 30,
+						order = 40,
 						type = "select",
+						width = "relative",
+						relWidth = 0.67,
 						dialogControl = "LSM30_Border",
 						name = EMBLEM_BORDER,
 						values = addon.LSM:HashTable(addon.LSM.MediaType.BORDER),
@@ -533,9 +591,18 @@ function module:GetOptions()
 							module:RefreshConfig()
 						end,
 					},
+					borderSpacer = {
+						order = 50,
+						type = "description",
+						name = " ",
+						width = "relative",
+						relWidth = 0.03,
+					},
 					borderColor = {
-						order = 40,
+						order = 60,
 						type = "color",
+						width = "relative",
+						relWidth = 0.3,
 						name = EMBLEM_BORDER_COLOR,
 						hasAlpha = true,
 						get = function()
@@ -553,8 +620,10 @@ function module:GetOptions()
 						end,
 					},
 					borderThickness = {
-						order = 50,
+						order = 70,
 						type = "range",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Border Thickness"],
 						get = function()
 							return module.db.profile.frame.backdrop.edgeSize
@@ -569,8 +638,10 @@ function module:GetOptions()
 						bigStep = 2,
 					},
 					leftInset = {
-						order = 60,
+						order = 80,
 						type = "range",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Left Inset"],
 						desc = L["How far to the left of the frame to place the border."],
 						get = function()
@@ -586,8 +657,10 @@ function module:GetOptions()
 						bigStep = 2,
 					},
 					rightInset = {
-						order = 70,
+						order = 90,
 						type = "range",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Right Inset"],
 						desc = L["How far to the right of the frame to place the border."],
 						get = function()
@@ -603,8 +676,10 @@ function module:GetOptions()
 						bigStep = 2,
 					},
 					topInset = {
-						order = 80,
+						order = 100,
 						type = "range",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Top Inset"],
 						desc = L["How far from the top of the frame to place the border."],
 						get = function()
@@ -620,8 +695,10 @@ function module:GetOptions()
 						bigStep = 2,
 					},
 					bottomInset = {
-						order = 90,
+						order = 110,
 						type = "range",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Bottom Inset"],
 						desc = L["How far from the bottom of the frame to place the border."],
 						get = function()
@@ -645,13 +722,15 @@ function module:GetOptions()
 				disabled = IsModuleDisabled,
 				args = {
 					barColorsHeader = {
-						order = 5,
+						order = 10,
 						type = "header",
 						name = L["Bar Colors"],
 					},
 					goodColor = {
-						order = 10,
+						order = 20,
 						type = "color",
+						width = "relative",
+						relWidth = barColorRelativeWidth,
 						name = L["Good Cast Color"],
 						desc = L["Color for the fastest active resurrection cast."],
 						hasAlpha = true,
@@ -670,8 +749,10 @@ function module:GetOptions()
 						end,
 					},
 					goodMassColor = {
-						order = 20,
+						order = 30,
 						type = "color",
+						width = "relative",
+						relWidth = barColorRelativeWidth,
 						name = L["Good Mass Cast Color"],
 						desc = L["Color for the fastest active mass resurrection cast."],
 						hasAlpha = true,
@@ -692,8 +773,10 @@ function module:GetOptions()
 						end,
 					},
 					collisionColor = {
-						order = 30,
+						order = 40,
 						type = "color",
+						width = "relative",
+						relWidth = barColorRelativeWidth,
 						name = L["Collision Color"],
 						desc = L["Color for active resurrection casts that are not the fastest cast for that target."],
 						hasAlpha = true,
@@ -712,8 +795,10 @@ function module:GetOptions()
 						end,
 					},
 					waitingColor = {
-						order = 40,
+						order = 50,
 						type = "color",
+						width = "relative",
+						relWidth = barColorRelativeWidth,
 						name = L["Waiting Color"],
 						desc = L["Color for targets who have a resurrection offer but have not accepted it yet."],
 						hasAlpha = true,
@@ -732,15 +817,16 @@ function module:GetOptions()
 						end,
 					},
 					fontStylesHeader = {
-						order = 50,
+						order = 60,
 						type = "header",
 						name = L["Font Styles"],
 					},
 					font = {
-						order = 60,
+						order = 70,
 						type = "select",
 						dialogControl = "LSM30_Font",
-						width = 1.25,
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Font"],
 						values = addon.LSM:HashTable(addon.LSM.MediaType.FONT),
 						get = function()
@@ -752,8 +838,10 @@ function module:GetOptions()
 						end,
 					},
 					fontSize = {
-						order = 70,
+						order = 80,
 						type = "range",
+						width = "relative",
+						relWidth = 0.5,
 						name = FONT_SIZE,
 						min = 6,
 						max = 32,
@@ -768,8 +856,10 @@ function module:GetOptions()
 						end,
 					},
 					fontStyle = {
-						order = 80,
+						order = 90,
 						type = "select",
+						width = "relative",
+						relWidth = 0.637,
 						style = "dropdown",
 						name = L["Font Style"],
 						desc = L["High Quality is compatible with Thin Outline. Incompatible with Thick Outline, Monochrome, and Font Shadow."],
@@ -783,9 +873,18 @@ function module:GetOptions()
 							module:RefreshConfig()
 						end,
 					},
+					fontStyleSpacer = {
+						order = 100,
+						type = "description",
+						name = " ",
+						width = "relative",
+						relWidth = 0.03,
+					},
 					fontColor = {
-						order = 90,
+						order = 110,
 						type = "color",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Font Color"],
 						hasAlpha = true,
 						get = function()
@@ -803,8 +902,10 @@ function module:GetOptions()
 						end,
 					},
 					fontShadow = {
-						order = 100,
+						order = 120,
 						type = "toggle",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Font Shadow"],
 						disabled = IsFontShadowToggleDisabled,
 						get = function()
@@ -816,8 +917,10 @@ function module:GetOptions()
 						end,
 					},
 					fontShadowColor = {
-						order = 110,
+						order = 130,
 						type = "color",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Font Shadow Color"],
 						disabled = IsFontShadowDisabled,
 						hasAlpha = true,
@@ -836,8 +939,10 @@ function module:GetOptions()
 						end,
 					},
 					fontShadowOffsetX = {
-						order = 120,
+						order = 140,
 						type = "range",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Font Shadow X Offset"],
 						disabled = IsFontShadowDisabled,
 						min = -10,
@@ -853,8 +958,10 @@ function module:GetOptions()
 						end,
 					},
 					fontShadowOffsetY = {
-						order = 130,
+						order = 150,
 						type = "range",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Font Shadow Y Offset"],
 						disabled = IsFontShadowDisabled,
 						min = -10,
@@ -870,13 +977,15 @@ function module:GetOptions()
 						end,
 					},
 					texturesHeader = {
-						order = 140,
+						order = 160,
 						type = "header",
 						name = TEXTURES_SUBHEADER,
 					},
 					barTexture = {
 						order = 170,
 						type = "select",
+						width = "relative",
+						relWidth = 0.5,
 						dialogControl = "LSM30_Statusbar",
 						name = L["Bar Texture"],
 						values = addon.LSM:HashTable(addon.LSM.MediaType.STATUSBAR),
@@ -889,8 +998,10 @@ function module:GetOptions()
 						end,
 					},
 					barBorder = {
-						order = 150,
+						order = 180,
 						type = "select",
+						width = "relative",
+						relWidth = 0.5,
 						dialogControl = "LSM30_Border",
 						name = L["Bar Border"],
 						values = addon.LSM:HashTable(addon.LSM.MediaType.BORDER),
@@ -903,8 +1014,10 @@ function module:GetOptions()
 						end,
 					},
 					barBorderThickness = {
-						order = 160,
+						order = 190,
 						type = "range",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Bar Border Thickness"],
 						min = 0,
 						max = 16,
@@ -919,8 +1032,10 @@ function module:GetOptions()
 						end,
 					},
 					barSpacing = {
-						order = 170,
+						order = 200,
 						type = "range",
+						width = "relative",
+						relWidth = 0.5,
 						name = L["Bar Spacing"],
 						desc = L["Extra spacing between bars. SmartRes2 also accounts for bar border thickness so borders do not overlap."],
 						min = 0,
@@ -952,6 +1067,8 @@ function module:GetOptions()
 					showTestBars = {
 						order = 20,
 						type = "execute",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Show Test Bars"],
 						desc = L["Show simulated resurrection bars so you can preview your current bar settings."],
 						func = function()
@@ -961,6 +1078,8 @@ function module:GetOptions()
 					clearTestBars = {
 						order = 30,
 						type = "execute",
+						width = "relative",
+						relWidth = 0.333,
 						name = L["Clear Test Bars"],
 						desc = L["Clear simulated resurrection bars."],
 						func = function()
