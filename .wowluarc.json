@@ -14,7 +14,8 @@
   "flavors": [
     "retail",
     "classic",
-    "classic_era"
+    "classic_era",
+    "forever"
   ],
   "globals": {
     "read": [

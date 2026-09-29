@@ -27,7 +27,7 @@ assert(LibStub("CallbackHandler-1.0", true), "LibResInfo-2.0 requires CallbackHa
 ---@field RegisterCallback fun(target: table, eventName: LibResInfoCallbackName, method: string, arg?: any)
 ---@field UnregisterCallback fun(target: table, eventName: LibResInfoCallbackName)
 ---@field UnregisterAllResInfoCallbacks fun(target: table)
-local lib = LibStub:NewLibrary("LibResInfo-2.0", 5)
+local lib = LibStub:NewLibrary("LibResInfo-2.0", 6)
 if not lib then return end
 
 -- Callback names accepted by RegisterCallback and UnregisterCallback.
@@ -118,6 +118,7 @@ local wipe = table.wipe
 local isStandard = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE) and (LE_EXPANSION_LEVEL_CURRENT > LE_EXPANSION_CLASSIC)
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
 local PLAYER_GUID = UnitGUID("player")
+local REVIVE_PET_SPELL_ID = 982
 local RES_WAITING_TIMEOUT = 60
 local UNKNOWN_TARGET_CLEANUP_TIMEOUT = 10
 local UNKNOWN_TARGET_GUID = "UNKNOWN"
@@ -209,7 +210,7 @@ local SINGLE_TARGET_RES_SPELLS = {
 	[115178]	= true,		-- Resuscitate
 
 	-- Hunter
-	[982]		= true,		-- Revive Pet
+	[REVIVE_PET_SPELL_ID] = true,	-- Revive Pet
 
 	-- Evoker
 	[361227]	= true,		-- Return
@@ -312,8 +313,15 @@ local events = {
 -- addon code. Clients without canaccessvalue retain their traditional
 -- non-secret behavior through the fallback above.
 
+local function IsUsableUnitIdentifier(unitID)
+	return canaccessvalue(unitID)
+	and type(unitID) == "string"
+	and unitID ~= ""
+	and unitID:lower() ~= "none"
+end
+
 local function GetAccessibleUnitGUID(unitID)
-	if not canaccessvalue(unitID) then return end
+	if not IsUsableUnitIdentifier(unitID) then return end
 
 	local unitGUID = UnitGUID(unitID)
 	if not canaccessvalue(unitGUID) then return end
@@ -520,10 +528,13 @@ end
 -- unitIDs, then return the matched unit's GUID. This supplements direct
 -- UnitGUID(name) resolution when Blizzard exposes only a name string.
 local function ResolveGroupUnitName(name)
-	if not name then return end
+	if not IsUsableUnitIdentifier(name) then return end
 
 	if UnitMatchesName("player", name) then
 		return PLAYER_GUID
+	end
+	if UnitExists("pet") and UnitMatchesName("pet", name) then
+		return GetAccessibleUnitGUID("pet")
 	end
 
 	local prefix = (IsInRaid() and "raid") or (IsInGroup() and "party")
@@ -533,9 +544,13 @@ local function ResolveGroupUnitName(name)
 
 	for i = 1, members do
 		local unitID = prefix .. i
+		local petUnitID = prefix .. "pet" .. i
 
 		if UnitExists(unitID) and UnitMatchesName(unitID, name) then
 			return GetAccessibleUnitGUID(unitID)
+		end
+		if UnitExists(petUnitID) and UnitMatchesName(petUnitID, name) then
+			return GetAccessibleUnitGUID(petUnitID)
 		end
 	end
 end
@@ -857,18 +872,57 @@ end
 -- has full cast timing, while observed casts may expose only name or name-realm,
 -- or no target at all. Resolve those names against addressable group units and
 -- merge partial data without overwriting better data from earlier events.
-local function PopulateSingleResInfo(unitID, casterGUID, castInfo, sentTargetGUID)
+local function GetCasterPetUnitID(unitID)
+	if unitID == "player" then
+		return "pet"
+	end
+
+	local prefix, index = unitID:match("^(party)(%d+)$")
+
+	if not prefix then
+		prefix, index = unitID:match("^(raid)(%d+)$")
+	end
+
+	return prefix and (prefix .. "pet" .. index) or nil
+end
+
+local function ResolveSpellTargetGUID(unitID, spellID)
+	if spellID == REVIVE_PET_SPELL_ID then
+		return GetAccessibleUnitGUID(GetCasterPetUnitID(unitID))
+	end
+
+	return ResolveGroupUnitName(GetAccessibleSpellTargetName(unitID))
+end
+
+local function SelectSingleTargetGUID(sentTargetGUID, sentTargetIsExact, existingTargetGUID, spellTargetGUID)
+	if existingTargetGUID then
+		return existingTargetGUID
+	end
+
+	-- SENT identifies the attempted spell target, while UnitSpellTargetName
+	-- describes the cast currently exposed for the unit. When they disagree,
+	-- trust SENT only if its cast GUID exactly matches this cast; otherwise the
+	-- current spell-target result is the stronger identity.
+	if sentTargetGUID and spellTargetGUID and sentTargetGUID ~= spellTargetGUID then
+		return sentTargetIsExact and sentTargetGUID or spellTargetGUID
+	end
+
+	return sentTargetGUID or spellTargetGUID or UNKNOWN_TARGET_GUID
+end
+
+local function PopulateSingleResInfo(unitID, casterGUID, castInfo, sentTargetGUID, sentTargetIsExact)
 	local existingCasterInfo = resCasterInfo[casterGUID]
 	local existingTargetGUID = existingCasterInfo
 	and IsKnownTargetGUID(existingCasterInfo.targetGUID)
 	and existingCasterInfo.targetGUID
 
-	local targetName = GetAccessibleSpellTargetName(unitID)
-	local targetGUID = sentTargetGUID
-	or existingTargetGUID
-	or (targetName and GetAccessibleUnitGUID(targetName))
-	or ResolveGroupUnitName(targetName)
-	or UNKNOWN_TARGET_GUID
+	local spellTargetGUID = ResolveSpellTargetGUID(unitID, castInfo.spellID)
+	local targetGUID = SelectSingleTargetGUID(
+		sentTargetGUID,
+		sentTargetIsExact,
+		existingTargetGUID,
+		spellTargetGUID
+	)
 	if not IsValidResurrectionTarget(castInfo.spellID, targetGUID) then return end
 
 	StoreSingleCastInfo(casterGUID, targetGUID, castInfo)
@@ -926,7 +980,7 @@ end
 -- Identify whether the current visible cast is a resurrection spell and
 -- populate the matching state tables. Returns enough context for event
 -- handlers to fire the correct callbacks without re-reading state.
-local function PopulateResInfoTables(unitID, castGUID, spellID, castBarID, sentTargetGUID)
+local function PopulateResInfoTables(unitID, castGUID, spellID, castBarID, sentTargetGUID, sentTargetIsExact)
 	local casterGUID = GetAccessibleUnitGUID(unitID)
 	if not casterGUID then return end
 
@@ -939,7 +993,13 @@ local function PopulateResInfoTables(unitID, castGUID, spellID, castBarID, sentT
 	castInfo.castBarID = castBarID or castInfo.castBarID
 
 	if SINGLE_TARGET_RES_SPELLS[castInfo.spellID] then
-		local targetGUID, fastestTargetInfo = PopulateSingleResInfo(unitID, casterGUID, castInfo, sentTargetGUID)
+		local targetGUID, fastestTargetInfo = PopulateSingleResInfo(
+			unitID,
+			casterGUID,
+			castInfo,
+			sentTargetGUID,
+			sentTargetIsExact
+		)
 		if not targetGUID then return end
 
 		return "SINGLE", casterGUID, targetGUID, fastestTargetInfo
@@ -955,13 +1015,21 @@ end
 -- spell ID, but it only reports an attempted cast. Non-instant timing is read
 -- from UnitCastingInfo after UNIT_SPELLCAST_START; casts which reach SUCCEEDED
 -- without START are handled as instant casts.
-local function GetPlayerSentCastInfo(targetID, castGUID, spellID)
+local function NormalizePlayerSentTarget(target, spellID)
+	if spellID == REVIVE_PET_SPELL_ID then
+		return "pet"
+	end
+
+	return IsUsableUnitIdentifier(target) and target or nil
+end
+
+local function GetPlayerSentCastInfo(target, castGUID, spellID)
 	if SINGLE_TARGET_RES_SPELLS[spellID] then
 		return {
 			castGUID = castGUID,
 			spellID = spellID,
-			targetGUID = GetAccessibleUnitGUID(targetID)
-			or ResolveGroupUnitName(targetID),
+			targetGUID = GetAccessibleUnitGUID(target)
+			or ResolveGroupUnitName(target),
 		}
 	elseif MASS_RES_SPELLS[spellID] then
 		return {
@@ -975,6 +1043,14 @@ local function PlayerSentCastMatches(castInfo, castGUID, spellID)
 	if not castInfo or castInfo.spellID ~= spellID then return end
 
 	return not castInfo.castGUID or not castGUID or castInfo.castGUID == castGUID
+end
+
+local function PlayerSentCastMatchesExactly(castInfo, castGUID, spellID)
+	return castInfo
+	and castInfo.spellID == spellID
+	and castInfo.castGUID
+	and castGUID
+	and castInfo.castGUID == castGUID
 end
 
 -- Move one caster's unresolved target entry to its resolved GUID.
@@ -1474,7 +1550,7 @@ local function PLAYER_LOGIN()
 
 	RegisterEvents()
 
-	if IsPlayerNeutral() and (isMists or isStandard) then
+	if (isMists or isStandard) and IsPlayerNeutral() then
 		frame:RegisterEvent("NEUTRAL_FACTION_SELECT_RESULT")
 	end
 
@@ -1499,12 +1575,15 @@ end
 -- Store only authoritative SENT identity here. UNIT_SPELLCAST_SENT reports an
 -- attempted cast, so callbacks wait for START to provide non-instant timing or
 -- for SUCCEEDED to confirm an instant cast.
-local function UNIT_SPELLCAST_SENT(unitID, targetID, castGUID, spellID)
+local function UNIT_SPELLCAST_SENT(unitID, target, castGUID, spellID)
 	if not canaccessvalue(unitID) then return end
 	if unitID ~= "player" then return end
-	if not canaccessvalue(targetID) or not canaccessvalue(castGUID) or not canaccessvalue(spellID) then return end
+	if not canaccessvalue(spellID) then return end
+	if not canaccessvalue(castGUID) then castGUID = nil end
 
-	local sentCastInfo = GetPlayerSentCastInfo(targetID, castGUID, spellID)
+	target = NormalizePlayerSentTarget(target, spellID)
+
+	local sentCastInfo = GetPlayerSentCastInfo(target, castGUID, spellID)
 
 	if sentCastInfo and IsTerminalCast(PLAYER_GUID, sentCastInfo.castGUID) then
 		playerSentCastInfo = nil
@@ -1537,13 +1616,21 @@ local function UNIT_SPELLCAST_START(unitID, castGUID, spellID, castBarID)
 		return
 	end
 
-	local sentTargetGUID
+	local sentTargetGUID, sentTargetIsExact
 
 	if unitID == "player" and PlayerSentCastMatches(playerSentCastInfo, castGUID, spellID) then
 		sentTargetGUID = playerSentCastInfo.targetGUID
+		sentTargetIsExact = PlayerSentCastMatchesExactly(playerSentCastInfo, castGUID, spellID)
 	end
 
-	local resType, _, targetGUID, fastestTargetInfo = PopulateResInfoTables(unitID, castGUID, spellID, castBarID, sentTargetGUID)
+	local resType, _, targetGUID, fastestTargetInfo = PopulateResInfoTables(
+		unitID,
+		castGUID,
+		spellID,
+		castBarID,
+		sentTargetGUID,
+		sentTargetIsExact
+	)
 	if not resType then return end
 
 	if unitID == "player" then
@@ -1723,10 +1810,11 @@ local function UNIT_SPELLCAST_SUCCEEDED(unitID, castGUID, spellID, castBarID)
 	if not casterGUID then return end
 	if IsTerminalCast(casterGUID, castGUID, castBarID) then return end
 
-	local sentCastInfo
+	local sentCastInfo, sentTargetIsExact
 
 	if unitID == "player" and PlayerSentCastMatches(playerSentCastInfo, castGUID, spellID) then
 		sentCastInfo = playerSentCastInfo
+		sentTargetIsExact = PlayerSentCastMatchesExactly(playerSentCastInfo, castGUID, spellID)
 		playerSentCastInfo = nil
 	end
 
@@ -1743,14 +1831,13 @@ local function UNIT_SPELLCAST_SUCCEEDED(unitID, castGUID, spellID, castBarID)
 		local trackedTargetGUID = casterInfo
 		and IsKnownTargetGUID(casterInfo.targetGUID)
 		and casterInfo.targetGUID
-		local targetName = not sentTargetGUID
-		and not trackedTargetGUID
-		and GetAccessibleSpellTargetName(unitID)
-		local targetGUID = sentTargetGUID
-		or trackedTargetGUID
-		or (targetName and GetAccessibleUnitGUID(targetName))
-		or ResolveGroupUnitName(targetName)
-		or UNKNOWN_TARGET_GUID
+		local spellTargetGUID = ResolveSpellTargetGUID(unitID, spellID)
+		local targetGUID = SelectSingleTargetGUID(
+			sentTargetGUID,
+			sentTargetIsExact,
+			trackedTargetGUID,
+			spellTargetGUID
+		)
 
 		if not wasTracked and not IsValidResurrectionTarget(spellID, targetGUID) then
 			MarkTerminalCast(casterGUID, castGUID, castBarID)
@@ -1835,6 +1922,12 @@ local function UNIT_HEALTH(unitID)
 	RemoveExpiredUnknownTargetInfo()
 end
 
+local function PLAYER_ALIVE_OR_UNGHOST()
+	-- PLAYER_ALIVE and PLAYER_UNGHOST do not carry a unit token. Recheck the
+	-- player explicitly instead of passing their unrelated payload to UnitGUID.
+	UNIT_HEALTH("player")
+end
+
 -- A unit gains or loses a self-resurrection aura, or the player's self-res options change.
 -- Self-res availability can change through player resurrection options or
 -- through aura changes on other visible units.
@@ -1848,9 +1941,9 @@ end
 
 eventHandlers.INCOMING_RESURRECT_CHANGED = INCOMING_RESURRECT_CHANGED
 eventHandlers.NEUTRAL_FACTION_SELECT_RESULT = NEUTRAL_FACTION_SELECT_RESULT
-eventHandlers.PLAYER_ALIVE = UNIT_HEALTH
+eventHandlers.PLAYER_ALIVE = PLAYER_ALIVE_OR_UNGHOST
 eventHandlers.PLAYER_LOGIN = PLAYER_LOGIN
-eventHandlers.PLAYER_UNGHOST = UNIT_HEALTH
+eventHandlers.PLAYER_UNGHOST = PLAYER_ALIVE_OR_UNGHOST
 eventHandlers.RESURRECT_REQUEST = RESURRECT_REQUEST
 eventHandlers.UNIT_AURA = UNIT_AURA
 eventHandlers.UNIT_HEALTH = UNIT_HEALTH
