@@ -1420,6 +1420,7 @@ function module:OnEnable()
 	self:RegisterCallback("MassResCast_Finished", "OnMassResCastFinished")
 	self:RegisterCallback("FastestRes_Changed", "OnFastestResChanged")
 	self:RegisterCallback("ResTargetGUID_Resolved", "OnResTargetGUIDResolved")
+	self:RegisterCallback("ResTargetGUID_HasResOffer", "OnResTargetGUIDHasResOffer")
 	self:RegisterCallback("ResTargetGUID_IsAlive", "OnResTargetGUIDIsAlive")
 end
 
@@ -1691,6 +1692,20 @@ end
 
 -- Callback handlers translate state and delegate rendering to the common pipeline.
 
+local function ShowWaitingBar(targetGUID)
+	if not targetGUID or targetGUID == "UNKNOWN" then
+		return
+	end
+
+	local hasResWaiting, remainingTime = module:UnitHasResWaiting(targetGUID)
+	if not hasResWaiting or not remainingTime then
+		return
+	end
+
+	waitingToAccept[targetGUID] = true
+	ScheduleWaitingBar(BuildWaitingState(targetGUID, GetTargetName(targetGUID), remainingTime))
+end
+
 function module:OnSingleResCastStarted(callback, casterGUID, targetGUID, casterInfo, targetInfo)
 	AddOrUpdateBar(BuildSingleCastState(casterGUID, targetGUID, casterInfo, targetInfo))
 end
@@ -1702,18 +1717,7 @@ end
 
 function module:OnSingleResCastFinished(callback, casterGUID, targetGUID, casterInfo, targetInfo)
 	StopBar(casterGUID)
-
-	if targetGUID == "UNKNOWN" then
-		return
-	end
-
-	local hasResWaiting, remainingTime = self:UnitHasResWaiting(targetGUID)
-	if not hasResWaiting or not remainingTime then
-		return
-	end
-
-	waitingToAccept[targetGUID] = true
-	ScheduleWaitingBar(BuildWaitingState(targetGUID, GetTargetName(targetGUID), remainingTime))
+	ShowWaitingBar(targetGUID)
 end
 
 function module:OnMassResCastStarted(callback, casterGUID, casterInfo)
@@ -1752,6 +1756,10 @@ function module:OnResTargetGUIDResolved(callback, casterGUID, targetGUID, caster
 	end
 
 	RefreshTargetCollisionStates(targetGUID, targetInfo)
+end
+
+function module:OnResTargetGUIDHasResOffer(callback, targetGUID, casterGUID, spellID)
+	ShowWaitingBar(targetGUID)
 end
 
 function module:OnResTargetGUIDIsAlive(callback, targetGUID)

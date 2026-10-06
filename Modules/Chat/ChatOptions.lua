@@ -27,6 +27,7 @@ local NONE = NONE
 local PlaySoundFile = PlaySoundFile
 local string_format = string.format
 local string_gmatch = string.gmatch
+local strtrim = strtrim
 
 -- --------------------------------------------------------------------
 -- Addon / module
@@ -91,10 +92,10 @@ end
 
 local function NormalizeInput(value)
 	if value then
-		value = value:trim()
+		value = strtrim(value)
 	end
 
-	if value and value:len() >= 1 then
+	if value and #value >= 1 then
 		return value
 	end
 end
@@ -124,8 +125,8 @@ local function ValidateSingleMessage(value)
 			return L["Single resurrection messages must include exactly one '%s' placeholder and no other placeholders."]
 		end
 
-		if value:len() >= 256 then
-			return string_format(L["Message must be 255 characters or less. Currently %d characters."], value:len())
+		if #value >= 256 then
+			return string_format(L["Message must be 255 characters or less. Currently %d characters."], #value)
 		end
 	end
 
@@ -142,8 +143,8 @@ local function ValidateMassMessage(value)
 			return L["Mass resurrection messages do not support placeholders."]
 		end
 
-		if value:len() >= 256 then
-			return string_format(L["Message must be 255 characters or less. Currently %d characters."], value:len())
+		if #value >= 256 then
+			return string_format(L["Message must be 255 characters or less. Currently %d characters."], #value)
 		end
 	end
 

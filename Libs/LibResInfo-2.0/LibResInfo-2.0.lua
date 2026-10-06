@@ -27,7 +27,7 @@ assert(LibStub("CallbackHandler-1.0", true), "LibResInfo-2.0 requires CallbackHa
 ---@field RegisterCallback fun(target: table, eventName: LibResInfoCallbackName, method: string, arg?: any)
 ---@field UnregisterCallback fun(target: table, eventName: LibResInfoCallbackName)
 ---@field UnregisterAllResInfoCallbacks fun(target: table)
-local lib = LibStub:NewLibrary("LibResInfo-2.0", 6)
+local lib = LibStub:NewLibrary("LibResInfo-2.0", 7)
 if not lib then return end
 
 -- Callback names accepted by RegisterCallback and UnregisterCallback.
@@ -54,6 +54,7 @@ lib.embeds = lib.embeds or {}
 ---| "MassResCast_Finished"
 ---| "FastestRes_Changed"
 ---| "ResTargetGUID_Resolved"
+---| "ResTargetGUID_HasResOffer"
 ---| "ResTargetGUID_IsAlive"
 ---| "ResTargetGUID_WaitingTimeExpired"
 ---| "UnitSelfRes_Available"
@@ -119,7 +120,9 @@ local isStandard = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE) and (LE_EXPANSION_LE
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
 local PLAYER_GUID = UnitGUID("player")
 local REVIVE_PET_SPELL_ID = 982
+local RES_OFFER_CONFIRMATION_TIMEOUT = 2
 local RES_WAITING_TIMEOUT = 60
+local TERMINAL_CAST_RETENTION = 10
 local UNKNOWN_TARGET_CLEANUP_TIMEOUT = 10
 local UNKNOWN_TARGET_GUID = "UNKNOWN"
 
@@ -138,11 +141,8 @@ local massResCasterInfo = {}
 -- treated as a real target for fastest-caster calculations.
 local resTargetInfo = {}
 
--- Targets whose resurrection cast finished, but whose alive state has not yet been observed.
-local ressedTargetGUIDs = {}
-
--- Targets with active resurrection offers waiting to be accepted, keyed by target GUID.
-local resWaitingExpireTimes = {}
+-- Expected or confirmed resurrection offers, keyed by target GUID and expiry.
+local resOfferExpireTimes = {}
 
 -- Mass resurrection affected targets, keyed by caster GUID, then target GUID.
 local massResTargetGUIDs = {}
@@ -153,6 +153,15 @@ local selfResInfo = {}
 -- Player resurrection attempt reported by UNIT_SPELLCAST_SENT while waiting
 -- for UNIT_SPELLCAST_START or UNIT_SPELLCAST_SUCCEEDED to confirm its timing.
 local playerSentCastInfo
+
+-- Engineering activations which completed their cast but still need a local
+-- resurrection-offer confirmation. Entries are short-lived and keyed by caster
+-- GUID so the existing active cast tables remain available to callbacks.
+local pendingEngineeringCasts = {}
+
+-- Recently completed casts retained briefly so RESURRECT_REQUEST can correlate
+-- its inviter with the caster and spell after the active cast was removed.
+local recentFinishedResCasts = {}
 
 -- Cast GUIDs which have already reached a success or failure outcome. Blizzard
 -- may report more than one terminal event for the same physical cast; retaining
@@ -223,7 +232,10 @@ local SINGLE_TARGET_RES_SPELLS = {
 	[22999]		= true,		-- Goblin Jumper Cables XL
 	[54732]		= true,		-- Gnomish Army Knife
 	[164729]	= true,		-- Ultimate Gnomish Army Knife
-	[385404]	= true,		-- Arclight Vital Correctors
+	[345130]	= true,		-- Disposable Spectrophasic Reanimator
+	[384893]	= true,		-- Convincingly Realistic Jumper Cables
+	[385403]	= true,		-- Arclight Vital Correctors
+	[385404]	= true,		-- Arclight Vital Correctors item effect
 
 	-- Combat resurrection
 	[20707]		= true,		-- Soulstone Resurrection Rank 1
@@ -248,6 +260,20 @@ local SINGLE_TARGET_RES_SPELLS = {
 	[187777]	= true,		-- Reawaken (Brazier of Awakening)
 	[199119]	= true,		-- Failure Detection Aura (Failure Detection Pylon)
 	[339643]	= true,		-- Gift of Life (Mi'kai's Deathscythe)
+}
+
+-- Engineering resurrection devices can complete their activation without
+-- producing a resurrection offer. Their casts remain pending briefly after
+-- UNIT_SPELLCAST_SUCCEEDED and finish only when the target confirms an offer.
+local ENGINEERING_RES_SPELLS = {
+	[8342]		= true,		-- Goblin Jumper Cables
+	[22999]		= true,		-- Goblin Jumper Cables XL
+	[54732]		= true,		-- Gnomish Army Knife
+	[164729]	= true,		-- Ultimate Gnomish Army Knife
+	[345130]	= true,		-- Disposable Spectrophasic Reanimator
+	[384893]	= true,		-- Convincingly Realistic Jumper Cables
+	[385403]	= true,		-- Arclight Vital Correctors
+	[385404]	= true,		-- Arclight Vital Correctors item effect
 }
 
 local MASS_RES_SPELLS = {
@@ -339,7 +365,7 @@ local function GetAccessibleSpellTargetName(unitID)
 end
 
 local function GetAccessibleUnitTokenFromGUID(unitGUID)
-	if not canaccessvalue(unitGUID) then return end
+	if not canaccessvalue(unitGUID) or not unitGUID then return end
 
 	local unitID = UnitTokenFromGUID(unitGUID)
 	if not canaccessvalue(unitID) then return end
@@ -452,14 +478,34 @@ end
 
 local function MarkTerminalCast(casterGUID, castGUID, castBarID)
 	if canaccessvalue(castGUID) and castGUID then
-		terminalCastGUIDs[castGUID] = true
+		local marker = {}
+		terminalCastGUIDs[castGUID] = marker
+
+		After(TERMINAL_CAST_RETENTION, function()
+			if terminalCastGUIDs[castGUID] == marker then
+				terminalCastGUIDs[castGUID] = nil
+			end
+		end)
 	end
 
 	if not canaccessvalue(casterGUID) or not canaccessvalue(castBarID) then return end
 	if not casterGUID or not castBarID then return end
 
 	terminalCastBarIDs[casterGUID] = terminalCastBarIDs[casterGUID] or {}
-	terminalCastBarIDs[casterGUID][castBarID] = true
+
+	local casterCastBarIDs = terminalCastBarIDs[casterGUID]
+	local marker = {}
+	casterCastBarIDs[castBarID] = marker
+
+	After(TERMINAL_CAST_RETENTION, function()
+		if casterCastBarIDs[castBarID] ~= marker then return end
+
+		casterCastBarIDs[castBarID] = nil
+
+		if not next(casterCastBarIDs) and terminalCastBarIDs[casterGUID] == casterCastBarIDs then
+			terminalCastBarIDs[casterGUID] = nil
+		end
+	end)
 end
 
 -- UnitCastingInfo returns cast times in milliseconds. LibResInfo exposes
@@ -487,6 +533,37 @@ end
 -- temporary staging, but must not be treated as a valid unit identity.
 local function IsKnownTargetGUID(targetGUID)
 	return targetGUID and targetGUID ~= UNKNOWN_TARGET_GUID
+end
+
+-- Retain only the most recent completed resurrection cast per caster. The
+-- target's RESURRECT_REQUEST can arrive after the caster's active state was
+-- removed, so this short correlation window preserves caster and spell IDs
+-- without keeping resolved cast state for the whole login session.
+local function StoreRecentFinishedResCast(casterGUID, targetGUID, spellID)
+	if not casterGUID then return end
+
+	local recentInfo = {
+		spellID = spellID,
+		targetGUID = targetGUID,
+	}
+
+	recentFinishedResCasts[casterGUID] = recentInfo
+
+	After(TERMINAL_CAST_RETENTION, function()
+		if recentFinishedResCasts[casterGUID] == recentInfo then
+			recentFinishedResCasts[casterGUID] = nil
+		end
+	end)
+end
+
+local function ClearRecentFinishedResCastsForTarget(targetGUID)
+	if not targetGUID then return end
+
+	for casterGUID, recentInfo in pairs(recentFinishedResCasts) do
+		if recentInfo.targetGUID == targetGUID then
+			recentFinishedResCasts[casterGUID] = nil
+		end
+	end
 end
 
 -- Self-res spells and effects are present while their unit is alive, but only
@@ -818,6 +895,7 @@ end
 -- The caller supplies the authoritative caster GUID, which may intentionally be
 -- the cached PLAYER_GUID rather than a GUID derived from the event unitID.
 local function StoreSingleCastInfo(casterGUID, targetGUID, castInfo)
+	recentFinishedResCasts[casterGUID] = nil
 	resCasterInfo[casterGUID] = resCasterInfo[casterGUID] or {}
 	resTargetInfo[targetGUID] = resTargetInfo[targetGUID] or {}
 	resTargetInfo[targetGUID].targetGUID = resTargetInfo[targetGUID].targetGUID or targetGUID
@@ -969,6 +1047,7 @@ end
 -- cast data, so the cast is tracked by caster while its affected target GUIDs
 -- are snapshotted separately.
 local function PopulateMassResInfo(casterGUID, castInfo)
+	recentFinishedResCasts[casterGUID] = nil
 	massResCasterInfo[casterGUID] = massResCasterInfo[casterGUID] or {}
 
 	ApplyMassCastInfo(massResCasterInfo[casterGUID], casterGUID, castInfo)
@@ -1145,17 +1224,24 @@ end
 -- Remove all single-target resurrection state attached to one target.
 -- Called after a completed known target is observed alive.
 local function RemoveTargetResInfo(targetGUID)
-	if not targetGUID or not resTargetInfo[targetGUID] then return end
+	if not targetGUID then return end
 
-	for casterGUID, info in pairs(resTargetInfo[targetGUID]) do
-		if type(info) == "table" then
+	local removed
+
+	for casterGUID, casterInfo in pairs(resCasterInfo) do
+		if casterInfo.targetGUID == targetGUID then
+			pendingEngineeringCasts[casterGUID] = nil
 			resCasterInfo[casterGUID] = nil
+			removed = true
 		end
 	end
 
-	resTargetInfo[targetGUID] = nil
+	if resTargetInfo[targetGUID] then
+		resTargetInfo[targetGUID] = nil
+		removed = true
+	end
 
-	return true
+	return removed
 end
 
 -- Defensive stale-state cleanup for unresolved target entries.
@@ -1188,7 +1274,7 @@ local function RemoveExpiredUnknownTargetInfo()
 end
 
 -- -------------------------------------------------------------------
--- Completed resurrection state
+-- Resurrection-offer state
 -- -------------------------------------------------------------------
 
 -- Player resurrection offers can be delayed by corpse recovery. Blizzard only
@@ -1203,52 +1289,54 @@ local function GetResWaitingDuration(targetGUID)
 	return waitingDuration
 end
 
--- Clear waiting state without firing an expiry callback.
--- Used when the target becomes alive before the waiting timer expires.
-local function ClearResWaitingTargetGUID(targetGUID)
+-- Clear all expected or confirmed offer state without firing an expiry
+-- callback. Used when the target becomes alive before the offer expires.
+local function ClearResOfferTargetGUID(targetGUID)
 	if IsKnownTargetGUID(targetGUID) then
-		resWaitingExpireTimes[targetGUID] = nil
+		resOfferExpireTimes[targetGUID] = nil
 	end
 end
 
--- Start or refresh waiting state for a completed known resurrection target.
--- A later completed res offer for the same target resets the waiting timer.
+local ResolveAliveTarget
+
+-- Start or refresh expected-offer state for a known resurrection target. A
+-- later offer for the same target resets the waiting timer.
 --
 -- The scheduled callback verifies that the stored expire time still matches,
 -- so an older timer cannot clear or fire for a newer resurrection offer.
-local function MarkResWaitingTargetGUID(targetGUID)
+local function TrackResOfferTargetGUID(targetGUID)
 	if not IsKnownTargetGUID(targetGUID) then return end
 
 	local duration = GetResWaitingDuration(targetGUID)
 	local expireTime = GetTime() + duration
 
-	resWaitingExpireTimes[targetGUID] = expireTime
+	resOfferExpireTimes[targetGUID] = expireTime
 
 	After(duration, function()
-		if resWaitingExpireTimes[targetGUID] ~= expireTime then return end
+		if resOfferExpireTimes[targetGUID] ~= expireTime then return end
 
 		local unitID = GetAccessibleUnitTokenFromGUID(targetGUID)
 		local health = unitID and GetAccessibleUnitHealth(unitID)
 
 		if health and health > 0 then
-			resWaitingExpireTimes[targetGUID] = nil
+			ResolveAliveTarget(targetGUID)
 			return
 		end
 
-		resWaitingExpireTimes[targetGUID] = nil
+		ClearResOfferTargetGUID(targetGUID)
+		ClearRecentFinishedResCastsForTarget(targetGUID)
 		lib.callbacks:Fire("ResTargetGUID_WaitingTimeExpired", targetGUID)
 	end)
 end
 
--- Watch a completed resurrection target until UNIT_HEALTH confirms life.
---
--- Only real GUIDs are tracked here. UNKNOWN is intentionally ignored because
--- UNIT_HEALTH / PLAYER_ALIVE can only validate real units.
-local function MarkRessedTargetGUID(targetGUID)
-	if IsKnownTargetGUID(targetGUID) then
-		ressedTargetGUIDs[targetGUID] = true
-		MarkResWaitingTargetGUID(targetGUID)
-	end
+-- Confirm that the target's client received a resurrection offer. Expected
+-- remote offers use the same waiting state, but only this path fires the
+-- confirmation callback.
+local function ConfirmResOffer(targetGUID, casterGUID, spellID)
+	if not IsKnownTargetGUID(targetGUID) then return end
+
+	TrackResOfferTargetGUID(targetGUID)
+	lib.callbacks:Fire("ResTargetGUID_HasResOffer", targetGUID, casterGUID, spellID)
 end
 
 -- Mark the snapshotted mass-res targets as waiting after the mass resurrection
@@ -1261,9 +1349,171 @@ local function MarkMassResTargets(casterGUID)
 	if not targets then return end
 
 	for targetGUID in pairs(targets) do
-		ressedTargetGUIDs[targetGUID] = true
-		MarkResWaitingTargetGUID(targetGUID)
+		TrackResOfferTargetGUID(targetGUID)
 	end
+end
+
+-- Move one active single-target cast to an authoritative target GUID. Direct
+-- offer events are stronger evidence than spell-target data, which can be
+-- absent or stale on observers.
+local function ReassignSingleResTargetGUID(casterGUID, targetGUID)
+	local casterInfo = casterGUID and resCasterInfo[casterGUID]
+	if not casterInfo or not IsKnownTargetGUID(targetGUID) then return end
+
+	local previousTargetGUID = casterInfo.targetGUID or UNKNOWN_TARGET_GUID
+	if previousTargetGUID == targetGUID then return end
+
+	if resTargetInfo[previousTargetGUID] then
+		resTargetInfo[previousTargetGUID][casterGUID] = nil
+
+		if resTargetInfo[previousTargetGUID].fastestCasterGUID == casterGUID then
+			resTargetInfo[previousTargetGUID].fastestCasterGUID = nil
+			resTargetInfo[previousTargetGUID].fastestResType = nil
+		end
+
+		UpdateFastestCasterGUID(previousTargetGUID)
+
+		if not HasTableEntries(resTargetInfo[previousTargetGUID]) then
+			resTargetInfo[previousTargetGUID] = nil
+		end
+	end
+
+	casterInfo.targetGUID = targetGUID
+	resTargetInfo[targetGUID] = resTargetInfo[targetGUID] or {}
+	resTargetInfo[targetGUID].targetGUID = targetGUID
+	resTargetInfo[targetGUID][casterGUID] = {}
+	ApplySingleCastInfo(casterInfo, resTargetInfo[targetGUID][casterGUID], casterGUID, targetGUID, casterInfo)
+	UpdateFastestCasterGUID(targetGUID)
+
+	lib.callbacks:Fire(
+		"ResTargetGUID_Resolved",
+		casterGUID,
+		targetGUID,
+		casterInfo,
+		resTargetInfo[targetGUID]
+	)
+end
+
+-- Finish one tracked single-target cast and retire its active state. Reliable
+-- resurrection spells may create an expected offer at spellcast completion;
+-- engineering devices pass false and wait for direct offer confirmation.
+local function FinishSingleResCast(casterGUID, targetGUID, trackExpectedOffer)
+	local casterInfo = casterGUID and resCasterInfo[casterGUID]
+	if not casterInfo then return end
+
+	targetGUID = targetGUID or casterInfo.targetGUID or UNKNOWN_TARGET_GUID
+
+	if IsKnownTargetGUID(targetGUID) and casterInfo.targetGUID ~= targetGUID then
+		ReassignSingleResTargetGUID(casterGUID, targetGUID)
+	elseif IsKnownTargetGUID(casterInfo.targetGUID) then
+		targetGUID = casterInfo.targetGUID
+	end
+
+	local finishedCasterInfo = resCasterInfo[casterGUID]
+	local finishedTargetInfo = GetCallbackTargetInfo(targetGUID, casterGUID)
+
+	pendingEngineeringCasts[casterGUID] = nil
+	MarkTerminalCast(casterGUID, finishedCasterInfo.castGUID, finishedCasterInfo.castBarID)
+	StoreRecentFinishedResCast(casterGUID, targetGUID, finishedCasterInfo.spellID)
+
+	if trackExpectedOffer then
+		TrackResOfferTargetGUID(targetGUID)
+	end
+
+	lib.callbacks:Fire(
+		"ResCast_Finished",
+		casterGUID,
+		targetGUID,
+		NormalizeCallbackTable(finishedCasterInfo),
+		finishedTargetInfo
+	)
+
+	RemoveSingleResCast(casterGUID, targetGUID, false, false)
+
+	return targetGUID
+end
+
+-- Stop one tracked single-target cast and retire its active state. This path is
+-- shared by explicit spellcast failures and engineering activations which did
+-- not produce a confirmed resurrection offer.
+local function StopSingleResCast(casterGUID, targetGUID, castGUID, castBarID)
+	local casterInfo = casterGUID and resCasterInfo[casterGUID]
+	if not casterInfo then
+		pendingEngineeringCasts[casterGUID] = nil
+		return
+	end
+
+	targetGUID = targetGUID or casterInfo.targetGUID or UNKNOWN_TARGET_GUID
+
+	local callbackCasterInfo = NormalizeCallbackTable(casterInfo)
+	local callbackTargetInfo = GetCallbackTargetInfo(targetGUID, casterGUID)
+
+	pendingEngineeringCasts[casterGUID] = nil
+	MarkTerminalCast(casterGUID, castGUID or casterInfo.castGUID, castBarID or casterInfo.castBarID)
+	lib.callbacks:Fire("ResCast_Stopped", casterGUID, targetGUID, callbackCasterInfo, callbackTargetInfo)
+
+	local _, _, changedTargetInfo = RemoveSingleResCast(casterGUID, targetGUID, true, false)
+
+	FireFastestResChanged(changedTargetInfo)
+end
+
+-- Engineering UNIT_SPELLCAST_SUCCEEDED means only that the device activation
+-- completed. Give RESURRECT_REQUEST a short opportunity to prove that the
+-- activation actually produced an offer; otherwise report the attempt through
+-- the existing stopped lifecycle.
+local function WaitForEngineeringResOffer(casterGUID)
+	local marker = {}
+	pendingEngineeringCasts[casterGUID] = marker
+
+	After(RES_OFFER_CONFIRMATION_TIMEOUT, function()
+		if pendingEngineeringCasts[casterGUID] ~= marker then return end
+
+		StopSingleResCast(casterGUID)
+	end)
+end
+
+-- Once a target is alive, any remaining single-target casts aimed at it can no
+-- longer complete usefully. Stop them through the normal callback path before
+-- their lookup keys are retired.
+local function StopSingleResCastsForTarget(targetGUID)
+	local casterGUIDs = {}
+
+	for casterGUID, casterInfo in pairs(resCasterInfo) do
+		if casterInfo.targetGUID == targetGUID then
+			casterGUIDs[#casterGUIDs + 1] = casterGUID
+		end
+	end
+
+	for index = 1, #casterGUIDs do
+		StopSingleResCast(casterGUIDs[index], targetGUID)
+	end
+end
+
+local function ClearTargetFromMassResSnapshots(targetGUID)
+	for casterGUID, targets in pairs(massResTargetGUIDs) do
+		targets[targetGUID] = nil
+
+		if not next(targets) and not massResCasterInfo[casterGUID] then
+			massResTargetGUIDs[casterGUID] = nil
+		end
+	end
+end
+
+-- Resolve one offer lifecycle when its target becomes alive. This is shared by
+-- UNIT_HEALTH and the expiry timer's defensive health check so missed event
+-- ordering cannot leave target, caster, or mass-snapshot keys behind.
+ResolveAliveTarget = function(targetGUID)
+	if not targetGUID or not resOfferExpireTimes[targetGUID] then return end
+
+	StopSingleResCastsForTarget(targetGUID)
+	ClearTargetFromMassResSnapshots(targetGUID)
+	ClearResOfferTargetGUID(targetGUID)
+	ClearRecentFinishedResCastsForTarget(targetGUID)
+	RemoveTargetResInfo(targetGUID)
+
+	lib.callbacks:Fire("ResTargetGUID_IsAlive", targetGUID)
+
+	RemoveExpiredUnknownTargetInfo()
 end
 
 -- -------------------------------------------------------------------
@@ -1494,6 +1744,26 @@ end
 -- External resurrection request helpers
 -- -------------------------------------------------------------------
 
+-- Resolve the caster named by RESURRECT_REQUEST. Group unit tokens are the
+-- preferred source; a visible nameplate is retained for the external-caster
+-- fallback which can synthesize an otherwise unobserved cast.
+local function ResolveResurrectRequester(inviterName)
+	if not IsUsableUnitIdentifier(inviterName) then return end
+
+	local casterGUID = ResolveGroupUnitName(inviterName)
+	if casterGUID then
+		return casterGUID, GetAccessibleUnitTokenFromGUID(casterGUID)
+	end
+
+	for _, nameplate in pairs(GetNamePlates()) do
+		local unitID = nameplate.unitToken
+
+		if UnitMatchesName(unitID, inviterName) then
+			return GetAccessibleUnitGUID(unitID), unitID
+		end
+	end
+end
+
 -- RESURRECT_REQUEST is not paired with the normal target lifecycle. Once the
 -- observed caster's cast timer ends, synthesize the same finished callback path
 -- used by normal single-target resurrection casts.
@@ -1503,15 +1773,7 @@ local function FinishExternalResCast(casterGUID, targetGUID)
 	if casterInfo.targetGUID ~= targetGUID then return end
 	if IsTerminalCast(casterGUID, casterInfo.castGUID, casterInfo.castBarID) then return end
 
-	local finishedCasterInfo = resCasterInfo[casterGUID]
-	local finishedTargetInfo = GetCallbackTargetInfo(targetGUID, casterGUID)
-
-	MarkTerminalCast(casterGUID, casterInfo.castGUID, casterInfo.castBarID)
-	MarkRessedTargetGUID(targetGUID)
-
-	lib.callbacks:Fire("ResCast_Finished", casterGUID, targetGUID, NormalizeCallbackTable(finishedCasterInfo), finishedTargetInfo)
-
-	RemoveSingleResCast(casterGUID, targetGUID, false, false)
+	FinishSingleResCast(casterGUID, targetGUID, true)
 end
 
 -- -------------------------------------------------------------------
@@ -1541,8 +1803,9 @@ local function PLAYER_LOGIN()
 	wipe(massResCasterInfo)
 	wipe(massResTargetGUIDs)
 	wipe(resTargetInfo)
-	wipe(ressedTargetGUIDs)
-	wipe(resWaitingExpireTimes)
+	wipe(resOfferExpireTimes)
+	wipe(pendingEngineeringCasts)
+	wipe(recentFinishedResCasts)
 	wipe(selfResInfo)
 	wipe(terminalCastGUIDs)
 	wipe(terminalCastBarIDs)
@@ -1683,44 +1946,63 @@ end
 -- from a visible nearby caster, and do not necessarily give the same event
 -- sequence as group spellcast tracking.
 local function RESURRECT_REQUEST(inviterName)
-	if not canaccessvalue(inviterName) then return end
+	if not canaccessvalue(inviterName) then
+		inviterName = nil
+	end
+
+	local casterGUID, casterID = ResolveResurrectRequester(inviterName)
+	local activeSingleInfo = casterGUID and resCasterInfo[casterGUID]
+	local activeMassInfo = casterGUID and massResCasterInfo[casterGUID]
+	local recentInfo = casterGUID and recentFinishedResCasts[casterGUID]
+	local currentCastInfo = casterID and GetCurrentCastInfo(casterID)
+	local spellID = (activeSingleInfo and activeSingleInfo.spellID)
+		or (activeMassInfo and activeMassInfo.spellID)
+		or (recentInfo and recentInfo.spellID)
+		or (currentCastInfo and currentCastInfo.spellID)
+
+	-- A request received by the player is direct proof that the player has a
+	-- resurrection offer. If its caster still has an active single-target cast,
+	-- this event also authoritatively resolves and finishes that cast.
+	if activeSingleInfo then
+		FinishSingleResCast(casterGUID, PLAYER_GUID, false)
+	end
+
+	ConfirmResOffer(PLAYER_GUID, casterGUID, spellID)
+
+	-- Tracked and recently completed casts already supplied all available cast
+	-- lifecycle callbacks. Mass resurrection remains caster-wide and must not be
+	-- declared finished merely because one target received an offer.
+	if activeSingleInfo or activeMassInfo or recentInfo then return end
+
+	-- Outside group tracking, retain the historical nameplate fallback for a
+	-- visible nearby caster. This path is deliberately limited to safe contexts
+	-- because it relies on live cast-bar inspection rather than group events.
 	if IsInInstance() then return end
 	if InCombatLockdown() or UnitAffectingCombat("player") then return end
+	if not casterGUID or not currentCastInfo then return end
+	if not SINGLE_TARGET_RES_SPELLS[currentCastInfo.spellID] then return end
+	if IsTerminalCast(casterGUID, currentCastInfo.castGUID, currentCastInfo.castBarID) then return end
 
-	for _, nameplate in pairs(GetNamePlates()) do
-		local unitID = nameplate.unitToken
+	local casterInfo = StoreSingleCastInfo(casterGUID, PLAYER_GUID, currentCastInfo)
+	local targetInfo = UpdateFastestCasterGUID(PLAYER_GUID)
 
-		if UnitMatchesName(unitID, inviterName) then
-			local casterGUID = GetAccessibleUnitGUID(unitID)
-			if not casterGUID then return end
+	lib.callbacks:Fire(
+		"ResCast_Started",
+		casterGUID,
+		PLAYER_GUID,
+		casterInfo,
+		GetCallbackTargetInfo(PLAYER_GUID, casterGUID)
+	)
+	FireFastestResChanged(targetInfo)
 
-			local castInfo = GetCurrentCastInfo(unitID)
-			if not castInfo or not SINGLE_TARGET_RES_SPELLS[castInfo.spellID] then return end
-			if IsTerminalCast(casterGUID, castInfo.castGUID, castInfo.castBarID) then return end
+	local delay = currentCastInfo.endTime - GetTime()
 
-			local activeCasterInfo = resCasterInfo[casterGUID] or massResCasterInfo[casterGUID]
-			if activeCasterInfo then return end
-
-			local targetGUID = PLAYER_GUID
-
-			local casterInfo = StoreSingleCastInfo(casterGUID, targetGUID, castInfo)
-			local targetInfo = UpdateFastestCasterGUID(targetGUID)
-
-			lib.callbacks:Fire("ResCast_Started", casterGUID, targetGUID, casterInfo, GetCallbackTargetInfo(targetGUID, casterGUID))
-			FireFastestResChanged(targetInfo)
-
-			local delay = castInfo.endTime - GetTime()
-
-			if delay <= 0 then
-				FinishExternalResCast(casterGUID, targetGUID)
-			else
-				After(delay, function()
-					FinishExternalResCast(casterGUID, targetGUID)
-				end)
-			end
-
-			return
-		end
+	if delay <= 0 then
+		FinishExternalResCast(casterGUID, PLAYER_GUID)
+	else
+		After(delay, function()
+			FinishExternalResCast(casterGUID, PLAYER_GUID)
+		end)
 	end
 end
 
@@ -1756,16 +2038,7 @@ local function UNIT_SPELLCAST_FAILED(unitID, castGUID, spellID, castBarID)
 			return
 		end
 
-		local targetGUID = casterInfo.targetGUID or UNKNOWN_TARGET_GUID
-		local callbackCasterInfo = NormalizeCallbackTable(casterInfo)
-		local callbackTargetInfo = GetCallbackTargetInfo(targetGUID, casterGUID)
-
-		MarkTerminalCast(casterGUID, castGUID or casterInfo.castGUID, castBarID or casterInfo.castBarID)
-		lib.callbacks:Fire("ResCast_Stopped", casterGUID, targetGUID, callbackCasterInfo, callbackTargetInfo)
-
-		local _, _, changedTargetInfo = RemoveSingleResCast(casterGUID, targetGUID, true, false)
-
-		FireFastestResChanged(changedTargetInfo)
+		StopSingleResCast(casterGUID, casterInfo.targetGUID, castGUID, castBarID)
 	elseif MASS_RES_SPELLS[spellID] then
 		local casterInfo = massResCasterInfo[casterGUID]
 		if not casterInfo then
@@ -1793,13 +2066,13 @@ local function UNIT_SPELLCAST_INTERRUPTED(unitID, castGUID, spellID, _, castBarI
 	UNIT_SPELLCAST_FAILED(unitID, castGUID, spellID, castBarID)
 end
 
--- A resurrection cast successfully finishes, but the target may not be alive yet.
+-- A resurrection spellcast reaches Blizzard's successful cast outcome.
 --
--- The finished callback reports spellcast completion only. An untracked
--- single-target success first attempts to resolve its name or name-realm value
--- against addressable group units. Known targets are then watched until
--- UNIT_HEALTH can fire ResTargetGUID_IsAlive; UNKNOWN targets are cleaned up
--- after the callback because there is no real GUID to watch.
+-- Reliable spells enter the expected-offer state immediately. Engineering
+-- devices can complete this event and still fail their resurrection roll, so
+-- they remain active briefly and finish only after direct offer confirmation.
+-- An untracked single-target success first attempts to resolve its name or
+-- name-realm value against addressable group units.
 local function UNIT_SPELLCAST_SUCCEEDED(unitID, castGUID, spellID, castBarID)
 	if not IsTrackedSpellcastUnit(unitID) then return end
 	if not canaccessvalue(spellID) or not canaccessvalue(castBarID) then return end
@@ -1866,19 +2139,18 @@ local function UNIT_SPELLCAST_SUCCEEDED(unitID, castGUID, spellID, castBarID)
 			lib.callbacks:Fire("ResCast_Started", casterGUID, targetGUID, storedCasterInfo, GetCallbackTargetInfo(targetGUID, casterGUID))
 		end
 
-		local finishedCasterInfo = resCasterInfo[casterGUID]
-		local finishedTargetInfo = GetCallbackTargetInfo(targetGUID, casterGUID)
+		if ENGINEERING_RES_SPELLS[spellID] then
+			local activeCasterInfo = resCasterInfo[casterGUID]
 
-		MarkTerminalCast(
-			casterGUID,
-			castGUID or (finishedCasterInfo and finishedCasterInfo.castGUID),
-			castBarID or (finishedCasterInfo and finishedCasterInfo.castBarID)
-		)
-		MarkRessedTargetGUID(targetGUID)
-
-		lib.callbacks:Fire("ResCast_Finished", casterGUID, targetGUID, NormalizeCallbackTable(finishedCasterInfo), finishedTargetInfo)
-
-		RemoveSingleResCast(casterGUID, targetGUID, false, false)
+			MarkTerminalCast(
+				casterGUID,
+				castGUID or (activeCasterInfo and activeCasterInfo.castGUID),
+				castBarID or (activeCasterInfo and activeCasterInfo.castBarID)
+			)
+			WaitForEngineeringResOffer(casterGUID)
+		else
+			FinishSingleResCast(casterGUID, targetGUID, true)
+		end
 	elseif MASS_RES_SPELLS[spellID] then
 		local casterInfo = massResCasterInfo[casterGUID]
 		if not casterInfo then
@@ -1892,6 +2164,7 @@ local function UNIT_SPELLCAST_SUCCEEDED(unitID, castGUID, spellID, castBarID)
 
 		MarkTerminalCast(casterGUID, castGUID or casterInfo.castGUID, castBarID or casterInfo.castBarID)
 		MarkMassResTargets(casterGUID)
+		StoreRecentFinishedResCast(casterGUID, nil, casterInfo.spellID)
 
 		lib.callbacks:Fire("MassResCast_Finished", casterGUID, NormalizeCallbackTable(massResCasterInfo[casterGUID]))
 
@@ -1899,27 +2172,20 @@ local function UNIT_SPELLCAST_SUCCEEDED(unitID, castGUID, spellID, castBarID)
 	end
 end
 
--- A completed resurrection target is now alive.
--- UNIT_HEALTH is the final confirmation step for completed known targets.
--- Cast completion only means the resurrection offer finished; the unit is not
--- considered alive until health becomes positive.
+-- A target with an expected or confirmed resurrection offer is now alive.
+-- Retire every target-owned lookup key and stop any competing casts before the
+-- final alive callback is fired.
 local function UNIT_HEALTH(unitID)
 	unitID = unitID or "player"
 
 	local targetGUID = GetAccessibleUnitGUID(unitID)
 	if not targetGUID then return end
-	if not ressedTargetGUIDs[targetGUID] then return end
+	if not resOfferExpireTimes[targetGUID] then return end
 
 	local health = GetAccessibleUnitHealth(unitID)
 	if not health or health <= 0 then return end
 
-	ressedTargetGUIDs[targetGUID] = nil
-	ClearResWaitingTargetGUID(targetGUID)
-	RemoveTargetResInfo(targetGUID)
-
-	lib.callbacks:Fire("ResTargetGUID_IsAlive", targetGUID)
-
-	RemoveExpiredUnknownTargetInfo()
+	ResolveAliveTarget(targetGUID)
 end
 
 local function PLAYER_ALIVE_OR_UNGHOST()
@@ -2019,7 +2285,7 @@ function lib:UnitHasResWaiting(unit)
 		return false, nil
 	end
 
-	local expireTime = resWaitingExpireTimes[targetGUID]
+	local expireTime = resOfferExpireTimes[targetGUID]
 	if not expireTime then
 		return false, nil
 	end
