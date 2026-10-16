@@ -74,7 +74,9 @@ local YES = YES
 -- --------------------------------------------------------------------
 
 ---@class SmartRes2LibDBIcon: LibDBIcon-1.0
+---@field AddButtonToCompartment fun(self: SmartRes2LibDBIcon, buttonName: string, customIcon?: string|number)
 ---@field IsButtonCompartmentAvailable fun(self: SmartRes2LibDBIcon): boolean|nil
+---@field RemoveButtonFromCompartment fun(self: SmartRes2LibDBIcon, buttonName: string)
 
 ---@class SmartRes2MinimapDB: LibDBIcon.button.DB
 ---@field lockOnDegree boolean

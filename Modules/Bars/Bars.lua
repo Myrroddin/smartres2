@@ -1272,6 +1272,13 @@ local function AddOrUpdateBar(state)
 	bar:SetDuration(state.duration)
 	bar:Start()
 
+	-- LibCandyBar may recycle a bar whose previous state used an icon. Clear the
+	-- icon again while the bar is running so its icon slot and bar anchors are
+	-- fully collapsed for waiting bars and for the no-icon display option.
+	if not state.icon or GetProfileDB().behavior.iconPosition == "NONE" then
+		bar:SetIcon(nil)
+	end
+
 	-- LibCandyBar finalizes and shows its icon texture in Start(). Apply Masque
 	-- afterward so the original texture can be hidden without using that texture
 	-- as the Masque button's geometry.

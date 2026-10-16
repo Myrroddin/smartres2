@@ -400,8 +400,17 @@ function addon:GetOptions()
 							return GetMinimapDB().showInCompartment
 						end,
 						set = function(_, value)
-							GetMinimapDB().showInCompartment = value
-							RefreshMinimapButton()
+							local minimapDB = GetMinimapDB()
+
+							if value then
+								addon.LibDBIcon:AddButtonToCompartment("SmartRes2")
+							else
+								addon.LibDBIcon:RemoveButtonFromCompartment("SmartRes2")
+							end
+
+							-- Removing a compartment entry clears the library's DB key. AceDB
+							-- needs an explicit false to override the enabled-by-default value.
+							minimapDB.showInCompartment = value
 						end,
 					},
 					minimapPos = {
