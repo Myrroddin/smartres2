@@ -531,7 +531,6 @@ local function GetValidatedCollisionSenderGUID(memberName, casterGUID, targetGUI
 	local exactMatchedGUID
 	local shortMatchedGUID
 	local shortMatchIsAmbiguous = false
-	local memberShortName = string_match(memberName, "^[^-]+")
 	local casterIsMember = false
 	local targetIsMember = false
 	local fastestCasterIsMember = false
@@ -559,9 +558,9 @@ local function GetValidatedCollisionSenderGUID(memberName, casterGUID, targetGUI
 			return
 		end
 
-		local shortName = canaccessvalue(fullName) and string_match(fullName, "^[^-]+")
+		local shortName = addon:GetUnitNameFromGUID(memberGUID, false)
 
-		if shortName == memberShortName then
+		if canaccessvalue(shortName) and shortName == memberName then
 			if shortMatchedGUID and shortMatchedGUID ~= memberGUID then
 				shortMatchIsAmbiguous = true
 			else
@@ -707,11 +706,17 @@ local function GetOrCreateCollisionElection(casterGUID, targetGUID, fastestCaste
 end
 
 local function JoinCollisionElection(election)
-	if not IsCollisionSenderEligible() or election.candidates[addon.PLAYER_GUID] then
+	local playerGUID = addon.PLAYER_GUID
+
+	if not canaccessvalue(playerGUID) or not playerGUID then
 		return
 	end
 
-	election.candidates[addon.PLAYER_GUID] = true
+	if not IsCollisionSenderEligible() or election.candidates[playerGUID] then
+		return
+	end
+
+	election.candidates[playerGUID] = true
 	SendCollisionComm("C", election.casterGUID, election.targetGUID, election.fastestCasterGUID)
 end
 

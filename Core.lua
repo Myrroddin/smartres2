@@ -18,6 +18,7 @@
 local _G = _G
 local After = C_Timer.After
 local canaccessvalue = canaccessvalue or function() return true end
+local Constants = Constants
 local CreateFrame = CreateFrame
 local DEFAULT = DEFAULT
 local GetBuildInfo = GetBuildInfo
@@ -33,8 +34,6 @@ local IsPlayerNeutral = IsPlayerNeutral
 local IsSpellInRange = C_Spell.IsSpellInRange
 local IsSpellKnown = C_SpellBook.IsSpellKnown
 local IsSpellUsable = C_Spell.IsSpellUsable
-local LE_EXPANSION_CLASSIC = LE_EXPANSION_CLASSIC
-local LE_EXPANSION_LEVEL_CURRENT = LE_EXPANSION_LEVEL_CURRENT
 local LibStub = LibStub
 local math_floor = math.floor
 local math_random = math.random
@@ -44,6 +43,7 @@ local OKAY = OKAY
 local pairs = pairs
 local RAID_CLASS_COLORS = RAID_CLASS_COLORS
 local rawget = rawget
+local RegionalUniqueNamesEnabled = RegionalUniqueNamesEnabled
 local Reload = C_UI.Reload
 local StaticPopup_Show = StaticPopup_Show
 local StaticPopupDialogs = StaticPopupDialogs
@@ -115,12 +115,17 @@ local KEYBIND_TRIGGER_RELOAD_POPUP = "SMARTRES2_KEYBIND_TRIGGER_RELOAD"
 local SMARTRES2_DB_VERSION = 1
 
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
-local isStandard = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE) and (LE_EXPANSION_LEVEL_CURRENT > LE_EXPANSION_CLASSIC)
+local isStandard = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
+local characterNameSeparators = Constants and rawget(Constants, "CharacterNameSeparatorConsts")
+local realmNameSeparator = characterNameSeparators and characterNameSeparators.CHARACTERNAME_REALMNAME_SEPARATOR or "-"
+local surnameSeparator = characterNameSeparators and characterNameSeparators.CHARACTERNAME_SURNAME_SEPARATOR or " "
+local fullNameSeparator = RegionalUniqueNamesEnabled and RegionalUniqueNamesEnabled() and surnameSeparator or realmNameSeparator
 
 local db, global, options
 local smartResButton, manualResButton, combatResButton, massResButton
 local playerNormalSingleResSpellID, playerCombatResSpellID, playerMassResSpellID
 local hadSavedDatabase = type(rawget(_G, "SmartRes2DB")) == "table"
+local showDatabaseResetNotice
 
 -- --------------------------------------------------------------------
 -- Static configuration and spell data
@@ -507,7 +512,15 @@ local function GetSpellIcon(spellID)
 	return GetSpellTexture(spellID)
 end
 
-local function GetClassColoredUnitName(unit, includeRealm)
+local function FormatUnitName(unitName, unitNameSuffix, includeFullName)
+	if includeFullName and unitNameSuffix and unitNameSuffix ~= "" then
+		return unitName .. fullNameSeparator .. unitNameSuffix
+	end
+
+	return unitName
+end
+
+local function GetClassColoredUnitName(unit, includeFullName)
 	if not canaccessvalue(unit) then
 		return nil
 	end
@@ -516,22 +529,21 @@ local function GetClassColoredUnitName(unit, includeRealm)
 		return nil
 	end
 
-	local unitName, unitServer = UnitNameUnmodified(unit)
+	local unitName, unitNameSuffix = UnitNameUnmodified(unit)
 	local classFilename = UnitClassBase(unit)
 
-	if not canaccessvalue(unitName) or not canaccessvalue(unitServer) or not canaccessvalue(classFilename) then
+	if not canaccessvalue(unitName) or not canaccessvalue(classFilename) then
 		return nil
+	end
+	if not canaccessvalue(unitNameSuffix) then
+		unitNameSuffix = nil
 	end
 
 	if not unitName then
 		return nil
 	end
 
-	if includeRealm and unitServer and unitServer ~= "" then
-		unitName = unitName .. "-" .. unitServer
-	end
-
-	return addon:GetClassColoredName(unitName, classFilename)
+	return addon:GetClassColoredName(FormatUnitName(unitName, unitNameSuffix, includeFullName), classFilename)
 end
 
 function addon:GetResurrectionIconForClass(classFilename, useDefault)
@@ -575,7 +587,68 @@ function addon:GetClassColoredName(name, classFilename, fallbackColor)
 	return name
 end
 
-function addon:GetUnitNameFromGUID(guid, includeRealm)
+local function UnitMatchesGUID(unit, guid)
+	local unitGUID = UnitGUID(unit)
+
+	return canaccessvalue(unitGUID) and unitGUID == guid
+end
+
+local function FindGroupUnitFromGUID(guid)
+	if UnitMatchesGUID("player", guid) then
+		return "player"
+	end
+	if UnitMatchesGUID("pet", guid) then
+		return "pet"
+	end
+
+	local prefix
+	local count
+	local numGroupMembers = GetNumGroupMembers()
+
+	if IsInRaid() then
+		prefix = "raid"
+		count = numGroupMembers
+	elseif IsInGroup() then
+		prefix = "party"
+		count = numGroupMembers - 1
+	else
+		return nil
+	end
+
+	for index = 1, count do
+		local unit = prefix .. index
+
+		if UnitMatchesGUID(unit, guid) then
+			return unit
+		end
+
+		local petUnit = prefix .. "pet" .. index
+
+		if UnitMatchesGUID(petUnit, guid) then
+			return petUnit
+		end
+	end
+end
+
+local function GetUnitTokenForGUID(guid)
+	local unitToken = UnitTokenFromGUID and UnitTokenFromGUID(guid)
+
+	if canaccessvalue(unitToken) and unitToken and UnitMatchesGUID(unitToken, guid) then
+		return unitToken
+	end
+
+	return FindGroupUnitFromGUID(guid)
+end
+
+local function RefreshPlayerGUID()
+	local playerGUID = UnitGUID("player")
+
+	if canaccessvalue(playerGUID) and playerGUID then
+		addon.PLAYER_GUID = playerGUID
+	end
+end
+
+function addon:GetUnitNameFromGUID(guid, includeFullName)
 	if not canaccessvalue(guid) then
 		return UNKNOWN
 	end
@@ -584,45 +657,42 @@ function addon:GetUnitNameFromGUID(guid, includeRealm)
 		return UNKNOWN
 	end
 
-	local unitName, unitServer
+	local unitName, unitNameSuffix
 
 	if UnitNameFromGUID then
-		unitName, unitServer = UnitNameFromGUID(guid)
-	else
-		local unitToken = UnitTokenFromGUID(guid)
+		unitName, unitNameSuffix = UnitNameFromGUID(guid)
 
-		if not canaccessvalue(unitToken) then
-			return UNKNOWN
+		if not canaccessvalue(unitName) then
+			unitName = nil
 		end
+		if not canaccessvalue(unitNameSuffix) then
+			unitNameSuffix = nil
+		end
+	end
+
+	if not unitName or (includeFullName and (not unitNameSuffix or unitNameSuffix == "")) then
+		local unitToken = GetUnitTokenForGUID(guid)
 
 		if unitToken then
-			unitName, unitServer = UnitNameUnmodified(unitToken)
+			local tokenName, tokenNameSuffix = UnitNameUnmodified(unitToken)
+
+			if canaccessvalue(tokenName) and tokenName then
+				unitName = tokenName
+			end
+			if canaccessvalue(tokenNameSuffix) then
+				unitNameSuffix = tokenNameSuffix
+			end
 		end
 	end
 
-	if not canaccessvalue(unitName) or not canaccessvalue(unitServer) then
+	if not canaccessvalue(unitName) then
 		return UNKNOWN
 	end
-
-	if includeRealm and unitName and unitServer and unitServer ~= "" then
-		return unitName .. "-" .. unitServer
+	if not canaccessvalue(unitNameSuffix) then
+		unitNameSuffix = nil
 	end
 
-	return unitName or UNKNOWN
-end
-
-local function GetMatchingUnitClass(unit, guid)
-	local unitGUID = UnitGUID(unit)
-
-	if not canaccessvalue(unitGUID) or unitGUID ~= guid then
-		return nil
-	end
-
-	local classFilename = UnitClassBase(unit)
-
-	if canaccessvalue(classFilename) then
-		return classFilename
-	end
+	return unitName and FormatUnitName(unitName, unitNameSuffix, includeFullName) or UNKNOWN
 end
 
 function addon:GetUnitClassFromGUID(guid)
@@ -630,38 +700,13 @@ function addon:GetUnitClassFromGUID(guid)
 		return nil
 	end
 
-	local unitToken = UnitTokenFromGUID(guid)
+	local unitToken = GetUnitTokenForGUID(guid)
 
-	if canaccessvalue(unitToken) and unitToken then
+	if unitToken then
 		local classFilename = UnitClassBase(unitToken)
 
 		if canaccessvalue(classFilename) and classFilename then
 			return classFilename
-		end
-	end
-
-	local classFilename = GetMatchingUnitClass("player", guid)
-	if classFilename then
-		return classFilename
-	end
-
-	local numGroupMembers = GetNumGroupMembers()
-
-	if IsInRaid() then
-		for index = 1, numGroupMembers do
-			classFilename = GetMatchingUnitClass("raid" .. index, guid)
-
-			if classFilename then
-				return classFilename
-			end
-		end
-	else
-		for index = 1, numGroupMembers - 1 do
-			classFilename = GetMatchingUnitClass("party" .. index, guid)
-
-			if classFilename then
-				return classFilename
-			end
 		end
 	end
 end
@@ -679,14 +724,20 @@ function addon:NotifySelf(message, unit)
 		if db.useClassColorsForSystemMessages then
 			unitName = GetClassColoredUnitName(unit, db.useFullNameForSystemMessages)
 		else
-			local unitServer
+			local unitNameSuffix
 
-			unitName, unitServer = UnitNameUnmodified(unit)
+			unitName, unitNameSuffix = UnitNameUnmodified(unit)
 
-			if not canaccessvalue(unitName) or not canaccessvalue(unitServer) then
+			if not canaccessvalue(unitName) then
 				unitName = nil
-			elseif db.useFullNameForSystemMessages and unitName and unitServer and unitServer ~= "" then
-				unitName = unitName .. "-" .. unitServer
+			else
+				if not canaccessvalue(unitNameSuffix) then
+					unitNameSuffix = nil
+				end
+
+				if unitName then
+					unitName = FormatUnitName(unitName, unitNameSuffix, db.useFullNameForSystemMessages)
+				end
 			end
 		end
 
@@ -1197,11 +1248,15 @@ end
 -- Delay migration notices until cold-login initialization has settled. In
 -- particular, Forever can run protected Guild Control code while early static
 -- popups are being laid out and attribute the resulting taint to the addon.
-function addon:ShowDatabaseResetNotice()
+function addon:PLAYER_ENTERING_WORLD()
 	self:UnregisterEvent("PLAYER_ENTERING_WORLD")
-	After(DB_RESET_POPUP_DELAY, function()
-		StaticPopup_Show(DB_RESET_POPUP)
-	end)
+	RefreshPlayerGUID()
+
+	if showDatabaseResetNotice then
+		After(DB_RESET_POPUP_DELAY, function()
+			StaticPopup_Show(DB_RESET_POPUP)
+		end)
+	end
 end
 
 -- Initialize the root database and Core-owned integrations before modules.
@@ -1211,6 +1266,7 @@ function addon:OnInitialize()
 	local oldVersion = self.db.global.settingsVersion
 	local resetExistingDatabase = hadSavedDatabase
 		and ((not oldVersion) or (oldVersion < SMARTRES2_DB_VERSION))
+	showDatabaseResetNotice = resetExistingDatabase
 
 	if resetExistingDatabase then
 		self.db:ResetDB(DEFAULT)
@@ -1234,7 +1290,7 @@ function addon:OnInitialize()
 	RefreshPlayerResurrectionSpellIDs()
 	CreateSecureButtons()
 	RefreshSecureButtonSpells()
-	self.PLAYER_GUID = UnitGUID("player")
+	RefreshPlayerGUID()
 
 	options = self:GetOptions()
 	options.args = options.args or {}
@@ -1261,9 +1317,7 @@ function addon:OnInitialize()
 
 	InitializeBroker()
 
-	if resetExistingDatabase then
-		self:RegisterEvent("PLAYER_ENTERING_WORLD", "ShowDatabaseResetNotice")
-	end
+	self:RegisterEvent("PLAYER_ENTERING_WORLD")
 
 	-- Neutral characters can receive a new player GUID when choosing a faction.
 	-- Register during initialization so this remains tracked while disabled.
@@ -1273,6 +1327,7 @@ function addon:OnInitialize()
 end
 
 function addon:OnEnable()
+	RefreshPlayerGUID()
 	self:RegisterEvent("SPELLS_CHANGED")
 	RefreshPlayerResurrectionSpellIDs()
 	RefreshSecureButtonSpells()
@@ -1343,7 +1398,7 @@ function addon:NEUTRAL_FACTION_SELECT_RESULT(event, success)
 	local factionGroup = UnitFactionGroup("player")
 
 	if factionGroup == "Alliance" or factionGroup == "Horde" then
-		self.PLAYER_GUID = UnitGUID("player")
+		RefreshPlayerGUID()
 		self:UnregisterEvent(event)
 	end
 end

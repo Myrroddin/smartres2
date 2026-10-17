@@ -27,7 +27,7 @@ assert(LibStub("CallbackHandler-1.0", true), "LibResInfo-2.0 requires CallbackHa
 ---@field RegisterCallback fun(target: table, eventName: LibResInfoCallbackName, method: string, arg?: any)
 ---@field UnregisterCallback fun(target: table, eventName: LibResInfoCallbackName)
 ---@field UnregisterAllResInfoCallbacks fun(target: table)
-local lib = LibStub:NewLibrary("LibResInfo-2.0", 7)
+local lib = LibStub:NewLibrary("LibResInfo-2.0", 8)
 if not lib then return end
 
 -- Callback names accepted by RegisterCallback and UnregisterCallback.
@@ -82,6 +82,7 @@ frame:RegisterEvent("PLAYER_LOGIN")
 
 local After = C_Timer.After
 local canaccessvalue = canaccessvalue or function() return true end
+local Constants = Constants
 local GetAuraDataByAuraInstanceID = C_UnitAuras.GetAuraDataByAuraInstanceID
 local GetCorpseRecoveryDelay = GetCorpseRecoveryDelay
 local GetNamePlates = C_NamePlate.GetNamePlates
@@ -94,10 +95,10 @@ local IsInGroup = IsInGroup
 local IsInInstance = IsInInstance
 local IsInRaid = IsInRaid
 local IsPlayerNeutral = IsPlayerNeutral
-local LE_EXPANSION_CLASSIC = LE_EXPANSION_CLASSIC
-local LE_EXPANSION_LEVEL_CURRENT = LE_EXPANSION_LEVEL_CURRENT
 local next = next
 local pairs = pairs
+local rawget = rawget
+local RegionalUniqueNamesEnabled = RegionalUniqueNamesEnabled
 local type = type
 local UnitAffectingCombat = UnitAffectingCombat
 local UnitCastingInfo = UnitCastingInfo
@@ -107,7 +108,7 @@ local UnitGUID = UnitGUID
 local UnitHasIncomingResurrection = UnitHasIncomingResurrection
 local UnitHealth = UnitHealth
 local UnitIsDeadOrGhost = UnitIsDeadOrGhost
-local UnitName = UnitName
+local UnitNameUnmodified = UnitNameUnmodified
 local UnitSpellTargetName = UnitSpellTargetName
 local UnitTokenFromGUID = UnitTokenFromGUID
 local wipe = table.wipe
@@ -116,8 +117,12 @@ local wipe = table.wipe
 -- Constants
 -- -------------------------------------------------------------------
 
-local isStandard = (WOW_PROJECT_ID == WOW_PROJECT_MAINLINE) and (LE_EXPANSION_LEVEL_CURRENT > LE_EXPANSION_CLASSIC)
+local isStandard = WOW_PROJECT_ID == WOW_PROJECT_MAINLINE
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
+local characterNameSeparators = Constants and rawget(Constants, "CharacterNameSeparatorConsts")
+local realmNameSeparator = characterNameSeparators and characterNameSeparators.CHARACTERNAME_REALMNAME_SEPARATOR or "-"
+local surnameSeparator = characterNameSeparators and characterNameSeparators.CHARACTERNAME_SURNAME_SEPARATOR or " "
+local fullNameSeparator = RegionalUniqueNamesEnabled and RegionalUniqueNamesEnabled() and surnameSeparator or realmNameSeparator
 local PLAYER_GUID = UnitGUID("player")
 local REVIVE_PET_SPELL_ID = 982
 local RES_OFFER_CONFIRMATION_TIMEOUT = 2
@@ -355,6 +360,48 @@ local function GetAccessibleUnitGUID(unitID)
 	return unitGUID
 end
 
+local function GetGroupUnitPrefixAndCount()
+	local members = GetNumGroupMembers()
+
+	if IsInRaid() then
+		return "raid", members
+	elseif IsInGroup() then
+		return "party", members - 1
+	end
+end
+
+local function UnitMatchesGUID(unitID, unitGUID)
+	local resolvedGUID = GetAccessibleUnitGUID(unitID)
+
+	return resolvedGUID and resolvedGUID == unitGUID
+end
+
+local function FindGroupUnitFromGUID(unitGUID)
+	if UnitMatchesGUID("player", unitGUID) then
+		return "player"
+	end
+	if UnitMatchesGUID("pet", unitGUID) then
+		return "pet"
+	end
+
+	local prefix, count = GetGroupUnitPrefixAndCount()
+	if not prefix then return end
+
+	for i = 1, count do
+		local unitID = prefix .. i
+
+		if UnitMatchesGUID(unitID, unitGUID) then
+			return unitID
+		end
+
+		local petUnitID = prefix .. "pet" .. i
+
+		if UnitMatchesGUID(petUnitID, unitGUID) then
+			return petUnitID
+		end
+	end
+end
+
 local function GetAccessibleSpellTargetName(unitID)
 	if not canaccessvalue(unitID) then return end
 
@@ -367,19 +414,24 @@ end
 local function GetAccessibleUnitTokenFromGUID(unitGUID)
 	if not canaccessvalue(unitGUID) or not unitGUID then return end
 
-	local unitID = UnitTokenFromGUID(unitGUID)
-	if not canaccessvalue(unitID) then return end
+	local unitID = UnitTokenFromGUID and UnitTokenFromGUID(unitGUID)
+	if canaccessvalue(unitID) and unitID and UnitMatchesGUID(unitID, unitGUID) then
+		return unitID
+	end
 
-	return unitID
+	return FindGroupUnitFromGUID(unitGUID)
 end
 
 local function GetAccessibleUnitName(unitID)
 	if not canaccessvalue(unitID) then return end
 
-	local unitName, unitRealm = UnitName(unitID)
-	if not canaccessvalue(unitName) or not canaccessvalue(unitRealm) then return end
+	local unitName, unitNameSuffix = UnitNameUnmodified(unitID)
+	if not canaccessvalue(unitName) then return end
+	if not canaccessvalue(unitNameSuffix) then
+		unitNameSuffix = nil
+	end
 
-	return unitName, unitRealm
+	return unitName, unitNameSuffix
 end
 
 local function IsAccessibleUnitDeadOrGhost(unitID)
@@ -410,7 +462,7 @@ local function GetAccessibleUnitHealth(unitID)
 end
 
 -- Normal spellcast lifecycle tracking belongs only to the player and current
--- group. Retail also emits these events for nameplates, whose cast payloads
+-- group. Some clients also emit these events for nameplates, whose cast payloads
 -- can be secret and are unrelated to group resurrection state. Out-of-group
 -- resurrection offers are handled separately by RESURRECT_REQUEST.
 local function IsTrackedSpellcastUnit(unitID)
@@ -582,54 +634,76 @@ local function IsValidResurrectionTarget(spellID, targetGUID)
 	return unitID and IsAccessibleUnitDeadOrGhost(unitID)
 end
 
--- Compare a name-only API or event value against both name forms exposed by
--- a known unitID. Blizzard does not consistently document whether such values
--- include the realm suffix, so both name and name-realm must be accepted.
-local function UnitMatchesName(unitID, name)
+-- Compare a name-only API or event value against both name forms exposed by a
+-- known unitID. The second UnitNameUnmodified return is a realm on clients
+-- without regional unique names and a surname where regional unique names are
+-- enabled.
+local function GetUnitNameMatchType(unitID, name)
 	if not canaccessvalue(unitID) or not canaccessvalue(name) then return end
 	if not unitID or not name then return end
 
-	local unitName, unitRealm = GetAccessibleUnitName(unitID)
+	local unitName, unitNameSuffix = GetAccessibleUnitName(unitID)
 	if not unitName then return end
 
-	if name == unitName then
-		return true
+	if unitNameSuffix and unitNameSuffix ~= ""
+		and name == unitName .. fullNameSeparator .. unitNameSuffix
+	then
+		return "FULL"
 	end
 
-	if unitRealm and unitRealm ~= "" and name == unitName .. "-" .. unitRealm then
-		return true
+	if name == unitName then
+		return "SHORT"
 	end
 end
 
--- Resolve a name or name-realm string against addressable player and group
--- unitIDs, then return the matched unit's GUID. This supplements direct
--- UnitGUID(name) resolution when Blizzard exposes only a name string.
+-- Resolve a short or full name against addressable player and group unitIDs,
+-- then return the matched unit's GUID. This supplements direct UnitGUID(name)
+-- resolution when Blizzard exposes only a name string.
 local function ResolveGroupUnitName(name)
 	if not IsUsableUnitIdentifier(name) then return end
 
-	if UnitMatchesName("player", name) then
-		return PLAYER_GUID
-	end
-	if UnitExists("pet") and UnitMatchesName("pet", name) then
-		return GetAccessibleUnitGUID("pet")
-	end
+	local fullMatchGUID
+	local shortMatchGUID
+	local shortMatchIsAmbiguous
 
-	local prefix = (IsInRaid() and "raid") or (IsInGroup() and "party")
-	if not prefix then return end
+	local function CheckUnit(unitID)
+		local matchType = GetUnitNameMatchType(unitID, name)
+		if not matchType then return end
 
-	local members = GetNumGroupMembers()
+		local unitGUID = unitID == "player" and PLAYER_GUID or GetAccessibleUnitGUID(unitID)
+		if not unitGUID then return end
 
-	for i = 1, members do
-		local unitID = prefix .. i
-		local petUnitID = prefix .. "pet" .. i
-
-		if UnitExists(unitID) and UnitMatchesName(unitID, name) then
-			return GetAccessibleUnitGUID(unitID)
-		end
-		if UnitExists(petUnitID) and UnitMatchesName(petUnitID, name) then
-			return GetAccessibleUnitGUID(petUnitID)
+		if matchType == "FULL" then
+			fullMatchGUID = unitGUID
+		elseif shortMatchGUID and shortMatchGUID ~= unitGUID then
+			shortMatchIsAmbiguous = true
+		else
+			shortMatchGUID = unitGUID
 		end
 	end
+
+	CheckUnit("player")
+	if UnitExists("pet") then CheckUnit("pet") end
+
+	local prefix, members = GetGroupUnitPrefixAndCount()
+	if prefix then
+		for i = 1, members do
+			local unitID = prefix .. i
+			local petUnitID = prefix .. "pet" .. i
+
+			if UnitExists(unitID) then CheckUnit(unitID) end
+			if UnitExists(petUnitID) then CheckUnit(petUnitID) end
+		end
+	end
+
+	if fullMatchGUID then
+		return fullMatchGUID, false
+	end
+	if shortMatchIsAmbiguous then
+		return nil, true
+	end
+
+	return shortMatchGUID, false
 end
 
 -- Build a callback-safe target table for UNKNOWN casts.
@@ -823,10 +897,11 @@ end
 
 -- Normalize public unit arguments to GUIDs.
 --
--- Public APIs accept unitIDs, GUIDs, unit names, and name-realm strings. Names
--- are valid input even when Blizzard cannot currently resolve them; in that
--- case callers receive the API's normal "not found" result instead of an
--- argument error.
+-- Public APIs accept unitIDs, GUIDs, and short or full unit names. Full names
+-- use name-realm on other clients and given name + surname where regional
+-- unique names are enabled. Names are valid input even when Blizzard cannot
+-- currently resolve them; in that case callers receive the API's normal "not
+-- found" result instead of an argument error.
 local function ResolvePublicUnitArg(unit)
 	if not canaccessvalue(unit) then return end
 
@@ -892,8 +967,8 @@ end
 
 -- Initialize and update both lookup directions for one single-target cast.
 --
--- The caller supplies the authoritative caster GUID, which may intentionally be
--- the cached PLAYER_GUID rather than a GUID derived from the event unitID.
+-- The caller supplies the authoritative caster GUID rather than requiring this
+-- helper to derive identity from a possibly incomplete event unitID.
 local function StoreSingleCastInfo(casterGUID, targetGUID, castInfo)
 	recentFinishedResCasts[casterGUID] = nil
 	resCasterInfo[casterGUID] = resCasterInfo[casterGUID] or {}
@@ -947,9 +1022,10 @@ end
 -- Populate single-target cast state from whatever Blizzard currently exposes.
 --
 -- UNIT_SPELLCAST_SENT can know the player's target before UNIT_SPELLCAST_START
--- has full cast timing, while observed casts may expose only name or name-realm,
--- or no target at all. Resolve those names against addressable group units and
--- merge partial data without overwriting better data from earlier events.
+-- has full cast timing, while observed casts may expose only a short or full
+-- name, or no target at all. Resolve those names against addressable group
+-- units and merge partial data without overwriting better data from earlier
+-- events.
 local function GetCasterPetUnitID(unitID)
 	if unitID == "player" then
 		return "pet"
@@ -1023,10 +1099,8 @@ local function SnapshotMassResTargets(casterGUID)
 		massResTargetGUIDs[casterGUID][PLAYER_GUID] = true
 	end
 
-	local prefix = (IsInRaid() and "raid") or (IsInGroup() and "party")
+	local prefix, members = GetGroupUnitPrefixAndCount()
 	if not prefix then return end
-
-	local members = GetNumGroupMembers()
 
 	for i = 1, members do
 		local unitID = prefix .. i
@@ -1104,11 +1178,23 @@ end
 
 local function GetPlayerSentCastInfo(target, castGUID, spellID)
 	if SINGLE_TARGET_RES_SPELLS[spellID] then
+		local targetGUID
+		local targetNameIsAmbiguous
+
+		if target == "pet" then
+			targetGUID = GetAccessibleUnitGUID(target)
+		else
+			targetGUID, targetNameIsAmbiguous = ResolveGroupUnitName(target)
+
+			if not targetGUID and not targetNameIsAmbiguous then
+				targetGUID = GetAccessibleUnitGUID(target)
+			end
+		end
+
 		return {
 			castGUID = castGUID,
 			spellID = spellID,
-			targetGUID = GetAccessibleUnitGUID(target)
-			or ResolveGroupUnitName(target),
+			targetGUID = targetGUID,
 		}
 	elseif MASS_RES_SPELLS[spellID] then
 		return {
@@ -1750,17 +1836,38 @@ end
 local function ResolveResurrectRequester(inviterName)
 	if not IsUsableUnitIdentifier(inviterName) then return end
 
-	local casterGUID = ResolveGroupUnitName(inviterName)
+	local casterGUID, inviterNameIsAmbiguous = ResolveGroupUnitName(inviterName)
 	if casterGUID then
 		return casterGUID, GetAccessibleUnitTokenFromGUID(casterGUID)
 	end
+	if inviterNameIsAmbiguous then return end
+
+	local shortMatchGUID
+	local shortMatchUnitID
+	local shortMatchIsAmbiguous
 
 	for _, nameplate in pairs(GetNamePlates()) do
 		local unitID = nameplate.unitToken
+		local matchType = GetUnitNameMatchType(unitID, inviterName)
 
-		if UnitMatchesName(unitID, inviterName) then
-			return GetAccessibleUnitGUID(unitID), unitID
+		if matchType then
+			local unitGUID = GetAccessibleUnitGUID(unitID)
+
+			if unitGUID then
+				if matchType == "FULL" then
+					return unitGUID, unitID
+				elseif shortMatchGUID and shortMatchGUID ~= unitGUID then
+					shortMatchIsAmbiguous = true
+				else
+					shortMatchGUID = unitGUID
+					shortMatchUnitID = unitID
+				end
+			end
 		end
+	end
+
+	if not shortMatchIsAmbiguous then
+		return shortMatchGUID, shortMatchUnitID
 	end
 end
 
@@ -1797,7 +1904,7 @@ end
 
 -- Initialize state and register runtime events.
 local function PLAYER_LOGIN()
-	PLAYER_GUID = PLAYER_GUID or UnitGUID("player")
+	PLAYER_GUID = UnitGUID("player")
 
 	wipe(resCasterInfo)
 	wipe(massResCasterInfo)
@@ -1913,13 +2020,13 @@ end
 
 -- Fill in an UNKNOWN target when Blizzard later exposes incoming-res data.
 -- Blizzard sometimes reveals incoming-res target information after a cast was
--- first observed as UNKNOWN. Match either name form against the event unitID,
--- then move only that caster's staged entry to the real target GUID and notify
--- consumers.
+-- first observed as UNKNOWN. Resolve the event unitID and the caster's current
+-- spell-target name independently, compare their GUIDs, then move only that
+-- caster's staged entry to the real target GUID and notify consumers.
 local function INCOMING_RESURRECT_CHANGED(targetID)
 	if not canaccessvalue(targetID) then return end
 
-	local targetGUID = GetAccessibleUnitGUID(targetID)
+	local targetGUID = GetAccessibleUnitGUID(targetID) or ResolveGroupUnitName(targetID)
 	if not targetGUID then return end
 
 	for _, info in pairs(resCasterInfo) do
@@ -1929,8 +2036,9 @@ local function INCOMING_RESURRECT_CHANGED(targetID)
 
 			if casterID then
 				local spellTargetName = GetAccessibleSpellTargetName(casterID)
+				local spellTargetGUID = ResolveGroupUnitName(spellTargetName)
 
-				if UnitMatchesName(targetID, spellTargetName) then
+				if spellTargetGUID == targetGUID then
 					info.targetGUID = targetGUID
 					ReplaceUnknownTargetGUID(targetGUID, casterGUID)
 
@@ -1942,7 +2050,7 @@ local function INCOMING_RESURRECT_CHANGED(targetID)
 end
 
 -- External resurrection requests are special:
--- they target the player, provide the caster as name or name-realm, may come
+-- they target the player, provide the caster as a short or full name, may come
 -- from a visible nearby caster, and do not necessarily give the same event
 -- sequence as group spellcast tracking.
 local function RESURRECT_REQUEST(inviterName)
@@ -2072,7 +2180,7 @@ end
 -- devices can complete this event and still fail their resurrection roll, so
 -- they remain active briefly and finish only after direct offer confirmation.
 -- An untracked single-target success first attempts to resolve its name or
--- name-realm value against addressable group units.
+-- full-name value against addressable group units.
 local function UNIT_SPELLCAST_SUCCEEDED(unitID, castGUID, spellID, castBarID)
 	if not IsTrackedSpellcastUnit(unitID) then return end
 	if not canaccessvalue(spellID) or not canaccessvalue(castBarID) then return end
