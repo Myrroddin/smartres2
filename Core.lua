@@ -33,6 +33,7 @@ local IsInRaid = IsInRaid
 local IsPlayerNeutral = IsPlayerNeutral
 local IsSpellInRange = C_Spell.IsSpellInRange
 local IsSpellKnown = C_SpellBook.IsSpellKnown
+local IsSpellKnownOrInSpellBook = C_SpellBook.IsSpellKnownOrInSpellBook or IsSpellKnown
 local IsSpellUsable = C_Spell.IsSpellUsable
 local LibStub = LibStub
 local math_floor = math.floor
@@ -112,6 +113,7 @@ addon:SetDefaultModuleLibraries("AceEvent-3.0", "AceConsole-3.0", "LibResInfo-2.
 local DB_RESET_POPUP = "SMARTRES2_DB_RESET"
 local DB_RESET_POPUP_DELAY = 3
 local KEYBIND_TRIGGER_RELOAD_POPUP = "SMARTRES2_KEYBIND_TRIGGER_RELOAD"
+local SPELLBOOK_REFRESH_RETRY_DELAYS = { 0.05, 0.1, 0.25, 0.5, 1 }
 local SMARTRES2_DB_VERSION = 1
 
 local isMists = WOW_PROJECT_ID == WOW_PROJECT_MISTS_CLASSIC
@@ -124,6 +126,8 @@ local fullNameSeparator = RegionalUniqueNamesEnabled and RegionalUniqueNamesEnab
 local db, global, options
 local smartResButton, manualResButton, combatResButton, massResButton
 local playerNormalSingleResSpellID, playerCombatResSpellID, playerMassResSpellID
+local pendingLearnedResurrectionSpellIDs = {}
+local spellbookRefreshGeneration = 0
 local hadSavedDatabase = type(rawget(_G, "SmartRes2DB")) == "table"
 local showDatabaseResetNotice
 
@@ -754,7 +758,7 @@ end
 -- --------------------------------------------------------------------
 
 local function IsKnownSpell(spellID)
-	return IsSpellKnown(spellID) == true
+	return IsSpellKnown(spellID) == true or IsSpellKnownOrInSpellBook(spellID) == true
 end
 
 local function GetHighestKnownSpell(spellIDs)
@@ -787,23 +791,118 @@ local function IsUsableSpell(spellID)
 	return true
 end
 
-local function RefreshPlayerResurrectionSpellIDs()
+local function GetSpellListIndex(spellIDs, spellID)
+	if not spellIDs then
+		return nil
+	end
+
+	for index = 1, #spellIDs do
+		if spellIDs[index] == spellID then
+			return index
+		end
+	end
+end
+
+local function PreferLearnedSpell(currentSpellID, learnedSpellID, spellIDs)
+	local learnedIndex = GetSpellListIndex(spellIDs, learnedSpellID)
+	if not learnedIndex then
+		return currentSpellID
+	end
+
+	local currentIndex = GetSpellListIndex(spellIDs, currentSpellID)
+	if not currentIndex or learnedIndex > currentIndex then
+		return learnedSpellID
+	end
+
+	return currentSpellID
+end
+
+local function IsTrackedResurrectionSpell(spellID)
+	if not canaccessvalue(spellID) or not spellID then
+		return false
+	end
+
+	if PLAYER_CLASS_FILENAME == "HUNTER" and spellID == HUNTER_REVIVE_PET_SPELL_ID then
+		return true
+	end
+
+	if GetSpellListIndex(normalSingleResSpellIDs[PLAYER_CLASS_FILENAME], spellID)
+		or GetSpellListIndex(combatResSpellIDs[PLAYER_CLASS_FILENAME], spellID)
+		or GetSpellListIndex(massResSpellIDs[PLAYER_CLASS_FILENAME], spellID)
+	then
+		return true
+	end
+
+	return spellID == MASS_RESURRECTION_MISTS_SPELL_ID
+end
+
+local function RefreshPlayerResurrectionSpellIDs(preserveKnownSpells)
+	local normalSingleResSpellID
+
 	if PLAYER_CLASS_FILENAME == "HUNTER" then
 		if IsKnownSpell(HUNTER_REVIVE_PET_SPELL_ID) then
-			playerNormalSingleResSpellID = HUNTER_REVIVE_PET_SPELL_ID
-		else
-			playerNormalSingleResSpellID = nil
+			normalSingleResSpellID = HUNTER_REVIVE_PET_SPELL_ID
 		end
 	else
-		playerNormalSingleResSpellID = GetHighestKnownSpell(normalSingleResSpellIDs[PLAYER_CLASS_FILENAME])
+		normalSingleResSpellID = GetHighestKnownSpell(normalSingleResSpellIDs[PLAYER_CLASS_FILENAME])
 	end
 
-	playerCombatResSpellID = GetHighestKnownSpell(combatResSpellIDs[PLAYER_CLASS_FILENAME])
-	playerMassResSpellID = GetHighestKnownSpell(massResSpellIDs[PLAYER_CLASS_FILENAME])
+	local combatResSpellID = GetHighestKnownSpell(combatResSpellIDs[PLAYER_CLASS_FILENAME])
+	local massResSpellID = GetHighestKnownSpell(massResSpellIDs[PLAYER_CLASS_FILENAME])
 
-	if not playerMassResSpellID and IsKnownSpell(MASS_RESURRECTION_MISTS_SPELL_ID) then
-		playerMassResSpellID = MASS_RESURRECTION_MISTS_SPELL_ID
+	if not massResSpellID and IsKnownSpell(MASS_RESURRECTION_MISTS_SPELL_ID) then
+		massResSpellID = MASS_RESURRECTION_MISTS_SPELL_ID
 	end
+
+	for learnedSpellID in pairs(pendingLearnedResurrectionSpellIDs) do
+		if PLAYER_CLASS_FILENAME == "HUNTER" and learnedSpellID == HUNTER_REVIVE_PET_SPELL_ID then
+			normalSingleResSpellID = learnedSpellID
+		else
+			normalSingleResSpellID = PreferLearnedSpell(
+				normalSingleResSpellID,
+				learnedSpellID,
+				normalSingleResSpellIDs[PLAYER_CLASS_FILENAME]
+			)
+		end
+
+		combatResSpellID = PreferLearnedSpell(
+			combatResSpellID,
+			learnedSpellID,
+			combatResSpellIDs[PLAYER_CLASS_FILENAME]
+		)
+		massResSpellID = PreferLearnedSpell(
+			massResSpellID,
+			learnedSpellID,
+			massResSpellIDs[PLAYER_CLASS_FILENAME]
+		)
+
+		if learnedSpellID == MASS_RESURRECTION_MISTS_SPELL_ID then
+			massResSpellID = learnedSpellID
+		end
+	end
+
+	local needsRetry = false
+
+	if preserveKnownSpells then
+		if playerNormalSingleResSpellID and not normalSingleResSpellID then
+			normalSingleResSpellID = playerNormalSingleResSpellID
+			needsRetry = true
+		end
+		if playerCombatResSpellID and not combatResSpellID then
+			combatResSpellID = playerCombatResSpellID
+			needsRetry = true
+		end
+		if playerMassResSpellID and not massResSpellID then
+			massResSpellID = playerMassResSpellID
+			needsRetry = true
+		end
+	end
+
+	playerNormalSingleResSpellID = normalSingleResSpellID
+	playerCombatResSpellID = combatResSpellID
+	playerMassResSpellID = massResSpellID
+
+	return needsRetry
 end
 
 local function GetSmartResPriority(unit)
@@ -955,13 +1054,20 @@ local function PrepareSmartResurrectionButton(button)
 		return
 	end
 
-	button:SetAttribute("unit", INVALID_UNIT)
+	local spellID = GetHighestKnownSpell(normalSingleResSpellIDs[PLAYER_CLASS_FILENAME])
+	if spellID then
+		playerNormalSingleResSpellID = spellID
+	else
+		spellID = playerNormalSingleResSpellID
+	end
 
-	local spellID = playerNormalSingleResSpellID
 	if not spellID then
 		addon:NotifySelf(L["You do not know a resurrection spell."])
 		return
 	end
+
+	SetSecureSpellButtonSpell(button, spellID)
+	button:SetAttribute("unit", INVALID_UNIT)
 
 	if not IsInGroup() then
 		addon:NotifySelf(L["You are not in a group and cannot use this feature."])
@@ -1011,11 +1117,24 @@ local function PrepareRevivePetButton(button)
 	SetSecureSpellButtonSpell(button, HUNTER_REVIVE_PET_SPELL_ID)
 end
 
-local function PrepareManualResurrectionButton()
+local function PrepareManualResurrectionButton(button)
+	if InCombatLockdown() or UnitAffectingCombat("player") then
+		return
+	end
+
 	local spellID = GetHighestKnownSpell(normalSingleResSpellIDs[PLAYER_CLASS_FILENAME])
+	if spellID then
+		playerNormalSingleResSpellID = spellID
+	else
+		spellID = playerNormalSingleResSpellID
+	end
+
 	if not spellID then
 		addon:NotifySelf(L["You do not know a resurrection spell."])
+		return
 	end
+
+	SetSecureSpellButtonSpell(button, spellID)
 end
 
 local function PrepareCombatResurrectionButton()
@@ -1114,6 +1233,47 @@ local function RefreshSecureButtonSpells()
 	if massResButton then
 		SetSecureSpellButtonSpell(massResButton, playerMassResSpellID)
 	end
+end
+
+local function SchedulePlayerResurrectionSpellRefresh(learnedSpellID)
+	if IsTrackedResurrectionSpell(learnedSpellID) then
+		pendingLearnedResurrectionSpellIDs[learnedSpellID] = true
+	end
+
+	spellbookRefreshGeneration = spellbookRefreshGeneration + 1
+	local generation = spellbookRefreshGeneration
+
+	local function Refresh(attempt)
+		if generation ~= spellbookRefreshGeneration then
+			return
+		end
+
+		local needsRetry = RefreshPlayerResurrectionSpellIDs(true)
+		RefreshSecureButtonSpells()
+
+		local retryDelay = needsRetry and SPELLBOOK_REFRESH_RETRY_DELAYS[attempt]
+		if retryDelay then
+			After(retryDelay, function()
+				Refresh(attempt + 1)
+			end)
+			return
+		end
+
+		if needsRetry then
+			-- A real removal remains missing after every retry. Learned-spell event
+			-- payloads are still retained as authoritative during this final pass.
+			RefreshPlayerResurrectionSpellIDs(false)
+			RefreshSecureButtonSpells()
+		end
+
+		pendingLearnedResurrectionSpellIDs = {}
+	end
+
+	-- Spellbook queries can briefly lag both learning events. Waiting until the
+	-- next frame avoids treating that temporary gap as an authoritative removal.
+	After(0, function()
+		Refresh(1)
+	end)
 end
 
 -- --------------------------------------------------------------------
@@ -1328,6 +1488,7 @@ end
 
 function addon:OnEnable()
 	RefreshPlayerGUID()
+	self:RegisterEvent("LEARNED_SPELL_IN_SKILL_LINE")
 	self:RegisterEvent("SPELLS_CHANGED")
 	RefreshPlayerResurrectionSpellIDs()
 	RefreshSecureButtonSpells()
@@ -1335,7 +1496,10 @@ function addon:OnEnable()
 end
 
 function addon:OnDisable()
+	self:UnregisterEvent("LEARNED_SPELL_IN_SKILL_LINE")
 	self:UnregisterEvent("SPELLS_CHANGED")
+	spellbookRefreshGeneration = spellbookRefreshGeneration + 1
+	pendingLearnedResurrectionSpellIDs = {}
 	DisableModules()
 end
 
@@ -1385,9 +1549,12 @@ end
 -- Event handlers
 -- --------------------------------------------------------------------
 
+function addon:LEARNED_SPELL_IN_SKILL_LINE(_, spellID)
+	SchedulePlayerResurrectionSpellRefresh(spellID)
+end
+
 function addon:SPELLS_CHANGED()
-	RefreshPlayerResurrectionSpellIDs()
-	RefreshSecureButtonSpells()
+	SchedulePlayerResurrectionSpellRefresh()
 end
 
 function addon:NEUTRAL_FACTION_SELECT_RESULT(event, success)
